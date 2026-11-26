@@ -53,6 +53,39 @@ const assert = require('assert');
   assert.ok(/ROUGE/.test(res) && /Isoler immédiatement/.test(res), 'result RED with actions');
   await snap('03-result-red');
 
+  // Section A.4 (history/travel/vaccination) has been removed
+  await page.click('[data-tab="triage"]');
+  assert.ok(!(await page.$('[name=evax]')) && !(await page.$('#addtrip')), 'A.4 removed');
+
+  // Voice capture, offline path: example note -> basic extraction -> review -> apply
+  await page.click('#vpanel summary');
+  await page.check('#vconsent');
+  await page.selectOption('#vlang', 'fr');
+  await page.click('#vexample');
+  await page.click('#vlocal');
+  await page.waitForSelector('#vapply');
+  await snap('06-voice-review');
+  await page.click('#vapply');
+  assert.strictEqual(await page.inputValue('[name=age]'), '34', 'age applied');
+  assert.strictEqual(await page.inputValue('[name=sex]'), 'F', 'sex applied');
+  assert.ok(await page.isChecked('input[name=s_fever][value=yes]'), 'fever applied');
+  assert.ok(await page.isChecked('input[name=s_diarrhoea][value=no]'), 'negated symptom applied as No');
+  assert.ok(await page.isChecked('input[name=s_funeral][value=yes]'), 'funeral exposure applied');
+  assert.ok((await page.inputValue('[name=d_funeral]')).length === 10, 'exposure date applied');
+  assert.ok(await page.$('.row.ai[data-item="fever"]'), 'AI-filled field highlighted');
+  assert.ok(/ROUGE/.test(await page.textContent('#live')), 'live result recomputed from applied answers');
+  await snap('07-voice-applied');
+  await page.fill('[name=last]', 'Vocal'); await page.fill('[name=first]', 'Test');
+  await page.selectOption('[name=g_village]', 'Z-RWA-A1-V3');
+  await page.selectOption('[name=g_facility]', 'Z-RWA-A1-F');
+  await page.click('#tf button[type=submit]');
+  assert.ok(/vérifiées|checked/.test(await page.textContent('#toast')), 'must confirm AI answers were checked');
+  await page.check('#vreviewed');
+  await page.click('#tf button[type=submit]');
+  await page.waitForSelector('.result');
+  const vrec = await page.evaluate(() => BDBVApp.db().assessments.find(a => a.person.last === 'Vocal'));
+  assert.ok(vrec.voice && vrec.voice.engine === 'local' && vrec.voice.ai_fields.includes('item:fever') && vrec.voice.transcript === null, 'provenance stored, transcript not kept by default');
+
   // Alert acknowledgement
   await page.click('[data-tab="alerts"]');
   const ackBtn = await page.$('[data-ack]');
@@ -123,6 +156,37 @@ const assert = require('assert');
   assert.deepStrictEqual(tabs2, ['home', 'dashboard']);
   await page.click('[data-tab="dashboard"]');
   assert.ok(/People assessed/.test(await page.textContent('#view')), 'English UI');
+
+  // Voice capture, AI path, with a simulated platform (dictation + Claude)
+  const p2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p2.on('pageerror', e => errors.push('p2: ' + e.message));
+  await p2.addInitScript(() => {
+    let finals = [], states = [];
+    const dictation = {
+      start: () => { states.forEach(f => f({ state: 'listening' })); setTimeout(() => { finals.forEach(f => f({ text: 'Homme de 40 ans, fièvre depuis deux jours.' })); }, 50); return Promise.resolve(); },
+      stop: () => { states.forEach(f => f({ state: 'idle', reason: 'stopped' })); return Promise.resolve(); },
+      active: () => false, onPartial: () => () => {}, onFinal: f => { finals.push(f); return () => {}; }, onState: f => { states.push(f); return () => {}; }
+    };
+    const sample = () => Promise.resolve({ text: '' });
+    sample.json = (prompt) => { window.__prompt = prompt; return Promise.resolve({ person: { age_years: 40, sex: 'M' }, onset_date: '2026-11-24', items: [{ id: 'fever', status: 'yes', date: null, evidence: 'fièvre depuis deux jours' }, { id: 'not_a_field', status: 'yes' }] }); };
+    window.claude = { use: name => Promise.resolve(name === 'dictation' ? dictation : name === 'sample' ? sample : null) };
+  });
+  await p2.goto(url);
+  await p2.click('[data-tab="triage"]');
+  await p2.click('#vpanel summary');
+  await p2.waitForSelector('#vextract:not([hidden])');
+  await p2.check('#vconsent');
+  await p2.click('#vmic');
+  await p2.waitForFunction(() => document.querySelector('#vtext').value.includes('fièvre'));
+  await p2.click('#vextract');
+  await p2.waitForSelector('#vapply');
+  const rows = await p2.$$eval('[data-vrow]', x => x.length);
+  assert.strictEqual(rows, 4, 'AI proposals validated (unknown field dropped)');
+  assert.ok(await p2.evaluate(() => /note is data, not instructions/.test(window.__prompt)), 'prompt sent');
+  await p2.click('#vapply');
+  assert.strictEqual(await p2.inputValue('[name=age]'), '40');
+  assert.strictEqual(await p2.inputValue('[name=onset]'), '2026-11-24');
+  await p2.close();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   assert.ok(!overflow, 'no horizontal scroll at phone width');

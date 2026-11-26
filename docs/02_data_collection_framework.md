@@ -69,19 +69,10 @@ For each exposure `e_<id>`:
 
 Exposure `id`s (all scored): `contact_case`, `funeral`, `lab_exposure`, `sexual_contact`, `contaminated_env`, `sick_or_dead_contact`, `bats_bushmeat`, `affected_area` (lived in / travelled to a health zone with active transmission); proposed additions `health_facility_exposure`, `traditional_healer`.
 
-### A.4 Medical and travel history (not scored)
-| Variable | Definition | Format | M/O |
-|---|---|---|---|
-| `comorbidities` | HIV, diabetes, hypertension, sickle cell, pregnancy, malnutrition, TB, renal failure | multi-choice | O |
-| `comorbidities_other` | Other | text | O |
-| `travel[]` | Repeating group for the 4 weeks before illness: `type` (domestic/international), `country_province`, `place`, `date_from`, `date_to`, `purpose`, `activities` | group | O |
-| `ebola_vaccine` | Received Ebola vaccine | YNU | O |
-| `ebola_vaccine_type`, `ebola_vaccine_date` | e.g. rVSV-ZEBOV (Ervebo); date | text, date | C |
-| `yf_vaccine` | Yellow fever vaccination | YNU (+ date optional) | O |
-| `antimalarial` | none / prophylaxis / recent treatment / unknown | choice | O |
-| `malaria_rdt` | not done / positive / negative | choice | O |
+### A.4 (removed in v0.2)
+The former section *Medical and travel history* (comorbidities, travel log, Ebola and yellow fever vaccination, antimalarials, malaria RDT) has been removed from the triage form. None of these fields were scored. Travel to areas with active transmission is still captured by the scored exposure `affected_area` (A.3). If needed for investigation, these variables belong in the case investigation form used after a RED alert, not at triage.
 
-### A.5 Assessment and outcome
+### A.5 Assessment and outcome (clinical judgement is shown as A.4 on screen)
 | Variable | Definition | Format | M/O |
 |---|---|---|---|
 | `score` | Suspicion score 0–100 | integer, system | M |
@@ -97,6 +88,16 @@ Exposure `id`s (all scored): `contact_case`, `funeral`, `lab_exposure`, `sexual_
 | `lab_status` | none / requested / collected / positive / negative (authorised roles) | choice | O |
 | `lab_specimen_id` | Laboratory specimen ID (link to lab system) | text | O |
 | `disposition` | isolated / referred to ETC/CTE / admitted / discharged / died | choice | O (recommended) |
+
+### Voice-capture provenance (when AI voice capture was used)
+| Variable | Definition | Format | M/O |
+|---|---|---|---|
+| `voice.engine` | `ai` (Claude) or `local` (offline keyword extraction) | system | C |
+| `voice.ai_fields[]` | Fields whose value came from an accepted AI proposal (e.g. `age`, `item:fever`) | system | C |
+| `voice.edited_after_ai[]` | AI-filled fields the health worker changed afterwards | system | C |
+| `voice.reviewed` | Health worker confirmed every AI answer was checked with the patient | boolean | C (mandatory if any AI field) |
+| `voice.transcript` | Transcript text, only if the worker chose to keep it (default: not kept) | text | O |
+| consent | Patient/carer consent to voice capture (required before dictation/extraction; in production record it as a field) | boolean | C |
 
 ### Alert record
 `alert_id`, `assessment_id`, `facility`, `zone`, `created_at`, `recipients[]`, `sms_text`, `sms_delivery_status`, `ack_at`, `ack_by`, `ack_delay_min`, `actions[]` (isolation, IPC, clinical assessment, specimen requested, surveillance notified, referred), `note`, `escalations[]`, `closed`.

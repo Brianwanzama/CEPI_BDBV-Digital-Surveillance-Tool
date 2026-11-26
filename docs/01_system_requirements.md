@@ -33,12 +33,12 @@ Early detection therefore depends on two things: (1) clinicians suspecting Ebola
 
 ### Module A – Health facility clinical triage
 1. The patient arrives. The triage worker opens a new assessment (online or offline).
-2. They record identity and location (A.1) using the official geographic hierarchy (province > health zone > health area > village) and the facility.
-3. Clinical signs (A.2), each Yes/No/Unknown with onset date and course.
-4. Exposures in the 21 days before onset (A.3), with date, place, nature of contact and relationship.
-5. Context (A.4): history, travel, vaccinations, antimalarials, malaria RDT. Not scored.
+2. Optional **AI voice capture**: with the patient's consent, the worker dictates (or types) the history. AI proposes answers for A.1–A.3, each with its source phrase; the worker accepts or rejects each one before it enters the form (section 1.8).
+3. They record or complete identity and location (A.1) using the official geographic hierarchy (province > health zone > health area > village) and the facility.
+4. Clinical signs (A.2), each Yes/No/Unknown with onset date and course.
+5. Exposures in the 21 days before onset (A.3), with date, place, nature of contact and relationship.
 6. A live score, category and community-context panel update while the form is filled in.
-7. Clinical judgement (A.5): optional override with justification.
+7. Clinical judgement (A.4): optional override with justification.
 8. Save. The system assigns a unique ID, checks for duplicates, stores the rule-set version and shows recommended actions.
 9. RED: an alert is generated (in-app plus SMS) to the facility clinician and the zone surveillance focal point. Acknowledgement and actions are recorded, with escalation if not acknowledged.
 10. AMBER: flagged for review. GREEN: reassessment triggers are shown.
@@ -82,6 +82,7 @@ Early detection therefore depends on two things: (1) clinicians suspecting Ebola
 | FR-20 | Update thresholds and weights by configuration with version control and approval | Must |
 | FR-21 | Bilingual French/English interface, switchable per user, with the default language set in configuration (prototype default: English; deployment default to be decided by the MoH, expected French); dropdown values stored as language-neutral codes; additional languages by translation file (Lingala, Swahili, Kikongo, Tshiluba) | Must (FR, EN) / Should (others) |
 | FR-22 | Export to national systems (DHIS2 aggregate and tracker, IDSR weekly) | Should |
+| FR-23 | Optional AI voice capture in Module A: patient consent; dictation (speech-to-text, no audio stored) or typed/pasted notes; AI extraction into **proposed** answers with source phrases; field-by-field review; highlighted AI-filled fields; mandatory confirmation before saving; provenance stored; offline fallback | Should |
 
 ## 1.6 Non-functional requirements
 
@@ -98,7 +99,30 @@ Early detection therefore depends on two things: (1) clinicians suspecting Ebola
 | Interoperability | DHIS2 org-unit codes for geography; FHIR/DHIS2 tracker mapping; IDSR weekly aggregate |
 | Availability | Server ≥ 99% during outbreak response; local operation unaffected by outages |
 
-## 1.7 Key provisional assumptions (full register in [`00_assumptions_and_open_questions.md`](00_assumptions_and_open_questions.md))
+## 1.7 Change log
+- **v0.2:** Section A.4 (medical history, travel, vaccinations, antimalarials, malaria RDT) removed from the triage form to shorten it. None of those variables contributed to the score. Travel to affected areas is still captured through the scored A.3 item "Lived in / travelled to a health zone with active transmission". AI voice capture added (FR-23, section 1.8).
+
+## 1.8 AI voice capture (Module A, optional)
+**Purpose:** reduce typing time and missed questions at triage. The health worker talks with the patient as usual, dictates the history (or the patient's own words), and gets proposed answers to check.
+
+**Workflow**
+1. Tick patient (or carer) consent. Without consent, the microphone and AI extraction do not start.
+2. Dictate (French or English speech-to-text) or type/paste notes. The transcript is editable.
+3. *Extract answers with AI* (Claude), or *Basic offline extraction* (keyword rules on the device) when no AI service is available.
+4. A review table lists each proposed answer, the value, and the exact source phrase. Answers that would overwrite something already entered are unticked by default, and contradictions in the note are flagged.
+5. *Apply selected*: answers go into the form and stay highlighted ("IA / AI") until the worker edits or checks them.
+6. Saving requires the worker to confirm they checked every AI-proposed answer with the patient.
+7. The record stores the provenance: engine used, which fields came from AI, which were edited afterwards. The transcript is stored only if the worker ticks "keep transcript" (off by default).
+
+**Safeguards (design rules)**
+- AI proposes; the health worker decides. Nothing is written to the record without the review step.
+- Not mentioned means Unknown. Neither engine sets "No" unless the note explicitly denies it.
+- The AI does not score, diagnose, classify risk or recommend. The suspicion score is computed only from the confirmed form.
+- The note is treated as data. The prompt instructs the model to ignore instructions inside the note, and the reply is validated: unknown fields, invalid values and impossible dates are dropped.
+- Audio is never stored. Only text is used.
+- Every extraction and application is written to the audit log.
+
+## 1.9 Key provisional assumptions (full register in [`00_assumptions_and_open_questions.md`](00_assumptions_and_open_questions.md))
 - The 2014 WHO case-definition structure and the 21-day window apply to BDBV until the DRC national definition is supplied.
 - Health-zone and health-area codes come from the DHIS2/SNIS org-unit hierarchy.
 - An SMS gateway (aggregator or operator short code) will be available through the MoH.

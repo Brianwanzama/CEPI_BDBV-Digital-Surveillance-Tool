@@ -30,7 +30,6 @@
 
   /* ---------- code lists: stored as codes, shown in the interface language ---------- */
   var OCCUPATIONS = [['', '', ''], ['health_worker', 'Agent de santé', 'Health worker'], ['traditional_healer', 'Tradipraticien', 'Traditional healer'], ['hunter', 'Chasseur', 'Hunter'], ['miner', 'Mineur / orpailleur', 'Miner / gold digger'], ['trader', 'Commerçant', 'Trader'], ['farmer', 'Cultivateur', 'Farmer'], ['student', 'Élève / étudiant', 'Pupil / student'], ['transport', 'Transporteur / moto-taxi', 'Transporter / moto-taxi'], ['homemaker', 'Ménagère', 'Homemaker'], ['child', 'Enfant (non applicable)', 'Child (not applicable)'], ['other', 'Autre', 'Other']];
-  var COMORBIDITIES = [['hiv', 'VIH', 'HIV'], ['diabetes', 'Diabète', 'Diabetes'], ['hypertension', 'HTA', 'Hypertension'], ['sickle_cell', 'Drépanocytose', 'Sickle cell disease'], ['pregnancy', 'Grossesse', 'Pregnancy'], ['malnutrition', 'Malnutrition', 'Malnutrition'], ['tb', 'Tuberculose', 'Tuberculosis'], ['renal', 'Insuffisance rénale', 'Renal failure']];
   var RASH_TYPES = [['', '', ''], ['maculopapular', 'Maculopapuleuse', 'Maculopapular'], ['petechial', 'Pétéchiale / purpurique', 'Petechial / purpuric'], ['vesicular', 'Vésiculaire / pustuleuse', 'Vesicular / pustular'], ['other', 'Autre', 'Other']];
   function codeOpts(list, sel) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (sel === o[0] ? ' selected' : '') + '>' + esc(L(o[1], o[2])) + '</option>'; }).join(''); }
 
@@ -245,24 +244,13 @@
       '<label>' + L('ID du cas source (si connu)', 'Source case ID (if known)') + '<input name="c_' + it.id + '" value="' + esc(s.case_id) + '"></label>' +
       '</div></div></div>';
   }
-  function travelRow(tr) {
-    tr = tr || {};
-    return '<div class="trip grid">' +
-      '<label>' + L('Type', 'Type') + '<select name="tr_type"><option value="dom"' + (tr.type === 'dom' ? ' selected' : '') + '>' + L('Intérieur', 'Domestic') + '</option><option value="int"' + (tr.type === 'int' ? ' selected' : '') + '>' + L('International', 'International') + '</option></select></label>' +
-      '<label>' + L('Pays / province', 'Country / province') + '<input name="tr_where" value="' + esc(tr.where) + '"></label>' +
-      '<label>' + L('Lieu précis', 'Specific place') + '<input name="tr_place" value="' + esc(tr.place) + '"></label>' +
-      '<label>' + L('Du', 'From') + '<input type="date" name="tr_from" value="' + esc(tr.from) + '"></label>' +
-      '<label>' + L('Au', 'To') + '<input type="date" name="tr_to" value="' + esc(tr.to) + '"></label>' +
-      '<label>' + L('Motif', 'Purpose') + '<input name="tr_purpose" value="' + esc(tr.purpose) + '"></label>' +
-      '<label class="wide">' + L('Activités (funérailles, soins, marché, mine...)', 'Activities (funerals, care, market, mining...)') + '<input name="tr_act" value="' + esc(tr.act) + '"></label></div>';
-  }
-
   VIEWS.triage = function (v) {
     var rec = st.editing ? byId(db.assessments, st.editing) : null;
-    var p = rec ? rec.person : {}, g = rec ? rec.geo : { province: 'P-ITU', zone: 'Z-RWA', area: 'Z-RWA-A1', facility: 'Z-RWA-A1-F' }, c = rec ? rec.clinical : {}, h = rec ? rec.history : {};
+    var p = rec ? rec.person : {}, g = rec ? rec.geo : { province: 'P-ITU', zone: 'Z-RWA', area: 'Z-RWA-A1', facility: 'Z-RWA-A1-F' }, c = rec ? rec.clinical : {};
     v.innerHTML = '<form id="tf" class="card" novalidate autocomplete="off">' +
       '<h2>' + (rec ? L('Réévaluation', 'Reassessment') + ' - ' + esc(rec.id) : L('Nouvelle évaluation de triage', 'New triage assessment')) + '</h2>' +
       '<p class="muted">' + L('* obligatoire. « Inconnu / non évalué » n\'est jamais compté comme une absence.', '* mandatory. "Unknown / not assessed" is never counted as absent.') + '</p>' +
+      voicePanel() +
       '<details open><summary>A.1 ' + L('Identité et localisation', 'Identity and location') + '</summary><div class="grid">' +
       '<label>' + L('Nom (postnom)', 'Surname') + ' *<input name="last" value="' + esc(p.last) + '"></label>' +
       '<label>' + L('Prénom', 'First name') + ' *<input name="first" value="' + esc(p.first) + '"></label>' +
@@ -287,24 +275,11 @@
       '<p class="muted">' + L('Une exposition datée de plus de 21 jours avant le début (ou après) n\'est pas comptée dans le score.', 'An exposure dated more than 21 days before onset (or after) is not counted in the score.') + '</p>' +
       itemsOf('exposure').concat(itemsOf('geography')).map(function (it) { return exposureRow(it, rec); }).join('') + '</details>' +
 
-      '<details><summary>A.4 ' + L('Antécédents, voyages, vaccinations (contexte - hors score)', 'History, travel, vaccinations (context - not scored)') + '</summary>' +
-      '<p class="muted">' + L('Ces variables sont conservées pour le contexte clinique et épidémiologique. Elles ne modifient pas le score (justification : voir document 03).', 'Kept for clinical/epidemiological context; they do not change the score (see document 03).') + '</p>' +
-      '<div class="checks">' + COMORBIDITIES.map(function (x) { return '<label class="check"><input type="checkbox" name="comorb" value="' + x[0] + '"' + ((h.comorb || []).indexOf(x[0]) >= 0 ? ' checked' : '') + '> ' + esc(L(x[1], x[2])) + '</label>'; }).join('') + '</div>' +
-      '<div class="grid"><label class="wide">' + L('Autres antécédents', 'Other conditions') + '<input name="comorb_other" value="' + esc(h.comorb_other) + '"></label></div>' +
-      '<h4>' + L('Voyages (4 semaines avant la maladie)', 'Travel (4 weeks before illness)') + '</h4><div id="trips">' + ((h.travel || []).map(travelRow).join('')) + '</div>' +
-      '<button type="button" class="ghost" id="addtrip">+ ' + L('Ajouter un voyage', 'Add a trip') + '</button>' +
-      '<div class="grid">' +
-      '<label>' + L('Vaccin Ebola', 'Ebola vaccine') + '<select name="evax"><option value="unk">' + t('unk') + '</option><option value="yes"' + ((h.evax || {}).s === 'yes' ? ' selected' : '') + '>' + t('yes') + '</option><option value="no"' + ((h.evax || {}).s === 'no' ? ' selected' : '') + '>' + t('no') + '</option></select></label>' +
-      '<label>' + L('Type de vaccin', 'Vaccine type') + '<input name="evax_type" value="' + esc((h.evax || {}).type) + '" placeholder="ex. rVSV-ZEBOV (Ervebo)"></label>' +
-      '<label>' + L('Date', 'Date') + '<input type="date" name="evax_date" value="' + esc((h.evax || {}).date) + '"></label>' +
-      '<label>' + L('Vaccin fièvre jaune', 'Yellow fever vaccine') + '<select name="yf"><option value="unk">' + t('unk') + '</option><option value="yes"' + (h.yf === 'yes' ? ' selected' : '') + '>' + t('yes') + '</option><option value="no"' + (h.yf === 'no' ? ' selected' : '') + '>' + t('no') + '</option></select></label>' +
-      '<label>' + L('Antipaludéens', 'Antimalarials') + '<select name="am">' + [['unk', t('unk')], ['none', L('Aucun', 'None')], ['prophylaxis', L('Prophylaxie', 'Prophylaxis')], ['treatment', L('Traitement récent', 'Recent treatment')]].map(function (o) { return '<option value="' + o[0] + '"' + (h.am === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label>' + L('TDR paludisme', 'Malaria RDT') + '<select name="mrdt">' + [['nd', L('Non fait', 'Not done')], ['pos', L('Positif', 'Positive')], ['neg', L('Négatif', 'Negative')]].map(function (o) { return '<option value="' + o[0] + '"' + (h.mrdt === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>' +
-      '<p class="note">' + L('Vaccin Ervebo : sa protection contre le virus Bundibugyo chez l\'humain n\'est pas connue (OMS) - il n\'abaisse donc pas le score. Un TDR paludisme positif n\'exclut pas Ebola.', 'Ervebo: protection against Bundibugyo virus in humans is not known (WHO) - so it does not lower the score. A positive malaria RDT does not exclude Ebola.') + '</p></details>' +
-
-      '<details open><summary>A.5 ' + L('Jugement clinique', 'Clinical judgement') + '</summary><div class="grid">' +
+      '<details open><summary>A.4 ' + L('Jugement clinique', 'Clinical judgement') + '</summary><div class="grid">' +
       '<label>' + L('Catégorie retenue par le clinicien (si différente)', 'Clinician category (if different)') + '<select name="cl_cat"><option value="">' + L('- Suivre le résultat de l\'outil -', '- Follow tool result -') + '</option><option value="RED">' + t('RED') + '</option><option value="AMBER">' + t('AMBER') + '</option><option value="GREEN">' + t('GREEN') + '</option></select></label>' +
       '<label class="wide">' + L('Justification (obligatoire si modifiée)', 'Justification (required if changed)') + '<input name="cl_reason"></label></div></details>' +
+      '<div id="vconfirm" class="vconfirm" hidden><label class="check"><input type="checkbox" id="vreviewed"> ' + L('J\'ai vérifié avec le patient toutes les réponses proposées par l\'IA (surlignées).', 'I have checked every AI-proposed answer (highlighted) with the patient.') + '</label>' +
+      '<label class="check"><input type="checkbox" id="vkeep"> ' + L('Garder la transcription avec le dossier', 'Keep the transcript with the record') + '</label></div>' +
       '<div id="live" class="live"></div>' +
       '<div class="actions"><button type="submit" class="primary">' + esc(t('save')) + '</button> <button type="button" class="ghost" id="cancel">' + esc(t('cancel')) + '</button></div></form>';
 
@@ -321,9 +296,10 @@
       live(form);
     });
     form.addEventListener('input', function () { live(form); });
-    $('#addtrip', v).onclick = function () { $('#trips', v).insertAdjacentHTML('beforeend', travelRow()); };
     $('#cancel', v).onclick = function () { st.editing = null; go(st.role === 'soignant' ? 'patients' : 'home'); };
     form.onsubmit = function (e) { e.preventDefault(); submitAssessment(form, rec); };
+    st.voice = { engine: null, rows: [], applied: {} };
+    bindVoice(form, v);
     live(form);
   };
 
@@ -374,6 +350,250 @@
       (ctx.advisory ? '<p class="flag">' + esc(st.lang === 'en' ? rules().community.advisory_en : rules().community.advisory_fr) + '</p>' : '<p class="muted small">' + L('Ces signaux n\'entrent pas dans le score individuel.', 'These signals are not part of the individual score.') + '</p>') + '</div>';
   }
 
+
+  /* ---------- VOICE CAPTURE (AI-assisted, optional) ---------- */
+  // Speech-to-text: the hosting platform's dictation when offered (claude.ai
+  // artifact), else the browser's Web Speech API, else typing/pasting.
+  // Extraction: Claude when offered, else the basic offline extractor.
+  // Proposals are reviewed and applied by the health worker; nothing is
+  // written to the form or the record without that step.
+  var V = window.BDBVVoice;
+  var AI = { dictation: null, sample: null };
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var srRec = null, aiCtl = null;
+  var EXAMPLE_NOTE = {
+    fr: 'Patiente de 34 ans, cultivatrice. Elle est malade depuis 3 jours avec fièvre, grande fatigue et vomissements, mais pas de diarrhée. Saignement des gencives ce matin. Elle a lavé le corps de son oncle aux funérailles il y a 10 jours. Température 38,6°.',
+    en: '34 year old woman, a farmer by trade. Sick for 3 days with fever, severe weakness and vomiting, but no diarrhoea. Bleeding gums this morning. She washed the body of her uncle at the funeral 10 days ago. Temperature 38.6°.'
+  };
+
+  function voicePanel() {
+    return '<details class="voice" id="vpanel"><summary>' + L('Saisie vocale assistée par IA (facultatif)', 'AI voice capture (optional)') + '</summary>' +
+      '<p class="small">' + L('Dictez ou tapez ce que dit le patient (ou votre résumé). L\'IA <b>propose</b> des réponses avec la phrase source ; rien n\'entre dans le formulaire sans votre validation. L\'audio n\'est pas enregistré : seul le texte est utilisé.', 'Dictate or type what the patient says (or your summary). The AI <b>proposes</b> answers with the source phrase; nothing enters the form until you accept it. Audio is not recorded: only the text is used.') + '</p>' +
+      '<label class="check"><input type="checkbox" id="vconsent"> ' + L('Le patient (ou l\'accompagnant) accepte la saisie vocale et la transcription', 'The patient (or carer) agrees to voice capture and transcription') + '</label>' +
+      '<div class="vbar"><button type="button" id="vmic" class="primary">' + L('Démarrer la dictée', 'Start dictation') + '</button>' +
+      '<label class="inl">' + L('Langue parlée', 'Spoken language') + ' <select id="vlang"><option value="fr"' + (st.lang === 'fr' ? ' selected' : '') + '>Français</option><option value="en"' + (st.lang === 'en' ? ' selected' : '') + '>English</option></select></label>' +
+      '<span id="vstate" class="muted small" role="status" aria-live="polite"></span></div>' +
+      '<p id="vnomic" class="muted small" hidden>' + L('Dictée indisponible ici : tapez ou collez les notes.', 'Dictation is not available here: type or paste the notes.') + '</p>' +
+      '<label class="wide">' + L('Transcription (modifiable)', 'Transcript (editable)') + '<textarea id="vtext" rows="5" placeholder="' + L('Le texte dicté apparaît ici. Vous pouvez aussi taper ou coller.', 'Dictated text appears here. You can also type or paste.') + '"></textarea></label>' +
+      '<div id="vpartial" class="muted small"></div>' +
+      '<div class="vbar"><button type="button" id="vextract" hidden>' + L('Extraire les réponses avec l\'IA', 'Extract answers with AI') + '</button>' +
+      '<button type="button" id="vlocal" class="ghost">' + L('Extraction de base hors ligne', 'Basic offline extraction') + '</button>' +
+      '<button type="button" id="vstop" class="ghost" hidden>' + L('Arrêter', 'Stop') + '</button>' +
+      '<button type="button" id="vexample" class="ghost sm">' + L('Insérer une note d\'exemple', 'Insert example note') + '</button></div>' +
+      '<div id="vengine" class="muted small" role="status" aria-live="polite"></div><div id="vreview"></div>' +
+      '<p class="note small">' + L('Prototype : la transcription et l\'extraction peuvent passer par un service en ligne. Utiliser seulement avec des cas fictifs. En production : consentement, accord de traitement des données et approbation du Ministère de la Santé requis (voir document 05).', 'Prototype: transcription and extraction may use an online service. Use only with role-played cases. In production: consent, a data-processing agreement and Ministry of Health approval are required (see document 05).') + '</p></details>';
+  }
+
+  function refreshVoice() {
+    var mic = $('#vmic'); if (!mic) return;
+    var canMic = !!(AI.dictation || SR);
+    mic.hidden = !canMic; $('#vnomic').hidden = canMic;
+    $('#vextract').hidden = !AI.sample;
+    var eng = $('#vengine');
+    if (!AI.sample && !eng.textContent) eng.textContent = L('IA indisponible ici : extraction de base hors ligne seulement.', 'AI is not available here: basic offline extraction only.');
+    if (AI.sample && eng.textContent.indexOf(L('IA indisponible', 'AI is not available')) === 0) eng.textContent = '';
+  }
+  function appendTranscript(txt) {
+    var ta = $('#vtext'); if (!ta || !txt) return;
+    ta.value = ta.value ? ta.value + txt : txt.replace(/^\s+/, '');
+  }
+  function micLabel(listening) {
+    var mic = $('#vmic'); if (!mic) return;
+    mic.textContent = listening ? L('Arrêter la dictée', 'Stop dictation') : L('Démarrer la dictée', 'Start dictation');
+    mic.classList.toggle('rec', !!listening);
+  }
+  function dictationEnded(reason) {
+    var msg = {
+      not_granted: L('Micro refusé : tapez les notes.', 'Microphone not allowed: type the notes.'),
+      unavailable: L('Dictée indisponible pour cette langue ou ce compte. Essayez l\'autre langue ou tapez.', 'Dictation is not available for this language or account. Try the other language or type.'),
+      rate_limited: L('Dictée occupée, réessayez dans un instant.', 'Dictation is busy, try again in a moment.'),
+      upstream_error: L('Le micro ou le service de transcription a échoué.', 'The microphone or transcription service failed.'),
+      time_limit: L('Durée maximale atteinte.', 'Maximum duration reached.')
+    }[reason];
+    if (msg) notify(msg, reason === 'time_limit' ? '' : 'err');
+    if (reason === 'not_granted') { AI.dictation = null; refreshVoice(); }
+  }
+
+  function micClick() {
+    if (!$('#vconsent').checked) { notify(L('Cochez d\'abord le consentement du patient.', 'Tick the patient consent box first.'), 'err'); return; }
+    var lang = $('#vlang').value;
+    if (AI.dictation) {
+      if (AI.dictation.active()) { AI.dictation.stop(); return; }
+      AI.dictation.start({ language: lang }).catch(function (e) { if (e && e.code !== 'stopped') dictationEnded(e.code); });
+      return;
+    }
+    if (!SR) return;
+    if (srRec) { srRec.stop(); return; }
+    srRec = new SR();
+    srRec.lang = lang === 'fr' ? 'fr-FR' : 'en-GB';
+    srRec.continuous = true; srRec.interimResults = true;
+    srRec.onresult = function (e) {
+      var partial = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appendTranscript(' ' + e.results[i][0].transcript.trim()); else partial += e.results[i][0].transcript;
+      }
+      var pe = $('#vpartial'); if (pe) pe.textContent = partial;
+    };
+    srRec.onerror = function (e) { dictationEnded(e.error === 'not-allowed' ? 'not_granted' : 'upstream_error'); };
+    srRec.onend = function () { srRec = null; micLabel(false); var pe = $('#vpartial'); if (pe) pe.textContent = ''; var vs = $('#vstate'); if (vs) vs.textContent = ''; };
+    try { srRec.start(); micLabel(true); $('#vstate').textContent = L('Écoute…', 'Listening…'); } catch (err) { srRec = null; dictationEnded('upstream_error'); }
+  }
+
+  function assessedYmd(form) { var v = form.elements.assessed_at.value; var d = v ? new Date(v) : new Date(); return ymd(isNaN(d) ? new Date() : d); }
+
+  function runLocal(form) {
+    var txt = $('#vtext').value.trim();
+    if (!txt) { notify(L('Pas de texte à analyser.', 'No text to analyse.'), 'err'); return; }
+    var names = G.affected_zones.map(function (z) { return byId(G.zones, z).name; });
+    showReview(form, V.extractLocal(txt, { assessedAt: assessedYmd(form) + 'T12:00:00', affectedNames: names }), 'local');
+  }
+
+  function runAI(form) {
+    var txt = $('#vtext').value.trim();
+    if (!txt) { notify(L('Pas de texte à analyser.', 'No text to analyse.'), 'err'); return; }
+    if (!$('#vconsent').checked) { notify(L('Cochez d\'abord le consentement du patient.', 'Tick the patient consent box first.'), 'err'); return; }
+    aiCtl = new AbortController();
+    $('#vextract').disabled = true; $('#vstop').hidden = false;
+    $('#vengine').textContent = L('L\'IA lit la note…', 'AI is reading the note…');
+    AI.sample.json(V.buildPrompt(txt, rules(), assessedYmd(form)), { signal: aiCtl.signal }).then(function (raw) {
+      showReview(form, V.validate(raw, rules()), 'ai');
+    }).catch(function (e) {
+      var code = (e && e.code) || 'upstream_error';
+      var msg = {
+        cancelled: '',
+        not_granted: L('IA non autorisée pour cette page. Utilisez l\'extraction de base.', 'AI is not allowed for this page. Use basic extraction.'),
+        sampling_disabled: L('IA non disponible pour ce compte. Utilisez l\'extraction de base.', 'AI is not available for this account. Use basic extraction.'),
+        rate_limited: L('Trop de demandes. Réessayez plus tard ou utilisez l\'extraction de base.', 'Too many requests. Try later or use basic extraction.'),
+        invalid_json: L('Réponse de l\'IA illisible. Réessayez.', 'The AI reply could not be read. Try again.'),
+        refused: L('L\'IA a refusé cette note. Modifiez-la ou utilisez l\'extraction de base.', 'The AI declined this note. Edit it or use basic extraction.')
+      }[code];
+      if (msg == null) msg = L('Échec de l\'IA. Réessayez ou utilisez l\'extraction de base.', 'AI failed. Try again or use basic extraction.');
+      var eng = $('#vengine'); if (eng) eng.textContent = msg;
+      if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].indexOf(code) >= 0) { AI.sample = null; refreshVoice(); }
+    }).then(function () { var b = $('#vextract'); if (b) b.disabled = false; var s2 = $('#vstop'); if (s2) s2.hidden = true; });
+  }
+
+  // Current value of a form field, to warn before overwriting it.
+  function currentOf(form, key) {
+    var E = form.elements;
+    if (key.indexOf('item:') === 0) { var el = E['s_' + key.slice(5)]; return el && el.value ? el.value : ''; }
+    return { last: E.last.value, first: E.first.value, age: E.age.value, sex: E.sex.value, phone: E.phone.value, occ: E.occ.value, onset: E.onset.value, temp: E.temp.value, deceased: E.deceased.checked ? 'yes' : '' }[key] || '';
+  }
+
+  function showReview(form, prop, engine) {
+    st.voice.engine = engine;
+    var rows = [], P = prop.person || {};
+    var occLabel = function (c) { var o = OCCUPATIONS.filter(function (x) { return x[0] === c; })[0]; return o ? L(o[1], o[2]) : c; };
+    function add(key, label, value, display, ev) { rows.push({ key: key, label: label, value: value, display: display, evidence: ev || '' }); }
+    if (P.last_name) add('last', L('Nom', 'Surname'), P.last_name, P.last_name, P.name_evidence);
+    if (P.first_name) add('first', L('Prénom', 'First name'), P.first_name, P.first_name, P.name_evidence);
+    if (P.age_years != null) add('age', L('Âge', 'Age'), String(P.age_years), P.age_years + L(' ans', ' years'), P.age_evidence);
+    if (P.sex) add('sex', L('Sexe', 'Sex'), P.sex, P.sex === 'F' ? L('Féminin', 'Female') : L('Masculin', 'Male'), P.sex_evidence);
+    if (P.phone) add('phone', L('Téléphone', 'Phone'), P.phone, P.phone, '');
+    if (P.occupation) add('occ', L('Profession', 'Occupation'), P.occupation, occLabel(P.occupation), P.occupation_evidence);
+    if (prop.onset_date) add('onset', L('Date de début', 'Onset date'), prop.onset_date, fmtD(prop.onset_date), prop.onset_evidence);
+    if (prop.temperature_c != null) add('temp', L('Température', 'Temperature'), String(prop.temperature_c), prop.temperature_c + ' °C', prop.temperature_evidence);
+    if (prop.deceased) add('deceased', L('Décédé', 'Deceased'), 'yes', t('yes'), '');
+    var order = rules().items.map(function (it) { return it.id; });
+    prop.items.slice().sort(function (a, b) { return order.indexOf(a.id) - order.indexOf(b.id); }).forEach(function (x) {
+      var it = itemById(x.id); if (!it) return;
+      rows.push({ key: 'item:' + x.id, label: lbl(it), value: x.status, date: x.date, display: t(x.status) + (x.date ? ' · ' + fmtD(x.date) : ''), evidence: x.evidence, conflict: x.conflict });
+    });
+    rows.forEach(function (r) { r.current = currentOf(form, r.key); r.clash = !!r.current && r.current !== r.value && r.current !== 'unk'; });
+    st.voice.rows = rows;
+    audit('ai_extract', 'voice', '-', (engine === 'ai' ? 'Claude' : L('hors ligne', 'offline')) + ': ' + rows.length);
+    $('#vengine').textContent = engine === 'ai' ? L('Proposé par l\'IA (Claude). Vérifiez chaque ligne.', 'Proposed by AI (Claude). Check every line.') : L('Proposé par l\'extraction de base (mots-clés). Vérifiez chaque ligne ; elle peut manquer des éléments.', 'Proposed by basic keyword extraction. Check every line; it can miss things.');
+    if (!rows.length) { $('#vreview').innerHTML = '<p class="muted">' + L('Aucune réponse trouvée dans la note.', 'No answers found in the note.') + '</p>'; return; }
+    $('#vreview').innerHTML = '<div class="scroll"><table class="tbl vtbl"><tr><th>' + L('Appliquer', 'Apply') + '</th><th>' + L('Champ', 'Field') + '</th><th>' + L('Proposé', 'Proposed') + '</th><th>' + L('Phrase source', 'Source phrase') + '</th></tr>' +
+      rows.map(function (r, i) {
+        return '<tr><td><input type="checkbox" data-vrow="' + i + '"' + (r.clash ? '' : ' checked') + ' aria-label="' + esc(r.label) + '"></td><td>' + esc(r.label) + '</td><td><b>' + esc(r.display) + '</b>' +
+          (r.clash ? '<br><span class="flag small">' + L('Déjà saisi : ', 'Already entered: ') + esc(r.current) + '</span>' : '') +
+          (r.conflict ? '<br><span class="flag small">' + L('La note se contredit', 'The note contradicts itself') + '</span>' : '') + '</td><td class="small">' + (r.evidence ? '<q>' + esc(r.evidence) + '</q>' : '') + '</td></tr>';
+      }).join('') + '</table></div>' +
+      '<div class="vbar"><button type="button" class="primary" id="vapply">' + L('Appliquer la sélection au formulaire', 'Apply selected to the form') + '</button> <button type="button" class="ghost" id="vdiscard">' + L('Ignorer', 'Discard') + '</button></div>' +
+      '<p class="muted small">' + L('Les éléments non mentionnés restent « Inconnu ». Le score est calculé seulement à partir du formulaire.', 'Items not mentioned stay "Unknown". The score is computed from the form only.') + '</p>';
+    $('#vapply').onclick = function () { applyRows(form); };
+    $('#vdiscard').onclick = function () { $('#vreview').innerHTML = ''; st.voice.rows = []; };
+  }
+
+  function markAI(el, key) { if (!el) return; el.classList.remove('ai-checked'); el.classList.add('ai'); el.setAttribute('data-ai', key); }
+  function applyRows(form) {
+    var E = form.elements, n = 0;
+    $$('[data-vrow]', form).forEach(function (cb) {
+      if (!cb.checked) return;
+      var r = st.voice.rows[+cb.getAttribute('data-vrow')];
+      if (r.key.indexOf('item:') === 0) {
+        var id = r.key.slice(5);
+        var radio = form.querySelector('input[name="s_' + id + '"][value="' + r.value + '"]');
+        if (!radio) return;
+        radio.checked = true;
+        var det = $('#det_' + id, form); if (det) det.classList.toggle('hide', r.value !== 'yes');
+        if (r.date && E['d_' + id]) E['d_' + id].value = r.date;
+        var obs = E['o_' + id] || E['n_' + id];
+        if (obs && !obs.value && r.evidence && r.value === 'yes') obs.value = r.evidence;
+        markAI(form.querySelector('.row[data-item="' + id + '"]'), r.key);
+      } else if (r.key === 'deceased') {
+        E.deceased.checked = true; markAI(E.deceased.closest('label'), r.key);
+      } else {
+        var el = E[r.key]; if (!el) return;
+        el.value = r.value;
+        if (r.key === 'onset') E.onset_unk.checked = false;
+        markAI(el.closest('label'), r.key);
+      }
+      st.voice.applied[r.key] = true; n++;
+    });
+    if (!n) { notify(L('Aucune ligne sélectionnée.', 'No lines selected.'), 'err'); return; }
+    audit('ai_apply', 'voice', '-', n + L(' réponse(s)', ' answer(s)'));
+    $('#vconfirm').hidden = false; $('#vreviewed').checked = false;
+    $('#vreview').innerHTML = '';
+    live(form);
+    notify(n + L(' réponse(s) appliquée(s). Vérifiez les champs surlignés avec le patient.', ' answer(s) applied. Check the highlighted fields with the patient.'));
+  }
+
+  // A field the health worker edits after the AI filled it counts as checked.
+  function confirmEdited(e) {
+    var host = e.target.closest && e.target.closest('[data-ai]'); if (!host) return;
+    host.classList.remove('ai'); host.classList.add('ai-checked');
+  }
+
+  function voiceRecord() {
+    var keys = Object.keys((st.voice && st.voice.applied) || {});
+    if (!keys.length) return null;
+    var edited = $$('.ai-checked[data-ai]').map(function (el) { return el.getAttribute('data-ai'); });
+    return { engine: st.voice.engine, ai_fields: keys, edited_after_ai: edited, reviewed: true,
+      transcript: $('#vkeep') && $('#vkeep').checked ? $('#vtext').value : null };
+  }
+
+  function bindVoice(form, v) {
+    $('#vmic', v).onclick = micClick;
+    $('#vextract', v).onclick = function () { runAI(form); };
+    $('#vlocal', v).onclick = function () { runLocal(form); };
+    $('#vstop', v).onclick = function () { if (aiCtl) aiCtl.abort(); };
+    $('#vexample', v).onclick = function () { $('#vtext', v).value = EXAMPLE_NOTE[$('#vlang', v).value] || EXAMPLE_NOTE.en; };
+    form.addEventListener('change', confirmEdited);
+    form.addEventListener('input', confirmEdited);
+    if (AI.dictation && AI.dictation.active()) micLabel(true);
+    refreshVoice();
+  }
+
+  function initVoiceCapabilities() {
+    if (!window.claude || typeof window.claude.use !== 'function') return;
+    window.claude.use('dictation').then(function (d) {
+      if (!d) return;
+      AI.dictation = d;
+      d.onPartial(function (e) { var el = $('#vpartial'); if (el) el.textContent = e.text; });
+      d.onFinal(function (e) { appendTranscript(e.text); });
+      d.onState(function (e) {
+        var vs = $('#vstate');
+        micLabel(e.state !== 'idle');
+        if (vs) vs.textContent = e.state === 'listening' ? L('Écoute…', 'Listening…') : e.state === 'starting' ? L('Ouverture du micro…', 'Opening microphone…') : e.state === 'finishing' ? L('Finalisation…', 'Finishing…') : '';
+        if (e.state === 'idle') { var pe = $('#vpartial'); if (pe) pe.textContent = ''; if (e.reason) dictationEnded(e.reason); }
+      });
+      refreshVoice();
+    }).catch(function () {});
+    window.claude.use('sample').then(function (smp) { AI.sample = smp || null; refreshVoice(); }).catch(function () {});
+  }
+
   function live(form) {
     var res = S.evaluate(buildInput(form), rules());
     var g = readGeo(form, 'g_');
@@ -392,6 +612,7 @@
     if (!E.onset.value && !E.onset_unk.checked) miss.push(L('Date de début (ou « inconnue »)', 'Onset date (or "unknown")'));
     if (!E.s_fever.value) miss.push(L('Fièvre (oui / non / inconnu)', 'Fever (yes / no / unknown)'));
     if (E.cl_cat.value && !E.cl_reason.value.trim()) miss.push(L('Justification du clinicien', 'Clinician justification'));
+    if (st.voice && Object.keys(st.voice.applied).length && !$('#vreviewed').checked) miss.push(L('Confirmation que les réponses proposées par l\'IA ont été vérifiées', 'Confirmation that AI-proposed answers were checked'));
     if (miss.length) { notify(t('required') + ' :\n- ' + miss.join('\n- '), 'err'); return; }
 
     var input = buildInput(form);
@@ -416,16 +637,15 @@
     var symptoms = {}, exposures = {};
     itemsOf('symptom').forEach(function (it) { symptoms[it.id] = { s: input.items[it.id].s, date: input.items[it.id].date, evol: E['e_' + it.id].value, obs: E['o_' + it.id].value }; });
     itemsOf('exposure').concat(itemsOf('geography')).forEach(function (it) { exposures[it.id] = { s: input.items[it.id].s, date: input.items[it.id].date, loc: E['l_' + it.id].value, nature: E['n_' + it.id].value, rel: E['r_' + it.id].value, case_id: E['c_' + it.id].value }; });
-    var trips = $$('.trip', form).map(function (tr) { var q = function (n) { return $('[name="' + n + '"]', tr).value; }; return { type: q('tr_type'), where: q('tr_where'), place: q('tr_place'), from: q('tr_from'), to: q('tr_to'), purpose: q('tr_purpose'), act: q('tr_act') }; }).filter(function (x) { return x.where || x.place; });
     var fac = byId(G.facilities, g.facility);
     var ctx = S.communityContext(db.reports, rules(), geoOfVillage(g.village));
     var data = {
       patient_key: key, assessed_at: input.assessed_at, person: person, geo: g,
       clinical: { onset_date: input.onset_date, onset_unknown: E.onset_unk.checked, temp: E.temp.value, deceased: input.deceased, symptoms: symptoms, bleed_sites: E.bleed_sites ? E.bleed_sites.value : '', rash: { dist: E.rash_dist.value, appearance: E.rash_app.value, type: E.rash_type.value } },
       exposures: exposures,
-      history: { comorb: $$('input[name="comorb"]:checked', form).map(function (x) { return x.value; }), comorb_other: E.comorb_other.value, travel: trips, evax: { s: E.evax.value, type: E.evax_type.value, date: E.evax_date.value }, yf: E.yf.value, am: E.am.value, mrdt: E.mrdt.value },
       clinician: input.clinician, result: res,
-      community_snapshot: { village_level: ctx.village.level, area_level: ctx.area.level, advisory: ctx.advisory }
+      community_snapshot: { village_level: ctx.village.level, area_level: ctx.area.level, advisory: ctx.advisory },
+      voice: voiceRecord()
     };
     var id;
     if (rec) {
@@ -439,7 +659,7 @@
       id = newId('BDB', fac.code, new Date(input.assessed_at));
       rec = Object.assign({ id: id, created_at: iso(new Date()), synced: false, demo: false, lab: { status: 'none', result: '' }, history_log: [{ at: iso(new Date()), score: res.score, category: res.category, by: USERS[st.role] }], review: res.category === 'AMBER' ? { status: 'pending' } : null }, data);
       db.assessments.unshift(rec);
-      audit('create', 'assessment', id, res.category + ' (' + res.score + ')');
+      audit('create', 'assessment', id, res.category + ' (' + res.score + ')' + (data.voice ? ' · ' + L('saisie vocale', 'voice capture') + ' (' + data.voice.ai_fields.length + ')' : ''));
     }
     if (res.category === 'RED' && !db.alerts.some(function (a) { return a.assessment_id === id && !a.closed; })) createAlert(rec);
     save(); st.editing = null; st.lastId = id; go('result');
@@ -847,7 +1067,7 @@
       var rec = { id: id, demo: true, synced: true, created_at: iso(at), assessed_at: iso(at), patient_key: 'demo' + i,
         person: { last: 'DÉMO', first: 'Patient ' + (i + 1), age: String(Math.floor(2 + r() * 70)), sex: r() < 0.5 ? 'F' : 'M', dob: '', phone: '', occ: '', addr_home: '', addr_cur: '' },
         geo: gv, clinical: { onset_date: ymd(onset), temp: '', deceased: false, symptoms: symptoms, rash: {} }, exposures: exposures,
-        history: { comorb: [], travel: [], evax: { s: 'unk' }, yf: 'unk', am: 'unk', mrdt: r() < 0.5 ? 'pos' : 'nd' }, clinician: input.clinician, result: res,
+        clinician: input.clinician, result: res,
         lab: lab, history_log: [{ at: iso(at), score: res.score, category: res.category }], review: res.category === 'AMBER' ? { status: ageD < 3 ? 'pending' : 'done' } : null };
       db.assessments.push(rec);
       if (res.category === 'RED') {
@@ -877,6 +1097,7 @@
     window.addEventListener('online', function () { st.online = true; render(); });
     window.addEventListener('offline', function () { st.online = false; render(); });
     applyGeoLang();
+    initVoiceCapabilities();
     if (!db.assessments.length && !db.reports.length) seedDemo();
     render();
   }

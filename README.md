@@ -2,7 +2,7 @@
 
 An integrated design and working prototype to strengthen early detection of **Bundibugyo virus disease (BDBV)** in the Democratic Republic of the Congo. It links:
 
-- **Module A: health facility triage**, which collects clinical and exposure data and gives a transparent **suspicion score** with RED/AMBER/GREEN actions and alerts;
+- **Module A: health facility triage**, which collects clinical and exposure data (optionally by **AI voice capture**, reviewed by the health worker) and gives a transparent **suspicion score** with RED/AMBER/GREEN actions and alerts;
 - **Module B: community-based surveillance (RECO)**, which handles rapid, offline reporting of deaths, burials, clusters and alerts, with a verification workflow;
 - **an integrated dashboard** with a map, trends and early-warning signals.
 
@@ -35,6 +35,9 @@ Opening `prototype/index.html` directly in any browser works offline, with synth
 node tests/scoring.test.js
 ```
 ```bash
+node tests/voice.test.js
+```
+```bash
 node tests/e2e.test.js
 ```
 After editing `config/scoring_rules.json`, regenerate the prototype's copy with:
@@ -46,7 +49,7 @@ node tools/build_rules.js
 ```
 config/scoring_rules.json   versioned rule set (single source of truth)
 prototype/                  offline-first web app (EN/FR), no build step
-tests/                      unit tests (scoring) + end-to-end (Playwright)
+tests/                      unit tests (scoring, voice) + end-to-end (Playwright)
 tools/build_rules.js        copies the rule set into the prototype
 docs/                       deliverables 1–8, assumptions, references
 ```

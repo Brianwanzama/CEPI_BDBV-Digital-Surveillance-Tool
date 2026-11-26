@@ -40,7 +40,7 @@ Then the clinician may override (recorded, with justification)
 ```
 
 - **Domains** separate the kinds of evidence the brief asks to keep apart: symptoms, epidemiological exposures, and geographical context. Each domain has a **cap**, so that many non-specific symptoms cannot add up to a RED without any exposure.
-- **General characteristics** (age, sex, occupation, comorbidities, vaccination, malaria results) are **collected but score 0** (section 3.6).
+- **General characteristics** (age, sex, occupation) are **collected but score 0** (section 3.6). Comorbidities, vaccination, malaria results and the travel log are no longer collected at triage (v0.2).
 - **Community signals are never added to the score** (section 3.7).
 
 ### Evidence tiers used to set points
@@ -110,7 +110,9 @@ This mirrors the structure of the WHO definitions (WHO 2014 standard case defini
 
 **Implication for the 70/50 thresholds.** With evidence-tiered weights, a numerical RED (≥ 70) needs several strong elements, for example case contact (35) + fever (10) + bleeding (15) + two tier-B signs (8) + affected area (10) = 78. In practice, most REDs will come from F1. The numerical thresholds mainly separate AMBER from GREEN among people **without** a high-risk exposure. This must be reviewed during calibration.
 
-## 3.6 Variables collected but not scored, and why
+## 3.6 Variables not scored, and why
+
+Since v0.2 the triage form no longer collects comorbidities, vaccination, antimalarials/malaria RDT or the travel log (former section A.4). The reasoning below still applies if they are collected elsewhere, for example in the case investigation form. It matters most for vaccination and malaria: **neither may be used to lower suspicion.**
 
 | Variable | Reason it scores 0 |
 |---|---|
@@ -121,6 +123,8 @@ This mirrors the structure of the WHO definitions (WHO 2014 standard case defini
 | Yellow fever vaccination | Differential diagnosis only |
 | Antimalarials / malaria RDT | Malaria co-infection is common in EVD patients (Hartley 2017). **A positive RDT must not lower suspicion** |
 | Travel details (dates, purpose, activities) | Scored only through "affected area" within 21 days and specific exposures; details kept for investigation |
+
+**AI voice capture does not change the score.** Answers proposed from a dictated note count only once the health worker has accepted them into the form. The scoring engine never sees the transcript.
 
 ## 3.7 How community signals are used (and not used)
 

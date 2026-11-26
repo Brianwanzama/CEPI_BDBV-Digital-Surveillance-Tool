@@ -6,7 +6,7 @@ All action wording is **provisional and must be aligned with the DRC national pr
 
 ```mermaid
 flowchart TD
-  A[Patient at triage] --> B[Record A.1–A.4<br/>Yes / No / Unknown]
+  A[Patient at triage] --> B[Record A.1–A.3<br/>Yes / No / Unknown<br/>optional AI voice capture, reviewed]
   B --> C[Score + floors<br/>rule set vX]
   C --> D{Clinician agrees?}
   D -- no, override + reason --> E[Final category]

@@ -24,7 +24,7 @@ body = re.sub(r'<script src="[^"]+"></script>\n?', '', body)
 body = re.sub(r"<script>\s*if \('serviceWorker'.*?</script>\n?", '', body, flags=re.S)
 
 js = ''
-for f in ['rules.js', 'geo.js', 'i18n.js', 'scoring.js', 'app.js']:
+for f in ['rules.js', 'geo.js', 'i18n.js', 'scoring.js', 'voice.js', 'app.js']:
     s = read(f)
     if '</script' in s.lower():
         sys.exit(f + ' contains </script>; cannot inline')

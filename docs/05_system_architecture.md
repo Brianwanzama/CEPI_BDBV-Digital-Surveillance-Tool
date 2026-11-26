@@ -87,12 +87,47 @@ Personally identifiable fields (name, phone, address, DOB) are kept in a **separ
 - Audit trail of create/view/update/verify/acknowledge/sync/rule changes; server log append-only.
 - Legal basis, retention and data-sharing agreements per DRC law and MoH policy (**to confirm**; DRC data-protection provisions to be checked by MoH legal counsel).
 
-## 5.7 Configuration and version control
+## 5.7 AI voice capture component
+
+```mermaid
+flowchart LR
+  M[Microphone] -->|speech| STT[Speech-to-text<br/>words only, no audio kept]
+  K[Typed / pasted notes] --> T
+  STT --> T[Editable transcript]
+  T -->|online| LLM[LLM extraction<br/>Claude, JSON]
+  T -->|offline| KW[Keyword extractor<br/>on device]
+  LLM --> VAL[Validation<br/>known fields, valid values]
+  KW --> REV
+  VAL --> REV[Review table<br/>value + source phrase]
+  REV -->|health worker accepts| FORM[Triage form<br/>AI fields highlighted]
+  FORM --> SCORE[Scoring engine]
+```
+
+**Prototype implementation**
+| Step | In the claude.ai web page | In the stand-alone prototype (repo) |
+|---|---|---|
+| Speech-to-text | Platform dictation (Anthropic speech-to-text; the page receives words, never audio) | Browser Web Speech API where available (Chrome sends audio to its vendor's online service) |
+| Extraction | Claude, called on the viewer's account | Offline keyword extractor (`voice.js`) |
+| Fallback | Typing/pasting; offline extractor | Typing/pasting |
+
+**Options for production (decision for the MoH)**
+1. **On-device speech-to-text and extraction** (open speech models that run on mid-range Android, plus the rule-based or a small on-device extractor). This works offline and keeps patient data on the device. Accuracy in French varies and is weaker for Lingala/Swahili. Device requirements are higher.
+2. **Server-side processing in an MoH-approved environment**, in-country or under a data-processing agreement. This gives the best accuracy and needs connectivity, so offline facilities fall back to option 1 or typing.
+3. **Hybrid**: on-device speech-to-text, then extraction queued for the server when online. The worker still reviews before saving.
+
+**Requirements before any use with real patients**
+- MoH approval and a data-protection impact assessment. Voice notes contain names and health data. Data-processing agreements with any external AI or speech provider must cover location, retention and no training on patient data.
+- Patient consent wording and a translation, approved by the ethics committee. A documented refusal path: the form works fully without voice.
+- **Validation study**: compare AI-extracted fields with manual entry on role-played and then consented real consultations. Measure field-level sensitivity/precision (especially for exposures and bleeding), false "No" answers, time saved, and the rate of answers changed at review. Set acceptance thresholds in advance.
+- **Language coverage**: test French and English speech-to-text in field conditions (noise, accents). Lingala, Swahili, Kikongo and Tshiluba speech are expected to need the worker to dictate a French summary.
+- Monitoring: `voice.edited_after_ai` rates by field, reviewed monthly. Disable the feature if review is being skipped or edit rates are high.
+
+## 5.8 Configuration and version control
 - `config/scoring_rules.json` is the single source for items, points, caps, thresholds, floors, community weights and early-warning parameters.
 - Each change is a new version with a change log, author, approver and effective date. Devices download signed rule sets. Each result stores the version used.
 - Rule sets are kept in git (this repository) and published by the national team. Translations (`i18n.js`) and master lists (`geo.js` → DHIS2 org units) are separate files.
 
-## 5.8 Interoperability
+## 5.9 Interoperability
 | System | Exchange |
 |---|---|
 | DHIS2 / SNIS | Org units, users; aggregate weekly indicators (IDSR); optionally the tracker as the primary store |

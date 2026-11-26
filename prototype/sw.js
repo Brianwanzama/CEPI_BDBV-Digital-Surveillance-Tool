@@ -1,6 +1,6 @@
 // Offline cache for the prototype shell (works when served over http/https).
-var CACHE = 'bdbv-proto-v1';
-var FILES = ['./', 'index.html', 'styles.css', 'rules.js', 'geo.js', 'i18n.js', 'scoring.js', 'app.js', 'manifest.webmanifest'];
+var CACHE = 'bdbv-proto-v2';
+var FILES = ['./', 'index.html', 'styles.css', 'rules.js', 'geo.js', 'i18n.js', 'scoring.js', 'voice.js', 'app.js', 'manifest.webmanifest'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); })); });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); })); }));
