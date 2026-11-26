@@ -184,8 +184,8 @@ details.evx { border: 0; padding: 2px 0; }
 
 /* =====================================================================
    Visual identity (v0.5). Colours of version 1 (navy, slate neutrals).
-   Disclaimers on a light mulberry tint with mulberry text. Emphasis (active tab, focus, selection on the map) uses
-   one less common colour, mulberry, which is not used for any category.
+   Disclaimers on a light grey-blue background with graphite text and rule. Emphasis (active tab,
+   focus, selection on the map) uses the same graphite, which is not used for any category.
    Hairline panels, condensed type for headings and numbers, mono for IDs.
    ===================================================================== */
 @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: normal; font-display: swap; src: url("vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
@@ -199,21 +199,21 @@ details.evx { border: 0; padding: 2px 0; }
   --font-head: "Barlow Semi Condensed", "Arial Narrow", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   --bg: #f5f7fa; --card: #ffffff; --ink: #1f2937; --muted: #64748b; --line: #e2e8f0; --line-strong: #cbd5e1;
-  --brand: #0f3d5e; --brand-2: #0b2a41; --accent: #0f3d5e; --hl: #a01a6b; --hl-ink: #ffffff; --hl-bg: #fbe8f3;
+  --brand: #0f3d5e; --brand-2: #0b2a41; --accent: #0f3d5e; --hl: #2b333d; --hl-ink: #ffffff; --hl-bg: #eef1f4;
   --red: #b91c1c; --red-bg: #fde8e8; --amber: #b45309; --amber-bg: #fef3c7; --green: #15803d; --green-bg: #dcfce7;
   --warn-bg: #fff7ed; --flag: #9a3412; --radius: 3px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f172a; --card: #1e293b; --ink: #e5e7eb; --muted: #94a3b8; --line: #334155; --line-strong: #475569;
-    --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #f08ac6; --hl-ink: #2a0619; --hl-bg: #3d1230;
+    --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #cbd5e1; --hl-ink: #0f172a; --hl-bg: #1e2733;
     --red: #fca5a5; --red-bg: #451a1a; --amber: #fcd34d; --amber-bg: #422c06; --green: #86efac; --green-bg: #0f3320;
     --warn-bg: #3a2310; --flag: #fdba74; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f172a; --card: #1e293b; --ink: #e5e7eb; --muted: #94a3b8; --line: #334155; --line-strong: #475569;
-    --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #f08ac6; --hl-ink: #2a0619; --hl-bg: #3d1230;
+    --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #cbd5e1; --hl-ink: #0f172a; --hl-bg: #1e2733;
     --red: #fca5a5; --red-bg: #451a1a; --amber: #fcd34d; --amber-bg: #422c06; --green: #86efac; --green-bg: #0f3320;
     --warn-bg: #3a2310; --flag: #fdba74; color-scheme: dark;
 }
@@ -315,8 +315,8 @@ label { font-size: 13.5px; }
 .signin-main form { display: grid; gap: 10px; max-width: 360px; margin-top: 10px; }
 .signin-public { background: var(--brand); color: #e6eef5; border-color: var(--brand); }
 .signin-public h2 { color: #fff; }
-.signin-public .eyebrow { color: #f6b5dc; }
-.signin-public button.big { background: var(--hl); border-color: var(--hl); color: var(--hl-ink); margin-top: 6px; }
+.signin-public .eyebrow { color: #c7d6e2; }
+.signin-public button.big { background: #ffffff; border-color: #ffffff; color: var(--brand); margin-top: 6px; }
 .eyebrow { font-family: var(--font-head); font-weight: 600; font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--hl); margin: 0 0 4px; }
 .fine { font-size: 12.5px; color: var(--muted); }
 .accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-top: 10px; }
@@ -402,7 +402,7 @@ label { font-size: 13.5px; }
 .mscale-mini .mscale { position: static; margin-top: 4px; border: 0; padding: 0; background: none; }
 @media (max-width: 760px) { .mapwrap { grid-template-columns: minmax(0, 1fr); } .dmap.zm { max-height: 70vh; } .mapbox .mscale { position: static; max-width: none; border: 0; border-top: 1px solid var(--line); background: var(--card); } .mzoom button { width: 38px; height: 38px; } }
 
-/* Disclaimers and principles: light emphasis tint, mulberry text and rule (one style everywhere).
+/* Disclaimers and principles: light grey-blue background, graphite text and rule (one style everywhere).
    Warnings that need action keep the amber .card.warn / .flag style. */
 .banner { background: var(--hl-bg); color: var(--hl); border-bottom: 2px solid var(--hl); }
 .disclaimer, .note, .demo-flag { background: var(--hl-bg); color: var(--ink); border: 0; border-left: 3px solid var(--hl); border-radius: 0; padding: 8px 12px; }
