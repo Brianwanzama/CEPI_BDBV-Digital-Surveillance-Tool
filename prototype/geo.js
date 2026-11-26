@@ -7,8 +7,9 @@
  *  - List 2 ("provinces / local administrative locations"): loaded as HEALTH ZONES, not provinces.
  *    Their province links come from the boundary file supplied by the project
  *    (data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg, ADM3 = health zones, field ADM1_NAME;
- *    see docs/boundaries_import_report.md). "Banzow Moke" is spelt "Banjow Moke" in that file. The
- *    system administrator still confirms each link (Configuration tab).
+ *    see docs/boundaries_import_report.md). "Banzow Moke" is spelt "Banjow Moke" in that file; the
+ *    project confirmed on 26 November 2026 that they are the same zone. The system administrator
+ *    still confirms each zone -> province link (Configuration tab).
  * DEMO: health areas, villages and facilities below exist only to exercise the prototype. They are
  * fictitious, marked "(démo)", and have NO coordinates. In deployment they come from DHIS2/SNIS.
  */
@@ -31,9 +32,11 @@
     ['Bambo', 'Nord-Kivu'], ['Bambu', 'Ituri'], ['Banalia', 'Tshopo'], ['Bandalungwa', 'Kinshasa'], ['Bandundu', 'Kwilu'],
     ['Banga Lubaka', 'Kasaï'], ['Bangabola', 'Sud-Ubangi'], ['Banzow Moke', 'Mai-Ndombe']
   ];
+  // Other spellings of supplied zones, confirmed by the project.
+  var AKA = { 'Banzow Moke': 'Banjow Moke' };
   var zones = ZONES.map(function (z) {
     var p = z[1] ? pid(z[1]) : 'P-tbc';
-    return { id: 'Z-' + slug(z[0]), name: z[0], province: p, province_default: p, link_status: z[1] ? 'boundary' : 'unassigned', supplied: true };
+    return { id: 'Z-' + slug(z[0]), name: z[0], aka: AKA[z[0]], province: p, province_default: p, link_status: z[1] ? 'boundary' : 'unassigned', supplied: true };
   });
 
   // Demo health areas / villages / facilities (fictitious, no coordinates).

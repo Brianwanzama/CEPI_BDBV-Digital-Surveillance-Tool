@@ -193,6 +193,7 @@
     if (u.level === 'province') return u.id ? B.nm(B.G.provinces, u.id) : u.fname;
     return u.id ? B.nm(B.G.zones, u.id) : u.fname;
   }
+  function unitAka(u) { var z = u.id && u.level === 'zone' && B.byId(B.G.zones, u.id); return z && z.aka ? L('aussi écrit ', 'also written ') + z.aka : ''; }
   function unitProv(u) {
     if (u.level === 'province') return '';
     if (u.id) { var z = B.byId(B.G.zones, u.id); return z ? B.nm(B.G.provinces, z.province) : ''; }
@@ -273,17 +274,48 @@
     return u ? '<path class="selo" d="' + unitD(u) + '" vector-effect="non-scaling-stroke"/>' : '';
   }
 
-  // Static SVG (dashboard overview): provinces shaded by cases.
-  function staticSVG(agg, vals) {
-    var out = '<svg class="dmap" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + L('Carte de la RDC', 'Map of the DRC') + '"><path d="' + outlinePath + '" class="drc"/>';
-    Object.keys(UNITS).forEach(function (k) {
-      var u = UNITS[k]; if (u.level !== 'province') return;
-      var ci = klass(vals.cases[k]);
-      out += '<path class="up" d="' + unitD(u) + '"' + (ci >= 0 ? ' style="fill:' + IND.cases.ramp[ci] + '"' : '') + '><title>' + esc(unitName(u) + ' : ' + (vals.cases[k] || 0)) + '</title></path>';
+  // Static SVG (dashboard overview): health zones shaded by cases, province borders and names.
+  // Label placement without overlaps (approximate text boxes in map units).
+  function placeLabels(list, fs) {
+    var boxes = [], out = '';
+    list.forEach(function (l) {
+      var w = l.text.length * fs * 0.52, h = fs * 1.1, b = [l.x - w / 2, l.y - h / 2, l.x + w / 2, l.y + h / 2];
+      if (boxes.some(function (o) { return b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]; })) return;
+      boxes.push(b);
+      out += '<text class="ulbl ' + l.cls + '" x="' + l.x.toFixed(1) + '" y="' + l.y.toFixed(1) + '" font-size="' + fs.toFixed(2) + '">' + esc(l.text) + '</text>';
     });
-    if (!BND) Object.keys(GD.provinces).forEach(function (pn) { var gp = GD.provinces[pn]; if (gp.lat == null) return; var p = proj(gp.lon, gp.lat); out += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="1.6" class="refpt"/>'; });
-    out += glyphLayer(agg, null, false);
-    return out + '</svg>';
+    return out;
+  }
+  // Box (map units) around the zones with a value, for the "affected area" panel.
+  function affectedBox(vals) {
+    var b = null;
+    Object.keys(vals).forEach(function (k) { var u = UNITS[k]; if (!u || !vals[k]) return; unitD(u); b = b ? [Math.min(b[0], u.box[0]), Math.min(b[1], u.box[1]), Math.max(b[2], u.box[2]), Math.max(b[3], u.box[3])] : u.box.slice(); });
+    if (!b) return null;
+    var cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, w = Math.max(b[2] - b[0], b[3] - b[1], 50) * 1.6;
+    return { x: cx - w / 2, y: cy - w / 2, w: w, h: w };
+  }
+  function staticSVG(vals, vb) {
+    var z = vb ? W / vb.w : 1;
+    var out = '<svg class="dmap" viewBox="' + (vb ? [vb.x, vb.y, vb.w, vb.h].map(function (n) { return n.toFixed(1); }).join(' ') : '0 0 ' + W + ' ' + H) + '" role="img" aria-label="' + (vb ? L('Zone touchée : cas par zone de santé', 'Affected area: cases by health zone') : L('Carte de la RDC : cas par zone de santé', 'Map of the DRC: cases by health zone')) + '"><path d="' + outlinePath + '" class="drc"/>';
+    if (!BND) {
+      Object.keys(GD.provinces).forEach(function (pn) { var gp = GD.provinces[pn]; if (gp.lat == null) return; var p = proj(gp.lon, gp.lat); out += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="1.6" class="refpt"/>'; });
+      return out + '</svg>';
+    }
+    var zones = '', borders = '', zl = [], pl = [];
+    Object.keys(UNITS).forEach(function (k) {
+      var u = UNITS[k], c = u.feature.properties.c, p = c && proj(c[0], c[1]);
+      if (u.level === 'zone') {
+        var n = vals.cases[k] || 0, ci = klass(n);
+        zones += '<path class="uz' + (u.id ? '' : ' other') + '" d="' + unitD(u) + '"' + (ci >= 0 ? ' style="fill:' + IND.cases.ramp[ci] + '"' : '') + '>' + (ci >= 0 ? '<title>' + esc(unitName(u) + ' : ' + n) + '</title>' : '') + '</path>';
+        if (vb && p && p[0] > vb.x && p[0] < vb.x + vb.w && p[1] > vb.y && p[1] < vb.y + vb.h) zl.push({ x: p[0], y: p[1], text: unitName(u) + (n ? ' (' + n + ')' : ''), cls: 'lz', n: n });
+      } else {
+        borders += '<path d="' + unitD(u) + '"/>';
+        if (p) pl.push({ x: p[0], y: p[1], text: unitName(u), cls: 'lp' });
+      }
+    });
+    zl.sort(function (a, b) { return b.n - a.n; });
+    var labels = vb ? placeLabels(zl, 15 / z) : placeLabels(pl, 15);
+    return out + '<g class="gzone">' + zones + '</g><g class="gborder">' + borders + '</g>' + labels + '</svg>';
   }
 
   function legend() {
@@ -322,7 +354,7 @@
   B.VIEWS.map = function (v) {
     if (playTimer && !document.body.contains(v)) { clearInterval(playTimer); playTimer = null; }
     var agOnly = B.can('aggregate_only');
-    var searchList = Object.keys(UNITS).filter(function (k) { return UNITS[k].level === 'province' || UNITS[k].id || true; }).map(function (k) { var u = UNITS[k]; return '<option value="' + esc(unitName(u) + (u.level === 'zone' ? ' (' + L('ZS', 'HZ') + (unitProv(u) ? ', ' + unitProv(u) : '') + ')' : ' (' + L('province', 'province') + ')')) + '" data-k="' + k + '"></option>'; }).join('');
+    var searchList = Object.keys(UNITS).filter(function (k) { return UNITS[k].level === 'province' || UNITS[k].id || true; }).map(function (k) { var u = UNITS[k]; return '<option value="' + esc(unitName(u) + (u.level === 'zone' ? ' (' + L('ZS', 'HZ') + (unitProv(u) ? ', ' + unitProv(u) : '') + ')' : ' (' + L('province', 'province') + ')')) + '" data-k="' + k + '"></option>' + (unitAka(u) ? '<option value="' + esc(B.byId(B.G.zones, u.id).aka + ' (' + L('ZS', 'HZ') + ', ' + unitProv(u) + ')') + '" data-k="' + k + '"></option>' : ''); }).join('');
     v.innerHTML = '<section class="card mapcard"><div class="mhead"><div><p class="eyebrow">' + L('Surveillance', 'Surveillance') + '</p><h2>' + L('Carte de surveillance épidémiologique', 'Epidemiological surveillance map') + '</h2></div>' +
       (BND ? '<label class="msearch">' + L('Aller à', 'Go to') + ' <input id="msearch" list="munits" placeholder="' + L('province ou zone de santé', 'province or health zone') + '" autocomplete="off"><datalist id="munits">' + searchList + '</datalist></label>' : '') + '</div>' +
       '<div class="vbar mtools">' +
@@ -452,7 +484,7 @@
     var name = u ? unitName(u) : mf.sel, level = u ? u.level : mf.level;
     var series = weekly(mf.sel, level);
     box.innerHTML = '<div class="mprof"><p class="eyebrow">' + (level === 'zone' ? L('Zone de santé', 'Health zone') : L('Province', 'Province')) + '</p><h3>' + esc(name) + '</h3>' +
-      '<p class="muted small">' + esc([u ? unitProv(u) : '', u && u.code ? 'P-code ' + u.code : ''].filter(Boolean).join(' · ')) + (u && !u.id ? '<br>' + L('Hors de la liste fournie : pas de collecte dans ce pilote.', 'Not in the supplied list: no data collected in this pilot.') : '') + '</p>' +
+      '<p class="muted small">' + esc([u ? unitProv(u) : '', u && u.code ? 'P-code ' + u.code : '', u ? unitAka(u) : ''].filter(Boolean).join(' · ')) + (u && !u.id ? '<br>' + L('Hors de la liste fournie : pas de collecte dans ce pilote.', 'Not in the supplied list: no data collected in this pilot.') : '') + '</p>' +
       '<table class="tbl small mfig">' + Object.keys(IND).map(function (k) {
         var a = cur.vals[k][mf.sel] || 0, b = cur.prevVals ? (cur.prevVals[k][mf.sel] || 0) : null;
         return '<tr' + (k === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[k].fr, IND[k].en)) + '</td><td class="num">' + a + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
@@ -580,7 +612,7 @@
       var a = cur.vals[i][k] || 0, b = cur.prevVals ? (cur.prevVals[i][k] || 0) : null;
       return '<tr' + (i === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[i].fr, IND[i].en)) + '</td><td class="num">' + a + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
     }).join('') : '';
-    return '<b>' + esc(unitName(u)) + '</b><div class="muted">' + esc([u.level === 'zone' ? L('Zone de santé', 'Health zone') : L('Province', 'Province'), unitProv(u), u.code].filter(Boolean).join(' · ')) + '</div>' +
+    return '<b>' + esc(unitName(u)) + '</b><div class="muted">' + esc([u.level === 'zone' ? L('Zone de santé', 'Health zone') : L('Province', 'Province'), unitProv(u), u.code, unitAka(u)].filter(Boolean).join(' · ')) + '</div>' +
       (u.level === 'zone' && !u.id ? '<div class="muted">' + L('Hors liste fournie : pas de données', 'Not in supplied list: no data') + '</div>' : '') + (rows ? '<table>' + rows + '</table>' : '');
   }
 
@@ -622,14 +654,18 @@
     box.scrollIntoView({ block: 'nearest' });
   }
 
-  // Small read-only overview for the dashboard: provinces shaded by cases, symbols on top.
+  // Overview for the dashboard: health zones shaded by cases in the dashboard's filters and period.
   B.mapMini = function () {
-    var save = JSON.stringify(mf), was = JSON.parse(save);
-    mf.layers = { infection: true, deaths: true, alerts: true, cluster: true, increase: true, burial: false, probable: false, facility: false, holding: false, contacts: false };
-    mf.level = 'province'; mf.week = 0; mf.approvedOnly = !B.st.f.showPending; mf.cls = { suspected: true, probable: true, confirmed: true }; mf.geo = Object.assign({}, B.st.f); delete mf.geo.days; mf.days = B.st.f.days || '30';
-    var all = collectAll(windowRange()), saveVB = mf.vb; mf.vb = null;
-    var html = '<div class="mapmini">' + staticSVG(aggregate(all.filter(function (it) { return mf.layers[it.layer]; })), values(all, 'province')) + (BND ? '<div class="mscale-mini">' + (function () { var i = mf.ind; mf.ind = 'cases'; var h = scaleLegend(); mf.ind = i; return h; })() + '</div>' : '') + '</div>';
-    Object.assign(mf, was); mf.vb = saveVB;
+    var was = JSON.parse(JSON.stringify(mf)), saveVB = mf.vb;
+    mf.week = 0; mf.approvedOnly = !B.st.f.showPending; mf.cls = { suspected: true, probable: true, confirmed: true };
+    mf.geo = Object.assign({}, B.st.f); delete mf.geo.days; mf.days = B.st.f.days || '30';
+    var vals = values(collectAll(windowRange()), 'zone'), ind = mf.ind; mf.ind = 'cases';
+    var nz = Object.keys(vals.cases).filter(function (k) { return vals.cases[k]; }).length;
+    var box = BND ? affectedBox(vals.cases) : null;
+    var html = '<div class="mapmini' + (box ? ' two' : '') + '"><figure><figcaption>' + L('Pays entier', 'Whole country') + '</figcaption>' + staticSVG(vals) + '</figure>' +
+      (box ? '<figure><figcaption>' + L('Zone touchée', 'Affected area') + '</figcaption>' + staticSVG(vals, box) + '</figure>' : '') + '</div>' +
+      (BND ? '<div class="mscale-mini">' + scaleLegend() + '</div><p class="small muted">' + nz + ' ' + L('zone(s) de santé avec des cas dans la période.', 'health zone(s) with cases in the period.') + '</p>' : '');
+    Object.assign(mf, was); mf.vb = saveVB; mf.ind = ind;
     return html;
   };
   B.mapApi = { anchor: anchor, LAYERS: LAYERS, IND: IND, UNITS: UNITS, state: mf, select: function (k) { select(k); }, zoomTo: function (k) { zoomTo(k); }, values: function () { return cur && cur.vals; } };

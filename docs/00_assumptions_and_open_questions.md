@@ -23,7 +23,7 @@ Everything below was assumed provisionally in order to build the design and prot
 | 17 | Who may enter and see laboratory results in the tool | Lab status | INRB, MoH |
 | 18 | Whether vaccination status (Ervebo or any BDBV candidate vaccine used in trials) must be recorded somewhere, now that it is no longer collected at triage | Investigation form | MoH, WHO, trial sponsors |
 | 19 | AI voice capture: hosting model (on-device / MoH server / hybrid), speech and AI providers, data-processing agreements, consent wording, acceptance thresholds from a validation study | Module A, document 05 §5.7 | MoH, DSNIS, legal counsel, ethics committee |
-| 21 | Supplied list 1 (26 names) treated as PROVINCES and list 2 as HEALTH ZONES; zone→province links taken from the supplied boundary file (26 November 2026), to be confirmed. "Banzow Moke" assumed to be "Banjow Moke" in the file | Geography, map | DSNIS / provincial health divisions |
+| 21 | Supplied list 1 (26 names) treated as PROVINCES and list 2 as HEALTH ZONES; zone→province links taken from the supplied boundary file (26 November 2026), to be confirmed. "Banzow Moke" is "Banjow Moke" in the file (same zone, confirmed by the project on 26 November 2026) | Geography, map | DSNIS / provincial health divisions |
 | 22 | Definitions of DT, DRO and ICT, and the meaning of "Respiratory breathing" | Symptom list, scoring | Clinical and surveillance teams |
 | 23 | TAT targets (1 h / 4 h / 24 h / 12 h), contact visit frequency (daily, overdue after 36 h), follow-up period (21 days) | Verification queue, contacts | Surveillance (INSP/DSE), WHO guidance |
 | 24 | Map reference points: provincial capitals and same-name towns from GeoNames; no boundaries until official shapefiles are supplied | Map | DSNIS / GRID3 |

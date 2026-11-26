@@ -183,8 +183,8 @@ details.evx { border: 0; padding: 2px 0; }
 .card li, .card p { overflow-wrap: anywhere; }
 
 /* =====================================================================
-   Visual identity (v0.5). Colours of version 1 (navy, slate neutrals,
-   rust banner). Emphasis (active tab, focus, selection on the map) uses
+   Visual identity (v0.5). Colours of version 1 (navy, slate neutrals).
+   Disclaimers in graphite, the black of the IDΣMU logo. Emphasis (active tab, focus, selection on the map) uses
    one less common colour, mulberry, which is not used for any category.
    Hairline panels, condensed type for headings and numbers, mono for IDs.
    ===================================================================== */
@@ -202,20 +202,21 @@ details.evx { border: 0; padding: 2px 0; }
   --brand: #0f3d5e; --brand-2: #0b2a41; --accent: #0f3d5e; --hl: #a01a6b; --hl-ink: #ffffff; --hl-bg: #fbe8f3;
   --red: #b91c1c; --red-bg: #fde8e8; --amber: #b45309; --amber-bg: #fef3c7; --green: #15803d; --green-bg: #dcfce7;
   --warn-bg: #fff7ed; --flag: #9a3412; --radius: 3px;
+  --disc: #262e36; --disc-ink: #eef2f5; --disc-tint: #eef1f4;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f172a; --card: #1e293b; --ink: #e5e7eb; --muted: #94a3b8; --line: #334155; --line-strong: #475569;
     --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #f08ac6; --hl-ink: #2a0619; --hl-bg: #3d1230;
     --red: #fca5a5; --red-bg: #451a1a; --amber: #fcd34d; --amber-bg: #422c06; --green: #86efac; --green-bg: #0f3320;
-    --warn-bg: #3a2310; --flag: #fdba74; color-scheme: dark;
+    --warn-bg: #3a2310; --flag: #fdba74; --disc: #0b1017; --disc-ink: #dde4ea; --disc-tint: #1c2631; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f172a; --card: #1e293b; --ink: #e5e7eb; --muted: #94a3b8; --line: #334155; --line-strong: #475569;
     --brand: #0b2a41; --brand-2: #08202f; --accent: #7cb3d9; --hl: #f08ac6; --hl-ink: #2a0619; --hl-bg: #3d1230;
     --red: #fca5a5; --red-bg: #451a1a; --amber: #fcd34d; --amber-bg: #422c06; --green: #86efac; --green-bg: #0f3320;
-    --warn-bg: #3a2310; --flag: #fdba74; color-scheme: dark;
+    --warn-bg: #3a2310; --flag: #fdba74; --disc: #0b1017; --disc-ink: #dde4ea; --disc-tint: #1c2631; color-scheme: dark;
 }
 
 html, body { font-family: var(--font-body); font-size: 15.5px; line-height: 1.5; background: var(--bg); color: var(--ink); }
@@ -225,11 +226,11 @@ h3 { font-size: 18px; } h4 { font-size: 15.5px; text-transform: uppercase; lette
 code, .acc-user { font-family: var(--font-mono); font-size: 12.5px; background: none; padding: 0; letter-spacing: -.01em; }
 
 /* Banner and header */
-.banner { background: #7c2d12; color: #fff; font-family: var(--font-head); font-weight: 600; font-size: 13px; letter-spacing: .02em; text-align: left; padding: 3px max(16px, env(safe-area-inset-left, 0px)); }
+.banner { background: var(--disc); color: var(--disc-ink); border-bottom: 3px solid var(--hl); font-family: var(--font-head); font-weight: 600; font-size: 13px; letter-spacing: .02em; text-align: left; padding: 3px max(16px, env(safe-area-inset-left, 0px)); }
 .top { background: var(--brand); padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); align-items: center; }
 .brand { display: flex; align-items: center; gap: 10px; }
 .logo { width: 42px; height: 42px; object-fit: contain; background: #fff; border-radius: 4px; padding: 3px; flex: 0 0 auto; }
-.signin-logo { display: block; width: 84px; height: 84px; object-fit: contain; margin: 0 0 10px; }
+.signin-logo { display: block; width: min(280px, 100%); height: auto; margin: 0 0 14px; }
 .top h1 { font-family: var(--font-head); font-weight: 700; font-size: 20px; letter-spacing: .03em; text-transform: uppercase; color: #fff; }
 .top p { font-size: 12px; color: #c7d6e2; opacity: 1; }
 .ctrls { gap: 8px; }
@@ -393,7 +394,17 @@ label { font-size: 13.5px; }
 .mrank tr[data-rank]:hover td { background: var(--bg); }
 .mrank tr.on td { background: var(--hl-bg); }
 .mrank th.hl { color: var(--hl); }
-.mapmini { max-width: 380px; }
-.mapmini .dmap { max-width: 380px; display: block; background: var(--map-sea); }
+.mapmini { display: grid; grid-template-columns: minmax(0, 560px); gap: 12px; }
+.mapmini.two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 1000px; }
+@media (max-width: 760px) { .mapmini.two { grid-template-columns: minmax(0, 1fr); } }
+.mapmini figure { margin: 0; }
+.mapmini figcaption { font-family: var(--font-head); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
+.mapmini .dmap { width: 100%; height: auto; display: block; background: var(--map-sea); border: 1px solid var(--line); }
 .mscale-mini .mscale { position: static; margin-top: 4px; border: 0; padding: 0; background: none; }
 @media (max-width: 760px) { .mapwrap { grid-template-columns: minmax(0, 1fr); } .dmap.zm { max-height: 70vh; } .mapbox .mscale { position: static; max-width: none; border: 0; border-top: 1px solid var(--line); background: var(--card); } .mzoom button { width: 38px; height: 38px; } }
+
+/* Disclaimers: graphite (the black of the IDΣMU logo), not a warning colour */
+.note { background: var(--disc-tint); color: var(--ink); border-left: 3px solid var(--disc); border-radius: 0; padding: 8px 10px; }
+.demo-flag { background: var(--disc-tint); color: var(--ink); border: 0; border-left: 3px solid var(--disc); text-align: left; padding: 5px 10px; }
+.mapmini .dmap .uz { fill: var(--map-land); }
+.mapmini-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between; }

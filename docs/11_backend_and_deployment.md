@@ -184,7 +184,7 @@ node tools/import_boundaries.js --zones data/boundaries/DRC_admin_boundaries_ADM
 ```
 
 Results (full detail in `docs/boundaries_import_report.md`):
-- all 26 provinces and all 26 supplied health zones matched. "Banzow Moke" is spelt "Banjow Moke" in the file (Maï-Ndombe, P-code CD330201) and was matched through the alias above, which needs confirming;
+- all 26 provinces and all 26 supplied health zones matched. "Banzow Moke" is spelt "Banjow Moke" in the file (Maï-Ndombe, P-code CD330201) and was matched through the alias above. The project confirmed on 26 November 2026 that they are the same zone; the map shows "also written Banjow Moke";
 - the other 493 health zones are drawn for context and carry no data in this pilot;
 - the file gives a province for every supplied zone. It agrees with the 22 links proposed earlier and fills the 4 that were unassigned: Baka → Haut-Lomami, Banga Lubaka → Kasaï, Bangabola → Sud-Ubangi, Banzow Moke → Mai-Ndombe. The app now uses these links, marked "from the official boundary file (to confirm)";
 - `prototype/boundaries.js` is 379 KB.

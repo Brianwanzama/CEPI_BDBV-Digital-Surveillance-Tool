@@ -219,6 +219,14 @@ const assert = require('assert');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#mcsv')]);
   assert.ok(/carte_surveillance.*\.csv$/.test(dl.suggestedFilename()));
   ok('map: official boundaries (26 provinces, 519 zones), shading by indicator, hover card, marker details, search and zoom, profile with trend, playback, comparison, CSV');
+  const optBj = await page.$$eval('#munits option', os => os.map(o => o.value).find(v => /^Banjow Moke/.test(v)));
+  await page.fill('#msearch', optBj); await page.dispatchEvent('#msearch', 'change');
+  assert.strictEqual(await db(() => BDBV.mapApi.state.sel), 'Z:Z-banzow-moke', 'other spelling finds the same zone');
+  assert.ok(/Banjow Moke/.test(await page.textContent('#mpanel')) && /CD330201/.test(await page.textContent('#mpanel')));
+  await tab('dashboard');
+  const mini = await db(() => ({ panels: document.querySelectorAll('.mapmini figure').length, zones: document.querySelectorAll('.mapmini figure:first-child .uz').length, shaded: [...document.querySelectorAll('.mapmini figure:first-child .uz')].filter(p => p.style.fill).length }));
+  assert.ok(mini.panels === 2 && mini.zones === 519 && mini.shaded > 0, 'dashboard map from the boundaries, with affected-area panel: ' + JSON.stringify(mini));
+  ok('dashboard map uses the official boundaries (zones shaded, affected-area panel); Banjow Moke spelling finds Banzow Moke');
 
   // ---- Reports (§13) ----
   await tab('reports');
