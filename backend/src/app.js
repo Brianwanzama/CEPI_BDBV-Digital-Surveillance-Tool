@@ -330,7 +330,9 @@ function createApp(pool, opts = {}) {
 
   app.use('/api/v1', api);
   if (opts.serveApp !== false && process.env.SERVE_APP !== 'false') {
-    app.use(express.static(path.join(__dirname, '..', '..', 'prototype'), { index: 'index.html', maxAge: '5m' }));
+    // The service worker and the page must never be cached by the browser, so updates reach users at once.
+    app.use(express.static(path.join(__dirname, '..', '..', 'prototype'), { index: 'index.html', maxAge: '5m',
+      setHeaders: (res, file) => { if (/(sw\.js|index\.html)$/.test(file)) res.setHeader('Cache-Control', 'no-cache'); } }));
   }
   app.use('/api', (req, res) => res.status(404).json({ error: 'not_found' }));
   // eslint-disable-next-line no-unused-vars
