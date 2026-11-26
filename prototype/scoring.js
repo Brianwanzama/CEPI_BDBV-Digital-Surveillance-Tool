@@ -60,6 +60,14 @@
     Object.keys(rules.domains).forEach(function (k) { dom[k] = { observed: 0, potential: 0 }; });
 
     var contributions = [];
+    // Correlated symptoms share a group cap (rules.groups), so ticking more of them
+    // does not add points freely.
+    var groups = rules.groups || {};
+    var grp = {};
+    Object.keys(groups).forEach(function (g) { grp[g] = { observed: 0, potential: 0 }; });
+    function addPts(it, kind, pts) {
+      if (it.group && grp[it.group]) grp[it.group][kind] += pts; else dom[it.domain][kind] += pts;
+    }
     var presentObs = {};   // known present
     var presentPot = {};   // present or unknown
     var scored = 0, answered = 0;
@@ -89,17 +97,27 @@
       if (it.points > 0) {
         scored++;
         if (s !== 'unk') answered++; else unknownItems.push(it.id);
-        if (counted) dom[it.domain].observed += it.points;
-        if (counted || s === 'unk') dom[it.domain].potential += it.points;
+        if (counted) addPts(it, 'observed', it.points);
+        if (counted || s === 'unk') addPts(it, 'potential', it.points);
       }
+      if (counted && it.severity) notes.push('SEVERITY_SIGN:' + it.id);
       contributions.push({
-        id: it.id, domain: it.domain, points: it.points, tier: it.tier,
+        id: it.id, domain: it.domain, points: it.points, tier: it.tier, group: it.group || null,
         status: outOfWindow ? 'out_of_window' : s,
         counted: counted && it.points > 0
       });
     });
 
     if (input.deceased) { presentObs.deceased = true; presentPot.deceased = true; }
+
+    // Fold capped group totals into their domains.
+    var groupScores = {};
+    Object.keys(grp).forEach(function (g) {
+      var cap = groups[g].cap, dm = groups[g].domain || 'clinical';
+      groupScores[g] = { observed: Math.min(grp[g].observed, cap), raw: grp[g].observed, cap: cap };
+      dom[dm].observed += Math.min(grp[g].observed, cap);
+      dom[dm].potential += Math.min(grp[g].potential, cap);
+    });
 
     function total(kind) {
       var sum = 0;
@@ -148,6 +166,8 @@
       rule_set: rules.rule_set_id + ' v' + rules.version,
       score: score,
       domain_scores: domainScores,
+      group_scores: groupScores,
+      severity_signs: notes.filter(function (n) { return n.indexOf('SEVERITY_SIGN:') === 0; }).map(function (n) { return n.split(':')[1]; }),
       algorithm_category: algorithmCategory,
       category: finalCategory,
       floors_applied: obs.floors,

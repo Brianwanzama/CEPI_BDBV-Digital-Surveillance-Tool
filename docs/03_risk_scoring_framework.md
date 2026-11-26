@@ -3,6 +3,12 @@
 > **Status: DRAFT v0.1.0-provisional. Not validated. Not for operational use.**
 > The machine-readable version of this matrix is [`config/scoring_rules.json`](../config/scoring_rules.json). The prototype reads that file, so the table below and the running system cannot drift apart.
 
+## 3.0 Changes in rule set v0.2 (follow-up brief §12)
+- The symptom list now uses the **23 supplied symptoms**, with labels exactly as supplied. Nausea and jaundice were removed. Anorexia (tier B, 4 points: Guinea OR 2.5, Liberia, DRC), joint pain (C, 2), cough (0), other non-haemorrhagic signs (0, free text), DT, DRO and ICT (0, **unexpanded until defined**), respiratory breathing (0, meaning to confirm), coma (0, **flags urgent review**) and hiccups (D, 1) were added. "Bruising and bleeding" became "Hemorrhagic syndrome" (A, 15).
+- **Correlation groups** stop correlated symptoms from adding up freely: gastro-intestinal (vomiting, diarrhoea, anorexia, abdominal pain) capped at 8; aches (headaches, joint pain, muscle pain) capped at 3; neurological (confusion, coma) capped at 3. These caps apply before the clinical domain cap of 45.
+- Floor F1 counts ≥ 3 of the updated compatible-symptom list.
+- The tables below describe v0.1. The machine-readable v0.2 matrix (with groups) is `config/scoring_rules.json` and is shown in the app (*Scoring rules* tab).
+
 ## 3.1 What the score is and is not
 
 - The output is a **BDBV suspicion score from 0 to 100**. It is an ordinal index: a higher score means more of the features associated with Ebola disease are present. It is **not a probability of infection**, and the 70 and 50 cut-offs are **not percentages of anything**. The user brief describes the thresholds as "70%" and "50%". This design keeps the numbers but drops the percent sign in the interface, because no validated statistical model supports a probabilistic reading.

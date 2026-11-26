@@ -1,42 +1,82 @@
 /*
- * DEMONSTRATION geography. Province and health-zone names are real DRC
- * entities, but health areas, villages, facilities and all coordinates are
- * FICTITIOUS placeholders. In deployment this file is replaced by the official
- * DRC master lists (SNIS / DHIS2 org-unit hierarchy and master facility list),
- * with official codes and GPS coordinates. Names are given in French (name_fr)
- * and English (name_en); the app shows the one for the interface language.
- * x/y are schematic map coordinates (0-600 / 0-380), not GPS.
+ * Geography master (v2).
+ *
+ * SUPPLIED LISTS (project brief §11), kept with their exact names:
+ *  - List 1 ("health zones / geographical areas"): the 26 names match the 26 provinces created in
+ *    2015, so they are loaded as PROVINCES. Classification flagged for confirmation.
+ *  - List 2 ("provinces / local administrative locations"): loaded as HEALTH ZONES, not provinces.
+ *    Their province links are PROPOSALS (status "proposed") from general knowledge, not from an
+ *    official source; four are left unassigned. The system administrator confirms or changes them
+ *    (Configuration tab); nothing here is presented as verified.
+ * DEMO: health areas, villages and facilities below exist only to exercise the prototype. They are
+ * fictitious, marked "(démo)", and have NO coordinates. In deployment they come from DHIS2/SNIS.
  */
 (function () {
-  var zones = [
-    { id: 'Z-BUN', province: 'P-ITU', name: 'Bunia', cx: 330, cy: 120 },
-    { id: 'Z-RWA', province: 'P-ITU', name: 'Rwampara', cx: 250, cy: 170 },
-    { id: 'Z-MGB', province: 'P-ITU', name: 'Mongbwalu', cx: 360, cy: 50 },
-    { id: 'Z-BEN', province: 'P-NKV', name: 'Beni', cx: 250, cy: 290 },
-    { id: 'Z-BUT', province: 'P-NKV', name: 'Butembo', cx: 330, cy: 340 }
+  var PROVINCES = ['Bas-Uele', 'Equateur', 'Haut-Katanga', 'Haut-Lomami', 'Haut-Uele', 'Ituri', 'Kasaï', 'Kasaï-Central', 'Kasaï-Oriental',
+    'Kinshasa', 'Kongo-Central', 'Kwango', 'Kwilu', 'Lomami', 'Lualaba', 'Mai-Ndombe', 'Maniema', 'Mongala', 'Nord-Kivu', 'Nord-Ubangi',
+    'Sankuru', 'Sud-Kivu', 'Sud-Ubangi', 'Tanganyika', 'Tshopo', 'Tshuapa'];
+  var EN = { 'Equateur': 'Equateur', 'Nord-Kivu': 'North Kivu', 'Sud-Kivu': 'South Kivu', 'Nord-Ubangi': 'North Ubangi', 'Sud-Ubangi': 'South Ubangi', 'Kongo-Central': 'Kongo Central' };
+  var slug = function (s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
+  var pid = function (name) { return 'P-' + slug(name); };
+
+  var provinces = PROVINCES.map(function (n) { return { id: pid(n), name_fr: n, name_en: EN[n] || n, name_sw: n, supplied: true }; });
+  provinces.push({ id: 'P-tbc', name_fr: '(province à confirmer)', name_en: '(province to confirm)', name_sw: '(jimbo la kuthibitisha)', placeholder: true });
+
+  // Supplied health zones with PROPOSED province (null = unassigned until confirmed).
+  var ZONES = [
+    ['Aba', 'Haut-Uele'], ['Abuzi', 'Nord-Ubangi'], ['Adi', 'Ituri'], ['Adja', 'Ituri'], ['Aketi', 'Bas-Uele'], ['Alimbongo', 'Nord-Kivu'],
+    ['Alunguli', 'Maniema'], ['Ango', 'Bas-Uele'], ['Angumu', 'Ituri'], ['Ankoro', 'Tanganyika'], ['Ariwara', 'Ituri'], ['Aru', 'Ituri'],
+    ['Aungba', 'Ituri'], ['Bafwagbogbo', 'Tshopo'], ['Bafwasende', 'Tshopo'], ['Bagata', 'Kwilu'], ['Bagira', 'Sud-Kivu'], ['Baka', null],
+    ['Bambo', 'Nord-Kivu'], ['Bambu', 'Ituri'], ['Banalia', 'Tshopo'], ['Bandalungwa', 'Kinshasa'], ['Bandundu', 'Kwilu'],
+    ['Banga Lubaka', null], ['Bangabola', null], ['Banzow Moke', null]
   ];
+  var zones = ZONES.map(function (z) {
+    var p = z[1] ? pid(z[1]) : 'P-tbc';
+    return { id: 'Z-' + slug(z[0]), name: z[0], province: p, province_default: p, link_status: z[1] ? 'proposed' : 'unassigned', supplied: true };
+  });
+
+  // Demo health areas / villages / facilities (fictitious, no coordinates).
+  var DEMO_ZONES = ['Z-aru', 'Z-ariwara', 'Z-adi', 'Z-angumu', 'Z-bambu', 'Z-alimbongo', 'Z-bafwasende'];
   var areas = [], villages = [], facilities = [];
-  var offsets = [[-35, -20], [30, 15], [-10, 35]];
-  zones.forEach(function (z, zi) {
+  DEMO_ZONES.forEach(function (zid) {
+    var z = zones.filter(function (x) { return x.id === zid; })[0];
+    var code = z.name.slice(0, 3).toUpperCase();
     for (var a = 1; a <= 2; a++) {
-      var aid = z.id + '-A' + a;
-      var acx = z.cx + (a === 1 ? -32 : 32), acy = z.cy + (a === 1 ? -6 : 10);
-      areas.push({ id: aid, zone: z.id, name_fr: 'AS ' + z.name + ' ' + a + ' (démo)', name_en: 'HA ' + z.name + ' ' + a + ' (demo)' });
-      facilities.push({ id: aid + '-F', area: aid, code: z.id.slice(2) + a, name_fr: 'CS ' + z.name + ' ' + a + ' (démo)', name_en: 'HC ' + z.name + ' ' + a + ' (demo)', x: acx, y: acy });
-      for (var v = 0; v < 3; v++) {
-        villages.push({
-          id: aid + '-V' + (v + 1), area: aid,
-          name_fr: 'Village ' + z.name.slice(0, 3).toUpperCase() + '-' + a + (v + 1) + ' (démo)',
-          name_en: 'Village ' + z.name.slice(0, 3).toUpperCase() + '-' + a + (v + 1) + ' (demo)',
-          x: acx + offsets[v][0] * 0.6 + (zi % 2) * 4, y: acy + offsets[v][1] * 0.6
-        });
+      var aid = zid + '-A' + a;
+      areas.push({ id: aid, zone: zid, name_fr: 'AS ' + z.name + ' ' + a + ' (démo)', name_en: 'HA ' + z.name + ' ' + a + ' (demo)', name_sw: 'EA ' + z.name + ' ' + a + ' (demo)', demo: true });
+      facilities.push({ id: aid + '-F', area: aid, type: 'hc', code: code + a, name_fr: 'CS ' + z.name + ' ' + a + ' (démo)', name_en: 'HC ' + z.name + ' ' + a + ' (demo)', name_sw: 'KA ' + z.name + ' ' + a + ' (demo)', demo: true });
+      for (var v = 1; v <= 3; v++) {
+        var nm = 'Village ' + code + '-' + a + v;
+        villages.push({ id: aid + '-V' + v, area: aid, name_fr: nm + ' (démo)', name_en: nm + ' (demo)', name_sw: 'Kijiji ' + code + '-' + a + v + ' (demo)', demo: true });
       }
     }
   });
-  window.BDBV_GEO = {
-    provinces: [{ id: 'P-ITU', name_fr: 'Ituri', name_en: 'Ituri' }, { id: 'P-NKV', name_fr: 'Nord-Kivu', name_en: 'North Kivu' }],
-    zones: zones, areas: areas, villages: villages, facilities: facilities,
-    // Health zones flagged as having active transmission (to be maintained by national surveillance)
-    affected_zones: ['Z-BUN', 'Z-RWA', 'Z-MGB']
+  // Demo holding / isolation units
+  [['Z-aru-A1', 'holding', 'UT Aru (démo)', 'Holding unit Aru (demo)', 'Kituo cha kusubiri Aru (demo)', 'ARUT'],
+   ['Z-adi-A1', 'holding', 'UT Adi (démo)', 'Holding unit Adi (demo)', 'Kituo cha kusubiri Adi (demo)', 'ADIT'],
+   ['Z-ariwara-A1', 'isolation', 'CTE Ariwara (démo)', 'ETC Ariwara (demo)', 'Kituo cha matibabu Ariwara (demo)', 'ARIC']].forEach(function (h) {
+    facilities.push({ id: h[0] + '-' + h[5], area: h[0], type: h[1], code: h[5], name_fr: h[2], name_en: h[3], name_sw: h[4], demo: true });
+  });
+
+  var G = {
+    provinces: provinces, zones: zones, areas: areas, villages: villages, facilities: facilities,
+    facility_types: { hc: ['Centre de santé', 'Health centre', 'Kituo cha afya'], hospital: ['Hôpital', 'Hospital', 'Hospitali'], holding: ['Unité de transit / dépistage', 'Holding / screening unit', 'Kituo cha kusubiri'], isolation: ['Centre de traitement / isolement', 'Treatment / isolation centre', 'Kituo cha kutenga'] },
+    // DEMO scenario only: zones flagged "active transmission" for the synthetic data.
+    affected_zones: ['Z-aru', 'Z-ariwara', 'Z-adi'],
+    // Apply administrator configuration (stored in db.config.geo) on top of the defaults.
+    applyConfig: function (cfg) {
+      cfg = cfg || {};
+      var links = cfg.zone_province || {}, conf = cfg.confirmed || {};
+      zones.forEach(function (z) {
+        z.province = links[z.id] || z.province_default;
+        z.link_status = conf[z.id] ? 'confirmed' : (links[z.id] ? 'set_by_admin' : (z.province_default === 'P-tbc' ? 'unassigned' : 'proposed'));
+      });
+      (cfg.added_zones || []).forEach(function (x) { if (!zones.some(function (z) { return z.id === x.id; })) zones.push(Object.assign({ province_default: x.province, link_status: 'set_by_admin' }, x)); });
+      (cfg.added_areas || []).forEach(function (x) { if (!areas.some(function (a) { return a.id === x.id; })) areas.push(x); });
+      (cfg.added_villages || []).forEach(function (x) { if (!villages.some(function (a) { return a.id === x.id; })) villages.push(x); });
+      (cfg.added_facilities || []).forEach(function (x) { if (!facilities.some(function (a) { return a.id === x.id; })) facilities.push(x); });
+      if (cfg.affected_zones) G.affected_zones = cfg.affected_zones.slice();
+    }
   };
+  window.BDBV_GEO = G;
 })();

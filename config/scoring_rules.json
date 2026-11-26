@@ -1,6 +1,6 @@
 {
   "rule_set_id": "BDBV-TRIAGE",
-  "version": "0.1.0-provisional",
+  "version": "0.2.0-provisional",
   "status": "DRAFT - NOT VALIDATED - NOT FOR OPERATIONAL USE",
   "effective_date": null,
   "approved_by": null,
@@ -10,6 +10,12 @@
       "date": "2026-11-26",
       "author": "Design team (draft)",
       "summary": "First provisional rule set. Points are ordinal evidence tiers converted to points by expert judgement; they are NOT fitted coefficients. Requires calibration on DRC line-list data and approval by the DRC Ministry of Health (INSP / PNLFHV), INRB and clinical/IPC experts."
+    },
+    {
+      "version": "0.2.0-provisional",
+      "date": "2026-11-26",
+      "author": "Design team (draft)",
+      "summary": "Symptom list replaced by the 23 supplied symptoms (labels as supplied). Nausea and jaundice removed; anorexia, joint pain, cough, other signs, DT, respiratory breathing, coma, hiccups, DRO, ICT added. DT/DRO/ICT unexpanded and unscored pending definitions. Correlation groups (gi, pain, neuro) with group caps so that correlated symptoms do not add up freely. Coma flags urgent clinical review without scoring."
     }
   ],
   "output_label": "Score de suspicion BDBV (0-100) - indice ordinal, PAS une probabilite d'infection",
@@ -61,9 +67,10 @@
       "core": true,
       "points": 10,
       "tier": "A",
-      "label_fr": "Fievre (rapportee ou >= 38,0 C)",
-      "label_en": "Fever (reported or >= 38.0 C)",
-      "rationale": "Entry criterion of WHO suspected-case definition; temperature > 38.5 C was the strongest independent predictor in Guinea (OR 18.1); in Sierra Leone pyrexia was among 7 characteristics with highest odds. Low specificity in malaria-endemic settings.",
+      "label_en": "Fever",
+      "label_fr": "Fièvre",
+      "label_sw": "Homa",
+      "rationale": "Entry criterion of the WHO suspected-case definition; temperature > 38.5 C strongest predictor in Guinea (OR 18.1); pyrexia among the highest-odds characteristics in Sierra Leone. Low specificity where malaria is common.",
       "sources": [
         "WHO-CD",
         "LOUBET-2016",
@@ -71,83 +78,19 @@
       ]
     },
     {
-      "id": "bleeding",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": true,
-      "points": 15,
-      "tier": "A",
-      "label_fr": "Saignement inexplique / ecchymoses (gencives, hematemese, autre)",
-      "label_en": "Unexplained bleeding / bruising (gums, haematemesis, other)",
-      "rationale": "Unexplained bleeding is part of WHO suspected-case definition. Gingival bleeding and haematemesis were independent predictors in both DRC derivation studies; haemorrhage in Sierra Leone. Often absent early, so absence must not reassure.",
-      "sources": [
-        "WHO-CD",
-        "YANGO-2024",
-        "TSHOMBA-2022",
-        "HARTLEY-2017"
-      ]
-    },
-    {
       "id": "asthenia",
       "kind": "symptom",
       "domain": "clinical",
-      "core": false,
-      "points": 4,
-      "tier": "B",
-      "label_fr": "Asthenie / fatigue intense (ajout propose)",
-      "label_en": "Severe weakness / fatigue (proposed addition)",
-      "rationale": "Independent predictor in both DRC derivation studies (asthenia; fatigue). Not in the original field list - proposed addition.",
-      "sources": [
-        "YANGO-2024",
-        "TSHOMBA-2022"
-      ]
-    },
-    {
-      "id": "conjunctivitis",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": false,
-      "points": 4,
-      "tier": "B",
-      "label_fr": "Yeux rouges / conjonctivite (ajout propose)",
-      "label_en": "Red eyes / conjunctivitis (proposed addition)",
-      "rationale": "Predictor in both DRC studies (conjunctivitis; red eyes) and in Sierra Leone. Proposed addition.",
-      "sources": [
-        "YANGO-2024",
-        "TSHOMBA-2022",
-        "HARTLEY-2017"
-      ]
-    },
-    {
-      "id": "dysphagia",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": false,
-      "points": 4,
-      "tier": "B",
-      "label_fr": "Difficulte a avaler (ajout propose)",
-      "label_en": "Difficulty swallowing (proposed addition)",
-      "rationale": "Predictor in DRC (Tshomba), Liberia (Levine) and Sierra Leone (Hartley). Proposed addition.",
-      "sources": [
-        "TSHOMBA-2022",
-        "LEVINE-2015",
-        "HARTLEY-2017"
-      ]
-    },
-    {
-      "id": "diarrhoea",
-      "kind": "symptom",
-      "domain": "clinical",
       "core": true,
       "points": 4,
       "tier": "B",
-      "label_fr": "Diarrhee",
-      "label_en": "Diarrhoea",
-      "rationale": "Independent predictor in Liberia and Sierra Leone; listed WHO symptom.",
+      "label_en": "Fatigue",
+      "label_fr": "Fatigue",
+      "label_sw": "Uchovu",
+      "rationale": "Asthenia/fatigue independent predictor in both DRC derivation studies.",
       "sources": [
-        "LEVINE-2015",
-        "HARTLEY-2017",
-        "WHO-CD"
+        "YANGO-2024",
+        "TSHOMBA-2022"
       ]
     },
     {
@@ -157,8 +100,10 @@
       "core": true,
       "points": 4,
       "tier": "B",
-      "label_fr": "Vomissements",
+      "group": "gi",
       "label_en": "Vomiting",
+      "label_fr": "Vomissements",
+      "label_sw": "Kutapika",
       "rationale": "Independently associated with confirmed EVD in DRC 10th-outbreak validation; listed WHO symptom.",
       "sources": [
         "KEBELA-2026",
@@ -166,62 +111,21 @@
       ]
     },
     {
-      "id": "sore_throat",
+      "id": "diarrhoea",
       "kind": "symptom",
       "domain": "clinical",
       "core": true,
-      "points": 3,
-      "tier": "C",
-      "label_fr": "Mal de gorge",
-      "label_en": "Sore throat",
-      "rationale": "Predictor in one DRC derivation study (Yango).",
-      "sources": [
-        "YANGO-2024"
-      ]
-    },
-    {
-      "id": "confusion",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": false,
-      "points": 3,
-      "tier": "C",
-      "label_fr": "Confusion (ajout propose)",
-      "label_en": "Confusion (proposed addition)",
-      "rationale": "Predictor in one DRC study (Tshomba). Proposed addition.",
-      "sources": [
-        "TSHOMBA-2022"
-      ]
-    },
-    {
-      "id": "abdominal_pain",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": true,
-      "points": 2,
-      "tier": "C",
-      "label_fr": "Douleur abdominale",
-      "label_en": "Abdominal pain",
-      "rationale": "Conflicting: associated with confirmed EVD in DRC (Kebela) but its ABSENCE was predictive in Liberia (Levine). Low weight pending local data.",
-      "sources": [
-        "KEBELA-2026",
-        "LEVINE-2015"
-      ]
-    },
-    {
-      "id": "myalgia",
-      "kind": "symptom",
-      "domain": "clinical",
-      "core": true,
-      "points": 2,
-      "tier": "C",
-      "label_fr": "Douleurs musculaires et articulaires",
-      "label_en": "Muscle and joint pain",
-      "rationale": "Conflicting: positive predictor in Liberia and DRC (Kebela), but more predictive of EVD-negative/malaria in Sierra Leone (Hartley). Low weight.",
+      "points": 4,
+      "tier": "B",
+      "group": "gi",
+      "label_en": "Diarrhea",
+      "label_fr": "Diarrhée",
+      "label_sw": "Kuhara",
+      "rationale": "Independent predictor in Liberia and Sierra Leone; listed WHO symptom.",
       "sources": [
         "LEVINE-2015",
-        "KEBELA-2026",
-        "HARTLEY-2017"
+        "HARTLEY-2017",
+        "WHO-CD"
       ]
     },
     {
@@ -231,36 +135,222 @@
       "core": true,
       "points": 2,
       "tier": "C",
-      "label_fr": "Cephalees",
-      "label_en": "Headache",
-      "rationale": "Listed among compatible symptoms in WHO definitions; not an independent predictor in the derivation studies reviewed. Very non-specific.",
+      "group": "pain",
+      "label_en": "Headaches",
+      "label_fr": "Maux de tête",
+      "label_sw": "Maumivu ya kichwa",
+      "rationale": "Listed WHO symptom; not an independent predictor in the derivation studies reviewed.",
       "sources": [
         "WHO-CD"
       ]
     },
     {
-      "id": "nausea",
+      "id": "anorexia",
       "kind": "symptom",
       "domain": "clinical",
       "core": true,
-      "points": 1,
+      "points": 4,
+      "tier": "B",
+      "group": "gi",
+      "label_en": "Anorexia",
+      "label_fr": "Anorexie (perte d'appétit)",
+      "label_sw": "Kukosa hamu ya kula",
+      "rationale": "Anorexia/loss of appetite independently associated with EVD in Guinea (OR 2.5), Liberia and DRC (Kebela).",
+      "sources": [
+        "LOUBET-2016",
+        "LEVINE-2015",
+        "KEBELA-2026"
+      ]
+    },
+    {
+      "id": "abdominal_pain",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 2,
+      "tier": "C",
+      "group": "gi",
+      "label_en": "Abdominal pain",
+      "label_fr": "Douleurs abdominales",
+      "label_sw": "Maumivu ya tumbo",
+      "rationale": "Conflicting: associated with EVD in DRC (Kebela) but its absence was predictive in Liberia (Levine).",
+      "sources": [
+        "KEBELA-2026",
+        "LEVINE-2015"
+      ]
+    },
+    {
+      "id": "joint_pain",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 2,
+      "tier": "C",
+      "group": "pain",
+      "label_en": "Joint pain",
+      "label_fr": "Douleurs articulaires",
+      "label_sw": "Maumivu ya viungo",
+      "rationale": "Part of \"muscle/joint pain\" in earlier studies; conflicting evidence (favours malaria in Sierra Leone).",
+      "sources": [
+        "LEVINE-2015",
+        "HARTLEY-2017"
+      ]
+    },
+    {
+      "id": "myalgia",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 2,
+      "tier": "C",
+      "group": "pain",
+      "label_en": "Muscle pain",
+      "label_fr": "Douleurs musculaires",
+      "label_sw": "Maumivu ya misuli",
+      "rationale": "Positive predictor in Liberia and DRC (Kebela); more predictive of EVD-negative/malaria in Sierra Leone (Hartley).",
+      "sources": [
+        "LEVINE-2015",
+        "KEBELA-2026",
+        "HARTLEY-2017"
+      ]
+    },
+    {
+      "id": "cough",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
       "tier": "D",
-      "label_fr": "Nausees",
-      "label_en": "Nausea",
-      "rationale": "No independent predictive evidence found; overlaps with vomiting. Minimal weight.",
+      "label_en": "Cough",
+      "label_fr": "Toux",
+      "label_sw": "Kikohozi",
+      "rationale": "Not a predictor in the studies reviewed; collected for differential diagnosis. Zero weight.",
       "sources": []
     },
     {
-      "id": "jaundice",
+      "id": "other_signs",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "label_en": "Other non-hemorrhagic clinical signs",
+      "label_fr": "Autres signes cliniques non hémorragiques",
+      "label_sw": "Dalili nyingine zisizo za kutokwa damu",
+      "rationale": "Free-text clinical detail; not scored.",
+      "sources": [],
+      "details": true
+    },
+    {
+      "id": "dt",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "label_en": "DT *",
+      "label_fr": "DT *",
+      "label_sw": "DT *",
+      "rationale": "Abbreviation retained as supplied; definition to be confirmed by the clinical and surveillance teams. Not scored until defined.",
+      "sources": [],
+      "to_confirm": true
+    },
+    {
+      "id": "respiratory",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "label_en": "Respiratory breathing",
+      "label_fr": "Respiration (signe respiratoire)",
+      "label_sw": "Kupumua (dalili ya kupumua)",
+      "rationale": "Label kept as supplied; exact definition (e.g. difficulty breathing) to confirm. Dyspnoea is a prognostic (severity) sign in Hartley 2017, not a diagnostic predictor. Not scored.",
+      "sources": [
+        "HARTLEY-2017"
+      ],
+      "to_confirm": true
+    },
+    {
+      "id": "bleeding",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 15,
+      "tier": "A",
+      "label_en": "Hemorrhagic syndrome",
+      "label_fr": "Syndrome hémorragique",
+      "label_sw": "Dalili za kutokwa damu",
+      "rationale": "Unexplained bleeding is part of the WHO suspected-case definition; gingival bleeding and haematemesis predictive in both DRC studies. Often late: absence does not reassure.",
+      "sources": [
+        "WHO-CD",
+        "YANGO-2024",
+        "TSHOMBA-2022",
+        "HARTLEY-2017"
+      ],
+      "details": true
+    },
+    {
+      "id": "dysphagia",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 4,
+      "tier": "B",
+      "label_en": "Difficulty swallowing",
+      "label_fr": "Difficulté à avaler",
+      "label_sw": "Shida ya kumeza",
+      "rationale": "Predictor in DRC (Tshomba), Liberia (Levine) and Sierra Leone (Hartley).",
+      "sources": [
+        "TSHOMBA-2022",
+        "LEVINE-2015",
+        "HARTLEY-2017"
+      ]
+    },
+    {
+      "id": "sore_throat",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 3,
+      "tier": "C",
+      "label_en": "Sore throat",
+      "label_fr": "Mal de gorge",
+      "label_sw": "Maumivu ya koo",
+      "rationale": "Predictor in one DRC derivation study (Yango).",
+      "sources": [
+        "YANGO-2024"
+      ]
+    },
+    {
+      "id": "coma",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "group": "neuro",
+      "label_en": "Coma",
+      "label_fr": "Coma",
+      "label_sw": "Kupoteza fahamu (koma)",
+      "rationale": "Severity sign; no diagnostic-predictor evidence found. Not scored, but flags urgent clinical review.",
+      "sources": [],
+      "severity": true
+    },
+    {
+      "id": "hiccups",
       "kind": "symptom",
       "domain": "clinical",
       "core": true,
       "points": 1,
       "tier": "D",
-      "label_fr": "Ictere (jaunisse)",
-      "label_en": "Jaundice",
-      "rationale": "Not a characteristic early Ebola sign; points more to yellow fever, hepatitis or severe malaria. Kept for differential diagnosis; minimal weight.",
-      "sources": []
+      "label_en": "Hiccups",
+      "label_fr": "Hoquet",
+      "label_sw": "Kwikwi",
+      "rationale": "Described in EVD and prognostic in Hartley 2017 (severity), not shown as a diagnostic predictor. Minimal weight.",
+      "sources": [
+        "HARTLEY-2017"
+      ]
     },
     {
       "id": "rash",
@@ -269,10 +359,73 @@
       "core": true,
       "points": 0,
       "tier": "D",
-      "label_fr": "Eruption cutanee",
       "label_en": "Skin rash",
-      "rationale": "Collected for clinical description (distribution, appearance, type) and differential diagnosis (e.g. mpox, measles). Zero weight until BDBV-specific evidence is available.",
-      "sources": []
+      "label_fr": "Éruption cutanée",
+      "label_sw": "Upele",
+      "rationale": "Collected for description and differential diagnosis (e.g. mpox, measles). Zero weight.",
+      "sources": [],
+      "details": true
+    },
+    {
+      "id": "conjunctivitis",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 4,
+      "tier": "B",
+      "label_en": "Conjunctivitis",
+      "label_fr": "Conjonctivite",
+      "label_sw": "Macho mekundu (kiwambo)",
+      "rationale": "Predictor in both DRC studies (conjunctivitis; red eyes) and in Sierra Leone.",
+      "sources": [
+        "YANGO-2024",
+        "TSHOMBA-2022",
+        "HARTLEY-2017"
+      ]
+    },
+    {
+      "id": "confusion",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 3,
+      "tier": "C",
+      "group": "neuro",
+      "label_en": "Confusion",
+      "label_fr": "Confusion",
+      "label_sw": "Kuchanganyikiwa",
+      "rationale": "Predictor in one DRC study (Tshomba).",
+      "sources": [
+        "TSHOMBA-2022"
+      ]
+    },
+    {
+      "id": "dro",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "label_en": "DRO *",
+      "label_fr": "DRO *",
+      "label_sw": "DRO *",
+      "rationale": "Abbreviation retained as supplied; definition to be confirmed. Not scored until defined.",
+      "sources": [],
+      "to_confirm": true
+    },
+    {
+      "id": "ict",
+      "kind": "symptom",
+      "domain": "clinical",
+      "core": true,
+      "points": 0,
+      "tier": "D",
+      "label_en": "ICT *",
+      "label_fr": "ICT *",
+      "label_sw": "ICT *",
+      "rationale": "Abbreviation retained as supplied; definition to be confirmed. Not scored until defined.",
+      "sources": [],
+      "to_confirm": true
     },
     {
       "id": "contact_case",
@@ -293,7 +446,8 @@
         "YANGO-2024",
         "LEVINE-2015",
         "HARTLEY-2017"
-      ]
+      ],
+      "label_sw": "Kugusana na mgonjwa anayeshukiwa, anayewezekana au aliyethibitishwa kuwa na Ebola"
     },
     {
       "id": "funeral",
@@ -309,7 +463,8 @@
       "rationale": "Direct contact with the body of a deceased case is a recognised high-risk exposure in WHO contact definitions.",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kushiriki katika kuandaa maiti au mazishi ya mtu anayeshukiwa/aliyethibitishwa kuwa na Ebola"
     },
     {
       "id": "lab_exposure",
@@ -325,7 +480,8 @@
       "rationale": "Exposure to laboratory biological material is treated as a contact exposure in WHO definitions.",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kugusana na sampuli zinazoweza kuambukiza katika maabara"
     },
     {
       "id": "sexual_contact",
@@ -341,7 +497,8 @@
       "rationale": "Recognised transmission route including from survivors; treated as a contact exposure. Weight slightly below direct-care contact pending BDBV-specific data.",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kufanya ngono na mgonjwa anayeshukiwa/aliyethibitishwa (au aliyepona)"
     },
     {
       "id": "contaminated_env",
@@ -357,7 +514,8 @@
       "rationale": "Contact with soiled clothing/linen/body fluids is part of WHO contact definition; lower than direct contact as exposure is less certain.",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kugusa mazingira au vitu vilivyochafuliwa (nguo, matandiko, majimaji ya mwili)"
     },
     {
       "id": "sick_or_dead_contact",
@@ -375,7 +533,8 @@
         "YANGO-2024",
         "LEVINE-2015",
         "HARTLEY-2017"
-      ]
+      ],
+      "label_sw": "Kugusana na mtu mgonjwa au aliyefariki kwa ugonjwa usioelezeka unaofanana"
     },
     {
       "id": "bats_bushmeat",
@@ -391,7 +550,8 @@
       "rationale": "Plausible zoonotic spill-over route listed in WHO guidance; during established human-to-human transmission its discriminative value is likely low. Moderate weight; recalibrate.",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kuwinda, kushika, kuchinja au kula popo / nyama ya porini"
     },
     {
       "id": "traditional_healer",
@@ -407,7 +567,8 @@
       "rationale": "Independent predictor in DRC (Yango); proxy for contact with sick people. Proposed addition.",
       "sources": [
         "YANGO-2024"
-      ]
+      ],
+      "label_sw": "Kumtembelea mganga wa kienyeji / mahali pa maombi ya uponyaji (nyongeza inayopendekezwa)"
     },
     {
       "id": "health_facility_exposure",
@@ -423,7 +584,8 @@
       "rationale": "WHO toolbox lists contact with a hospital treating Ebola cases and injections in the preceding 21 days as risk factors (nosocomial transmission).",
       "sources": [
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kutembelea au kutibiwa katika kituo kilichopokea wagonjwa wa Ebola, au kupewa sindano (nyongeza inayopendekezwa)"
     },
     {
       "id": "affected_area",
@@ -440,7 +602,8 @@
       "sources": [
         "ECDC-2026",
         "WHO-CD"
-      ]
+      ],
+      "label_sw": "Kuishi au kusafiri katika eneo la afya lenye maambukizi (siku 21)"
     }
   ],
   "floors": [
@@ -465,13 +628,16 @@
                     "vomiting",
                     "diarrhoea",
                     "asthenia",
+                    "anorexia",
                     "headache",
                     "myalgia",
+                    "joint_pain",
                     "abdominal_pain",
                     "dysphagia",
                     "conjunctivitis",
                     "sore_throat",
-                    "confusion"
+                    "confusion",
+                    "hiccups"
                   ],
                   "min": 3
                 }
@@ -488,7 +654,8 @@
           }
         ]
       },
-      "requires_confirmation": "Must be replaced by the exact current DRC national (PNLFHV/INSP) suspected-case definition for BDBV."
+      "requires_confirmation": "Must be replaced by the exact current DRC national (PNLFHV/INSP) suspected-case definition for BDBV.",
+      "label_sw": "Inalingana na muundo wa ufafanuzi wa WHO wa mgonjwa anayeshukiwa: dalili zinazofanana + kugusana kwa hatari kubwa ndani ya siku 21"
     },
     {
       "id": "F2_HAEMORRHAGIC_FEVER",
@@ -509,7 +676,8 @@
           }
         ]
       },
-      "requires_confirmation": "Confirm whether national guidance classifies this as suspected case (RED) in affected provinces."
+      "requires_confirmation": "Confirm whether national guidance classifies this as suspected case (RED) in affected provinces.",
+      "label_sw": "Homa pamoja na kutokwa damu bila sababu (dalili za kutokwa damu) - hata bila kugusana kunakojulikana"
     },
     {
       "id": "F3_UNEXPLAINED_DEATH",
@@ -532,7 +700,8 @@
           }
         ]
       },
-      "requires_confirmation": "Aligns with WHO/ECDC probable-case logic for deceased persons; confirm national procedure (safe burial, post-mortem swab)."
+      "requires_confirmation": "Aligns with WHO/ECDC probable-case logic for deceased persons; confirm national procedure (safe burial, post-mortem swab).",
+      "label_sw": "Kifo cha ghafla kisichoelezeka cha mtu kutoka eneo lenye maambukizi (tathmini baada ya kifo)"
     }
   ],
   "community": {
@@ -552,29 +721,34 @@
         "level": 0,
         "min_points": 0,
         "label_fr": "Aucun signal",
-        "label_en": "No signal"
+        "label_en": "No signal",
+        "label_sw": "Hakuna ishara"
       },
       {
         "level": 1,
         "min_points": 1,
         "label_fr": "Vigilance",
-        "label_en": "Watch"
+        "label_en": "Watch",
+        "label_sw": "Tahadhari"
       },
       {
         "level": 2,
         "min_points": 4,
         "label_fr": "Preoccupation elevee",
-        "label_en": "Elevated concern"
+        "label_en": "Elevated concern",
+        "label_sw": "Wasiwasi mkubwa"
       },
       {
         "level": 3,
         "min_points": 8,
         "label_fr": "Preoccupation forte - investigation prioritaire",
-        "label_en": "High concern - priority investigation"
+        "label_en": "High concern - priority investigation",
+        "label_sw": "Wasiwasi mkubwa sana - uchunguzi wa kipaumbele"
       }
     ],
     "advisory_fr": "Des signaux communautaires recents existent dans la zone du patient. Ils ne modifient PAS le score individuel, mais le clinicien doit en tenir compte : abaisser le seuil de discussion avec la surveillance, verifier les expositions, et envisager une reevaluation.",
-    "advisory_en": "Recent community signals exist in the patient's area. They do NOT change the individual score, but the clinician should consider them: lower the threshold to discuss with surveillance, re-check exposures and consider reassessment."
+    "advisory_en": "Recent community signals exist in the patient's area. They do NOT change the individual score, but the clinician should consider them: lower the threshold to discuss with surveillance, re-check exposures and consider reassessment.",
+    "advisory_sw": "Kuna ishara za hivi karibuni za jamii katika eneo la mgonjwa. HAZIBADILISHI alama ya mgonjwa, lakini mhudumu anapaswa kuzizingatia: zungumza mapema na timu ya ufuatiliaji, hakikisha tena kuhusu kugusana, na fikiria tathmini upya."
   },
   "early_warning": {
     "baseline_weeks": 4,
@@ -582,6 +756,31 @@
     "min_sd": 1,
     "min_count": 2,
     "note": "Statistical signal only: current week > mean + 2 SD of previous 4 weeks. Not an outbreak confirmation.",
-    "note_fr": "Signal statistique uniquement : semaine en cours > moyenne + 2 écarts-types des 4 semaines précédentes. Ce n'est pas la confirmation d'une épidémie."
-  }
+    "note_fr": "Signal statistique uniquement : semaine en cours > moyenne + 2 écarts-types des 4 semaines précédentes. Ce n'est pas la confirmation d'une épidémie.",
+    "note_sw": "Ishara ya kitakwimu tu: wiki hii > wastani + mikengeuko 2 ya kawaida ya wiki 4 zilizopita. Si uthibitisho wa mlipuko."
+  },
+  "groups": {
+    "gi": {
+      "cap": 8,
+      "label_en": "Gastro-intestinal (vomiting, diarrhea, anorexia, abdominal pain)",
+      "label_fr": "Digestif (vomissements, diarrhée, anorexie, douleurs abdominales)",
+      "rationale": "Usually part of one gastro-intestinal syndrome; capped so four GI symptoms count 8 rather than 14."
+    },
+    "pain": {
+      "cap": 3,
+      "label_en": "Aches (headaches, joint pain, muscle pain)",
+      "label_fr": "Douleurs (tête, articulations, muscles)",
+      "rationale": "Non-specific and highly correlated (also typical of malaria); capped at 3."
+    },
+    "neuro": {
+      "cap": 3,
+      "label_en": "Neurological (confusion, coma)",
+      "label_fr": "Neurologique (confusion, coma)",
+      "rationale": "Coma implies altered consciousness; counted once."
+    }
+  },
+  "severity_signs": [
+    "coma"
+  ],
+  "output_label_sw": "Alama ya kushuku BDBV (0-100) - kipimo cha mpangilio, SI uwezekano wa maambukizi"
 }

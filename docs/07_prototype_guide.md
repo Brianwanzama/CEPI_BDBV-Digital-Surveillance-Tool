@@ -39,11 +39,27 @@ Where it works: in the published claude.ai page, dictation and AI extraction wor
 | **Surveillance (HZ/DPS)** | *Verification*: set event status; see linked facility assessments from the same village. *Assessments*: names hidden. *Dashboard*: filters, map (click a village), trends with statistical signals. *Scoring rules*: full matrix, sources; change thresholds → new local version, logged in the *Audit log*. |
 | **Policymaker (aggregate)** | Dashboard only (aggregated). Switch the language to French. |
 
+## 7.4b Version 2 walk-through (one role at a time, from the role menu)
+| Role | Try this |
+|---|---|
+| **Public (report an event)** | Fill in the simple form (Kiswahili available), tick "stay anonymous", send → you get a reference number |
+| **Surveillance officer** | *Verification*: filter Source = Rumour, open the alert → acknowledge → assign → start → record the outcome → approve. Turnaround medians and overdue alerts at the top. *Contacts*: register a contact for a RED case, add a visit with 38.6 °C → "developed symptoms" → refer. *Map*: toggle layers A–E, click a marker, move the week slider, tick "compare", switch to zone level to see the "not mapped" list, download CSV/Excel/PDF. *Reports*: 10 report types × 3 formats; identifiers need a reason. *Analysis*: occupation, age × sex |
+| **Health worker** | *Assessments*: the referred contact appears at the top → *Start triage* (pre-filled) → save. *Laboratory*: register the sample |
+| **Laboratory personnel** | Open the sample → record custody steps → *Release result*. A positive result is what confirms the case |
+| **Clinician** | *Case management*: move a case to a holding unit (transfer recorded); home-based care is disabled until the administrator enables it |
+| **Facility head** | Facility dashboard: activity, timeliness, bottlenecks; no names |
+| **HZ surveillance officer / Prov.-nat. administrator** | Same surveillance views; administrators see aggregates only |
+| **System administrator** | *Configuration*: zone→province links (confirm / change), add units, TAT targets, follow-up period, home-care flag, affected zones, permission matrix |
+
 ## 7.5 Files
 | File | Role |
 |---|---|
 | `index.html`, `styles.css` | Shell and responsive styles (light/dark) |
 | `app.js` | Screens, workflows, storage, demo data |
+| `geodata.js`, `geo.js` | Map data (generated, real sources) and supplied geography |
+| `modules/*.js` | v2 modules |
+| `i18n-sw.js` | Congolese Kiswahili |
+| `vendor/` | SheetJS, jsPDF (offline export) |
 | `voice.js` | Voice-capture extraction: AI prompt and validation, offline keyword extractor |
 | `scoring.js` | Scoring engine, community concern, early warning (pure functions, shared with tests) |
 | `rules.js` | Generated from `config/scoring_rules.json` by `node tools/build_rules.js` |

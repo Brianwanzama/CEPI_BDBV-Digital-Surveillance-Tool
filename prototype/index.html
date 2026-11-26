@@ -14,7 +14,7 @@
   <div class="brand"><h1 id="title"></h1><p id="subtitle"></p></div>
   <div class="ctrls">
     <label><span class="sr">Role / Rôle</span><select id="role" aria-label="Role / Rôle"></select></label>
-    <label><span class="sr">Language / Langue</span><select id="lang" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option></select></label>
+    <label><span class="sr">Language / Langue</span><select id="lang" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option><option value="sw">Kiswahili</option></select></label>
     <label class="net"><input type="checkbox" id="net" checked> <span id="netdot" class="dot on"></span> <span id="netlabel"></span></label>
     <button id="syncbtn" class="ghost"></button>
   </div>
@@ -24,12 +24,28 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <div id="ask" class="ask" hidden></div>
 <footer class="foot" id="foot"></footer>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
 <script src="rules.js"></script>
+<script src="geodata.js"></script>
 <script src="geo.js"></script>
 <script src="i18n.js"></script>
+<script src="i18n-sw.js"></script>
 <script src="scoring.js"></script>
 <script src="voice.js"></script>
 <script src="app.js"></script>
+<script src="modules/workflow.js"></script>
+<script src="modules/rumour.js"></script>
+<script src="modules/contacts.js"></script>
+<script src="modules/lab.js"></script>
+<script src="modules/casemgmt.js"></script>
+<script src="modules/map.js"></script>
+<script src="modules/facility.js"></script>
+<script src="modules/reports.js"></script>
+<script src="modules/analysis.js"></script>
+<script src="modules/admin.js"></script>
+<script src="modules/seed2.js"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     navigator.serviceWorker.register('sw.js').catch(function () {});

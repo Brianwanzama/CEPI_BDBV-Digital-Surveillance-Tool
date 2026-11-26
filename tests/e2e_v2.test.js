@@ -1,0 +1,231 @@
+// End-to-end integration test of the v2 modules on synthetic data (headless Chromium).
+// Run: node tests/e2e_v2.test.js
+const { chromium } = require('playwright');
+const path = require('path');
+const fs = require('fs');
+const assert = require('assert');
+
+(async () => {
+  const url = 'file://' + path.join(__dirname, '..', 'prototype', 'index.html');
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1100, height: 900 }, acceptDownloads: true });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('dialog', d => d.accept());
+  await page.goto(url);
+  const role = async (r) => { await page.selectOption('#role', r); };
+  const tab = async (t) => { await page.click('[data-tab="' + t + '"]'); };
+  const db = (fn, arg) => page.evaluate(fn, arg);
+  const view = () => page.textContent('#view');
+  let n = 0; const ok = (m) => { n++; console.log('ok -', m); };
+
+  // ---- Geography (§11) ----
+  const geo = await db(() => ({ prov: BDBV.G.provinces.filter(p => p.supplied).map(p => p.name_fr), zones: BDBV.G.zones.filter(z => z.supplied).map(z => z.name), unassigned: BDBV.G.zones.filter(z => z.link_status === 'unassigned').map(z => z.name) }));
+  assert.strictEqual(geo.prov.length, 26); assert.strictEqual(geo.zones.length, 26);
+  assert.ok(geo.prov.includes('Ituri') && geo.zones.includes('Banzow Moke'));
+  assert.deepStrictEqual(geo.unassigned.sort(), ['Baka', 'Banga Lubaka', 'Bangabola', 'Banzow Moke']);
+  ok('supplied lists loaded: 26 provinces, 26 health zones; 4 zone links left unassigned for confirmation');
+
+  // ---- Symptoms (§12) ----
+  await page.selectOption('#lang', 'en');
+  await role('soignant'); await tab('triage');
+  const symLabels = await page.$$eval('.row[data-item] .ilabel', els => els.map(e => e.firstChild.textContent.trim()));
+  ['Fever', 'Fatigue', 'Anorexia', 'Joint pain', 'Cough', 'DT *', 'Respiratory breathing', 'Hemorrhagic syndrome', 'Coma', 'Hiccups', 'DRO *', 'ICT *'].forEach(l => assert.ok(symLabels.includes(l) || symLabels.includes(l + ' *'), 'symptom ' + l));
+  assert.strictEqual(symLabels.length, 23 + 10, '23 symptoms + 10 exposures');
+  assert.ok(/definition to confirm/.test(await page.textContent('.row[data-item="dt"]')));
+  ok('triage form shows the 23 supplied symptoms; DT/DRO/ICT flagged "definition to confirm"');
+
+  // ---- Public rumour (§7) ----
+  await page.selectOption('#lang', 'fr');
+  await role('public');
+  assert.deepStrictEqual(await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab'))), ['rumour']);
+  await page.click('input[name=ptype][value=death_unexplained]', { force: true });
+  await page.selectOption('[name=p_zone]', 'Z-aru');
+  await page.fill('[name=pdesc]', 'Deux décès soudains dans la même famille');
+  await page.fill('[name=pdeaths]', '2');
+  await page.check('[name=panon]');
+  await page.click('#pf button[type=submit]');
+  await page.waitForSelector('.card.ok');
+  const rumId = (await page.textContent('.card.ok code')).trim();
+  const rq = await db((id) => { const q = BDBV.queue.byRef(id); return { src: q.source, approved: BDBV.isApproved(id), anon: q.reporter.anonymous, urgent: q.urgent }; }, rumId);
+  assert.deepStrictEqual(rq, { src: 'rumour', approved: false, anon: true, urgent: true });
+  ok('public rumour submitted anonymously → enters queue, not approved, escalated (2 deaths)');
+
+  // ---- Verification workflow + TAT (§3) ----
+  await role('surveillant'); await tab('verify');
+  await page.selectOption('#qf-src', 'rumour'); await page.selectOption('#qf-b', 'to_ack');
+  await page.click('[data-qopen]:has-text("' + (await db((id) => BDBV.queue.byRef(id).id, rumId)) + '")');
+  await page.click('[data-step="acknowledged"]');
+  await page.click('[data-step="assigned"]');
+  await page.click('[data-step="started"]');
+  await page.selectOption('#qout', 'verified'); await page.fill('#qfind', 'Visite : 2 décès confirmés par l\'IT');
+  await page.click('[data-step="completed"]');
+  await page.click('[data-step="approved"]');
+  const rq2 = await db((id) => { const q = BDBV.queue.byRef(id); return { approved: BDBV.isApproved(id), outcome: q.outcome, stages: Object.keys(q.stages), dur: Object.keys(BDBV.queue.durations(q)).sort() }; }, rumId);
+  assert.ok(rq2.approved && rq2.outcome === 'verified');
+  assert.deepStrictEqual(rq2.stages, ['acknowledged', 'assigned', 'started', 'completed', 'approved']);
+  assert.deepStrictEqual(rq2.dur, ['ack', 'approve', 'complete', 'start']);
+  ok('7-step workflow: received → assigned → verification → outcome → approval; 4 turnaround intervals computed');
+  const dupOk = await db(() => { const qs = BDBV.db().queue.filter(q => !q.stages.started); const a = qs[0]; BDBV.queue.act(a, 'acknowledged'); BDBV.queue.act(a, 'assigned', { to: 'x' }); BDBV.queue.act(a, 'started'); BDBV.queue.complete(a, 'duplicate', '', qs[1].id); BDBV.queue.approve(a, false); return { inc: BDBV.isApproved(a.source_ref), dup: a.duplicate_of === qs[1].id }; });
+  assert.deepStrictEqual(dupOk, { inc: false, dup: true });
+  ok('duplicate outcome recorded and excluded from the dashboard');
+  const late = await db(() => { const q = BDBV.queue.submit({ source: 'rumour', source_ref: 'TEST', type: 'other', geo: {}, submitted_at: new Date(Date.now() - 3 * 3600000).toISOString() }); const o = BDBV.queue.overdue(q); BDBV.db().queue.shift(); return o; });
+  assert.ok(late.late && late.interval === 'ack');
+  ok('unacknowledged alert after 3 h flagged overdue against 1 h target');
+
+  // ---- Dashboard approval gate (§3) ----
+  await tab('dashboard');
+  const approvedTxt = await view();
+  await page.check('#fpending');
+  const allTxt = await view();
+  const rep = (t) => +((t.match(/(\d+)Rapports reçus/) || [])[1]);
+  assert.ok(rep(approvedTxt) < rep(allTxt), 'approved-only shows fewer reports ' + rep(approvedTxt) + ' < ' + rep(allTxt));
+  assert.ok(/Délais de traitement des alertes/.test(allTxt) && /0-9/.test(allTxt) && /70\+/.test(allTxt));
+  ok('dashboard counts only approved community reports by default; TAT indicators and age groups shown');
+
+  // ---- Contacts (§4) + referral to triage ----
+  const idx = await db(() => BDBV.db().assessments.find(a => a.result.category === 'RED').id);
+  await tab('contacts');
+  await page.click('#cnew summary');
+  await page.fill('[name=clast]', 'KASONGO'); await page.fill('[name=cfirst]', 'Amani');
+  await page.selectOption('[name=cage]', '20-29'); await page.selectOption('[name=csex]', 'F');
+  await page.selectOption('[name=c_village]', 'Z-aru-A1-V2');
+  await page.fill('[name=cidx]', idx);
+  await page.fill('[name=clast_exp]', new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10));
+  await page.click('#cform button[type=submit]');
+  await page.waitForSelector('#fuf');
+  await page.fill('[name=ftemp]', '38.6');
+  await page.click('#fuf button[type=submit]');
+  const ct = await db(() => BDBV.db().contacts.find(c => c.last === 'KASONGO'));
+  assert.strictEqual(ct.status, 'symptomatic'); assert.deepStrictEqual(ct.followups[0].symptoms, ['fever']);
+  await page.click('#cref');
+  await role('soignant'); await tab('patients');
+  assert.ok(/KASONGO Amani/.test(await view()), 'referral visible to health worker');
+  await page.click('[data-ctriage="' + ct.id + '"]');
+  assert.strictEqual(await page.inputValue('[name=last]'), 'KASONGO');
+  assert.ok(await page.isChecked('input[name=s_contact_case][value=yes]'));
+  await page.fill('[name=age]', '25'); await page.selectOption('[name=sex]', 'F');
+  await page.check('[name=onset_unk]'); await page.click('[data-item=fever] .o-yes span');
+  await page.click('#tf button[type=submit]'); await page.waitForSelector('.result');
+  const ct2 = await db((id) => { const c = BDBV.db().contacts.find(x => x.id === id); const a = BDBV.db().assessments.find(x => x.id === c.referred_assessment); return { status: c.status, cat: a.result.category, link: a.contact_id === id }; }, ct.id);
+  assert.deepStrictEqual(ct2, { status: 'suspected', cat: 'RED', link: true });
+  ok('contact registered → fever at follow-up → referred → triage pre-filled → RED → contact classified suspected');
+
+  // ---- Laboratory (§5) ----
+  const newCase = await db((id) => BDBV.db().contacts.find(x => x.id === id).referred_assessment, ct.id);
+  await tab('lab');
+  assert.strictEqual(await page.$('#lresb'), null, 'health worker cannot release results');
+  await page.click('#lnew summary');
+  await page.fill('[name=scase]', newCase); await page.fill('[name=scoll]', new Date(Date.now() - 2 * 3600000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+  await page.click('#lform button[type=submit]'); await page.waitForSelector('#ldetail h3');
+  assert.strictEqual(await db((id) => BDBV.db().assessments.find(a => a.id === id).classification.status, newCase), 'suspected', 'sample collection does not confirm');
+  await role('lab'); await tab('lab');
+  const sid = await db((id) => BDBV.labApi.latest(id).id, newCase);
+  await page.click('[data-sopen="' + sid + '"]');
+  await page.selectOption('#lns', 'in_transit'); await page.fill('#lfrom', 'FOSA Aru 1'); await page.fill('#lto', 'Transporteur'); await page.click('#lnsb');
+  await page.click('[data-sopen="' + sid + '"]');
+  await page.selectOption('#lns', 'received'); await page.click('#lnsb');
+  await page.click('[data-sopen="' + sid + '"]');
+  await page.selectOption('#lres', 'positive'); await page.click('#lresb'); await page.click('#askyes');
+  const lab = await db((id) => { const s = BDBV.labApi.latest(id); const a = BDBV.db().assessments.find(x => x.id === id); return { st: s.status, custody: s.custody.length, cls: a.classification.status, by: s.released_by }; }, newCase);
+  assert.strictEqual(lab.st, 'result_released'); assert.ok(lab.custody >= 4); assert.strictEqual(lab.cls, 'confirmed'); assert.ok(/Laborantin|lab/i.test(lab.by));
+  ok('sample registered → custody chain → result released by lab only → case confirmed only then');
+
+  // ---- Case management (§6) ----
+  await role('clinician'); await tab('casemgmt');
+  await page.click('[data-mopen="' + newCase + '"]');
+  assert.ok(await page.$eval('#mst option[value=home_care]', o => o.disabled), 'home care disabled by default');
+  await page.selectOption('#mst', 'in_holding'); await page.selectOption('#mloc', 'Z-aru-A1-ARUT'); await page.fill('#mresp', 'Dr Test');
+  await page.click('#msave');
+  const care = await db((id) => BDBV.db().assessments.find(a => a.id === id).care, newCase);
+  assert.strictEqual(care.status, 'in_holding'); assert.ok(care.history.some(h => h.transfer));
+  await role('sysadmin'); await tab('admin');
+  await page.check('#home'); await page.click('#hsave');
+  assert.ok(/référence|reference/i.test(await page.textContent('#toast')), 'protocol reference required');
+  await page.fill('#homeref', 'Protocole PNLFHV (référence test)'); await page.click('#hsave');
+  await role('clinician'); await tab('casemgmt'); await page.click('[data-mopen="' + newCase + '"]');
+  assert.ok(!(await page.$eval('#mst option[value=home_care]', o => o.disabled)), 'home care enabled after admin decision');
+  ok('care status and transfer recorded; home-based care only after admin records a protocol reference');
+
+  // ---- Admin geography (§11) ----
+  await role('sysadmin'); await tab('admin');
+  await page.selectOption('[data-zprov="Z-baka"]', 'P-kwilu'); await page.check('[data-zconf="Z-aru"]'); await page.click('#gsave');
+  const links = await db(() => ({ baka: BDBV.G.zones.find(z => z.id === 'Z-baka'), aru: BDBV.G.zones.find(z => z.id === 'Z-aru').link_status }));
+  assert.strictEqual(links.baka.province, 'P-kwilu'); assert.strictEqual(links.baka.link_status, 'set_by_admin'); assert.strictEqual(links.aru, 'confirmed');
+  ok('administrator sets/confirms zone→province links (audited)');
+
+  // ---- Facility head (§8) ----
+  await role('facility_head'); await tab('facility');
+  const fh = await view();
+  assert.ok(/Personnes dépistées/.test(fh) && /Goulots/.test(fh));
+  assert.ok(!/KASONGO|Testeur|DÉMO/.test(fh), 'no patient names');
+  ok('facility-head dashboard: activity, timeliness, bottlenecks, no names');
+
+  // ---- Map (§2) ----
+  await role('surveillant'); await tab('map');
+  const markers = await page.$$eval('.dmap [data-mk]', els => els.length);
+  assert.ok(markers > 0);
+  // every marker anchor must be a real gazetteer point (no invented coordinates)
+  const anchorsOk = await db(() => {
+    const GD = window.BDBV_GEODATA, pts = new Set();
+    Object.values(GD.provinces).forEach(p => p.lat != null && pts.add(p.lat + ',' + p.lon));
+    Object.values(GD.zones).forEach(z => pts.add(z.lat + ',' + z.lon));
+    const keys = [...document.querySelectorAll('.dmap [data-mk]')].map(e => e.getAttribute('data-mk'));
+    return keys.every(k => { const [lvl, id] = k.split(':'); const geo = lvl === 'P' ? { zone: BDBV.G.zones.find(z => z.province === id).id } : { zone: id }; const a = BDBV.mapApi.anchor(geo, lvl === 'P' ? 'province' : 'zone'); return a && pts.has(a.lat + ',' + a.lon); });
+  });
+  assert.ok(anchorsOk, 'all markers at gazetteer points');
+  await page.click('.dmap [data-mk]');
+  assert.ok(/Point de référence/.test(await page.textContent('#mdetail')));
+  await page.selectOption('#mlevel', 'zone');
+  assert.ok(/Non cartographiés/.test(await view()), 'zones without coordinates listed, not placed');
+  await page.uncheck('[data-layer="burial"]');
+  await page.check('#mcomp');
+  assert.ok(/Comparaison avec la période précédente/.test(await view()));
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#mcsv')]);
+  assert.ok(/carte_surveillance.*\.csv$/.test(dl.suggestedFilename()));
+  ok('map: markers only at real reference points, details on click, unmapped list, layers, period comparison, CSV export');
+
+  // ---- Reports (§13) ----
+  await tab('reports');
+  const types = await page.$$eval('#rtype option', o => o.map(x => x.value));
+  assert.strictEqual(types.length, 10);
+  for (const t of types) { await page.selectOption('#rtype', t); const rows = await db((tt) => BDBV.reportRows(tt, {}).rows.length, t); assert.ok(rows >= 1, t); }
+  await page.selectOption('#rtype', 'cases');
+  for (const fmt of ['csv', 'xlsx', 'pdf']) {
+    const [d] = await Promise.all([page.waitForEvent('download'), page.click('[data-fmt="' + fmt + '"]')]);
+    const p = await d.path(); assert.ok(fs.statSync(p).size > 500, fmt + ' size');
+    if (fmt === 'csv') assert.ok(!/KASONGO/.test(fs.readFileSync(p, 'utf8')), 'pseudonymised by default');
+  }
+  await page.check('#rid'); await page.click('[data-fmt="csv"]');
+  assert.ok(/motif|reason/i.test(await page.textContent('#toast')), 'reason required for identifiers');
+  await page.fill('#rreason', 'Investigation du cas index (test)'); await page.dispatchEvent('#rreason', 'change');
+  await page.check('#rid');
+  const [d2] = await Promise.all([page.waitForEvent('download'), page.click('[data-fmt="csv"]')]);
+  assert.ok(/KASONGO/.test(fs.readFileSync(await d2.path(), 'utf8')), 'identifiers included with reason');
+  assert.ok(await db(() => BDBV.db().audit.some(a => a.action === 'download' && /IDENTIFIERS/.test(a.detail))));
+  await role('decideur'); await tab('reports');
+  const dtypes = await page.$$eval('#rtype option', o => o.map(x => x.value));
+  assert.ok(!dtypes.includes('cases') && !dtypes.includes('contacts'), 'no line lists for administrators');
+  ok('10 report types; CSV/XLSX/PDF downloads; pseudonymised unless authorised with logged reason');
+
+  // ---- Analysis (§14) ----
+  await role('surveillant'); await tab('analysis');
+  const an = await view();
+  assert.ok(/ne prouve ni une exposition professionnelle ni une causalité/.test(an) && /70\+/.test(an));
+  ok('occupational & demographic analysis with no-causation notice and standard age groups');
+
+  // ---- Kiswahili (§10) ----
+  await page.selectOption('#lang', 'sw');
+  await role('reco'); await tab('reco');
+  assert.ok(/Ripoti ya jamii/.test(await view()) && /Vifo \(jumla\) katika kipindi/.test(await view()));
+  await tab('rumour');
+  assert.ok(/Ripoti tukio la kiafya/.test(await view()));
+  await role('soignant'); await tab('triage');
+  assert.ok(/Homa/.test(await view()) && /Dalili za kutokwa damu/.test(await view()));
+  await page.selectOption('#lang', 'fr');
+  ok('Kiswahili: RECO, rumour and triage workflows translated');
+
+  assert.deepStrictEqual(errors, [], 'no JS errors: ' + errors.join(' | '));
+  await browser.close();
+  console.log('\ne2e v2: ' + n + ' checks passed');
+})().catch(e => { console.error(e); process.exit(1); });

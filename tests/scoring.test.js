@@ -73,6 +73,29 @@ t('threshold change in config changes category without code change', () => {
   assert.strictEqual(r.score, 29); assert.strictEqual(r.category, 'AMBER');
 });
 
+t('v0.2: correlated symptoms are group-capped (GI max 8, aches max 3)', () => {
+  const r = S.evaluate(input({ vomiting: 'yes', diarrhoea: 'yes', anorexia: 'yes', abdominal_pain: 'yes', headache: 'yes', joint_pain: 'yes', myalgia: 'yes' }), rules);
+  assert.strictEqual(r.group_scores.gi.raw, 14); assert.strictEqual(r.group_scores.gi.observed, 8);
+  assert.strictEqual(r.group_scores.pain.observed, 3);
+  assert.strictEqual(r.score, 11);
+});
+
+t('v0.2: DT, DRO, ICT, cough and rash are collected but not scored', () => {
+  const r = S.evaluate(input({ dt: 'yes', dro: 'yes', ict: 'yes', cough: 'yes', rash: 'yes', respiratory: 'yes' }), rules);
+  assert.strictEqual(r.score, 0);
+});
+
+t('v0.2: coma flags a severity sign without adding points', () => {
+  const r = S.evaluate(input({ coma: 'yes' }), rules);
+  assert.strictEqual(r.score, 0); assert.deepStrictEqual(r.severity_signs, ['coma']);
+});
+
+t('v0.2: all 23 supplied symptoms are present with labels exactly as supplied', () => {
+  const supplied = ['Fever', 'Fatigue', 'Vomiting', 'Diarrhea', 'Headaches', 'Anorexia', 'Abdominal pain', 'Joint pain', 'Muscle pain', 'Cough', 'Other non-hemorrhagic clinical signs', 'DT *', 'Respiratory breathing', 'Hemorrhagic syndrome', 'Difficulty swallowing', 'Sore throat', 'Coma', 'Hiccups', 'Skin rash', 'Conjunctivitis', 'Confusion', 'DRO *', 'ICT *'];
+  assert.deepStrictEqual(rules.items.filter(i => i.kind === 'symptom').map(i => i.label_en), supplied);
+  rules.items.forEach(i => assert.ok(i.label_fr && i.label_sw, 'FR and SW label for ' + i.id));
+});
+
 t('deceased + affected area -> RED (F3)', () => {
   const r = S.evaluate(input({ affected_area: 'yes' }, { deceased: true }), rules);
   assert.strictEqual(r.category, 'RED');

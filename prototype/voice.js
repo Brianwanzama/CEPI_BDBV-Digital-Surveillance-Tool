@@ -29,21 +29,25 @@
   // Each pattern is tested on one clause (sentences split on . ; ! ? and
   // on "but"/"mais"). Accents are kept; matching is case-insensitive.
   var SYMPTOMS = {
-    fever: /fi[eè]vre|f[ée]bri|corps chaud|fever|feverish|high temperature/i,
-    bleeding: /saign|h[ée]morrag|ecchymo|bleed|haemorrh|hemorrh|bruis|vomi\w* (?:du |de )?sang|vomit\w* blood|sang dans|blood in/i,
-    asthenia: /fatigu|faiblesse|asth[ée]ni|weak|tired/i,
-    conjunctivitis: /yeux rouges|conjonctiv|red eyes|conjunctiv/i,
-    dysphagia: /avaler|dysphag|swallow/i,
-    diarrhoea: /diarrh/i,
-    vomiting: /vomi/i,
-    sore_throat: /mal (?:de|à la) gorge|maux de gorge|sore throat/i,
-    confusion: /confus|d[ée]sorient|disorient/i,
-    abdominal_pain: /mal au ventre|douleurs? abdominal|ventre|abdominal|stomach|belly/i,
-    myalgia: /courbature|douleurs? musculaire|douleurs? articulaire|articulations|muscle|joint pain|myalg|body ache/i,
-    headache: /mal (?:de|à la) t[êe]te|maux de t[êe]te|c[ée]phal|headache/i,
-    nausea: /naus[ée]/i,
-    jaundice: /jaunisse|ict[èe]re|yeux jaunes|yellow eyes|jaundice/i,
-    rash: /[ée]ruption|boutons sur|rash|spots on/i
+    fever: /fi[eè]vre|f[ée]bri|corps chaud|fever|feverish|high temperature|\bhoma\b/i,
+    asthenia: /fatigu|faiblesse|asth[ée]ni|weak|tired|uchovu|udhaifu/i,
+    vomiting: /vomi|kutapika|anatapika/i,
+    diarrhoea: /diarrh|kuhara|anahara/i,
+    headache: /mal (?:de|à la) t[êe]te|maux de t[êe]te|c[ée]phal|headache|maumivu ya kichwa|kichwa kinauma/i,
+    anorexia: /anorexi|app[ée]tit|appetite|hamu ya kula/i,
+    abdominal_pain: /mal au ventre|douleurs? abdominal|ventre|abdominal|stomach|belly|maumivu ya tumbo/i,
+    joint_pain: /douleurs? articulaire|articulations|joint|maumivu ya viungo/i,
+    myalgia: /courbature|douleurs? musculaire|muscle|myalg|body ache|maumivu ya misuli/i,
+    cough: /\btou(?:x|sse|sser)\b|cough|kikohozi|kukohoa/i,
+    respiratory: /respir|essouffl|dyspn|breath|kupumua/i,
+    bleeding: /saign|h[ée]morrag|ecchymo|bleed|haemorrh|hemorrh|bruis|vomi\w* (?:du |de )?sang|vomit\w* blood|sang dans|blood in|kutokwa (?:na )?damu/i,
+    dysphagia: /avaler|dysphag|swallow|kumeza/i,
+    sore_throat: /mal (?:de|à la) gorge|maux de gorge|sore throat|maumivu ya koo|koo linauma/i,
+    coma: /\bcoma\b|inconscient|unconscious|kupoteza fahamu/i,
+    hiccups: /hoquet|hiccup|kwikwi/i,
+    rash: /[ée]ruption|boutons sur|rash|spots on|upele/i,
+    conjunctivitis: /yeux rouges|conjonctiv|red eyes|conjunctiv|macho mekundu/i,
+    confusion: /confus|d[ée]sorient|disorient|kuchanganyikiwa/i
   };
   var EXPOSURES = {
     contact_case: /cas (?:d'ebola |)(?:confirm|suspect|probable)|(?:malade|patient) (?:d'|de l')?ebola|ebola (?:case|patient)|(?:confirmed|suspected|probable) (?:ebola )?case|contact (?:avec|with) (?:un |a )?cas/i,
@@ -57,7 +61,7 @@
     health_facility_exposure: /injection|piq[uû]re|perfusion|\bdrip\b/i,
     affected_area: null // built from the affected-zone names at run time
   };
-  var NEG = /(?:\bpas\b|\bsans\b|\baucun|\bjamais\b|\bni\b|\bno\b|\bnot\b|\bdenies\b|\bdenied\b|\bwithout\b|\bnever\b|\bnor\b|\bn'a\b|\bn'est\b|\bn'avait\b|\bnie\b|\bnié\b)/i;
+  var NEG = /(?:\bpas\b|\bsans\b|\baucun|\bjamais\b|\bni\b|\bno\b|\bnot\b|\bdenies\b|\bdenied\b|\bwithout\b|\bnever\b|\bnor\b|\bn'a\b|\bn'est\b|\bn'avait\b|\bnie\b|\bnié\b|\bhana\b|\bhakuna\b|\bbila\b|\bhakuwa\b|\bhajawahi\b)/i;
   var NUM = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, quinze: 15, vingt: 20,
     a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six_: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20 };
 

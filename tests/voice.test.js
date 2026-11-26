@@ -51,6 +51,18 @@ t('regressions: "funérailles" is not "ill"; bare occupation word is recognised'
   assert.strictEqual(get(r2, 'sick_or_dead_contact').status, 'yes');
 });
 
+t('v0.2 symptoms: anorexia, joint vs muscle pain, hiccups, cough; Kiswahili keywords and negation', () => {
+  const r = V.extractLocal("Anorexie, douleurs articulaires et hoquet. Pas de toux.", opts);
+  assert.strictEqual(get(r, 'anorexia').status, 'yes');
+  assert.strictEqual(get(r, 'joint_pain').status, 'yes');
+  assert.ok(!get(r, 'myalgia'), 'joint pain not mixed with muscle pain');
+  assert.strictEqual(get(r, 'hiccups').status, 'yes');
+  assert.strictEqual(get(r, 'cough').status, 'no');
+  const sw = V.extractLocal('Ana homa na anatapika. Hana kuhara.', opts);
+  assert.strictEqual(get(sw, 'fever').status, 'yes');
+  assert.strictEqual(get(sw, 'diarrhoea').status, 'no');
+});
+
 t('relative dates', () => {
   assert.strictEqual(V.relativeDays('il y a deux semaines'), 14);
   assert.strictEqual(V.relativeDays('hier'), 1);
