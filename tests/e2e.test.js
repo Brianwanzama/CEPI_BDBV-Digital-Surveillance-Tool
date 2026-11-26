@@ -51,13 +51,13 @@ const assert = require('assert');
   await page.click('[data-item=contact_case] .o-yes span');
   await page.fill('[name=d_contact_case]', expo);
   const liveTxt = await page.textContent('#live');
-  assert.ok(/ROUGE/.test(liveTxt), 'live shows RED');
+  assert.ok(/Risque élevé/.test(liveTxt), 'live shows high risk');
   assert.ok(/Contexte communautaire/.test(liveTxt), 'community context shown separately');
   await snap('02-triage-form');
   await page.click('#tf button[type=submit]');
   await page.waitForSelector('.sms');
   const res = await page.textContent('#view');
-  assert.ok(/ROUGE/.test(res) && /Isoler immédiatement/.test(res), 'result RED with actions');
+  assert.ok(/Risque élevé/.test(res) && /Isoler immédiatement/.test(res), 'result high risk with actions');
   await snap('03-result-red');
 
   // Section A.4 (history/travel/vaccination) has been removed
@@ -80,7 +80,7 @@ const assert = require('assert');
   assert.ok(await page.isChecked('input[name=s_funeral][value=yes]'), 'funeral exposure applied');
   assert.ok((await page.inputValue('[name=d_funeral]')).length === 10, 'exposure date applied');
   assert.ok(await page.$('.row.ai[data-item="fever"]'), 'AI-filled field highlighted');
-  assert.ok(/ROUGE/.test(await page.textContent('#live')), 'live result recomputed from applied answers');
+  assert.ok(/Risque élevé/.test(await page.textContent('#live')), 'live result recomputed from applied answers');
   await snap('07-voice-applied');
   await page.fill('[name=last]', 'Vocal'); await page.fill('[name=first]', 'Test');
   await page.selectOption('[name=g_village]', 'Z-aru-A1-V3');
@@ -116,7 +116,7 @@ const assert = require('assert');
   await page.click('[data-item=headache] .o-yes span');
   await page.click('#tf button[type=submit]');
   await page.waitForSelector('.result');
-  assert.ok(/VERT/.test(await page.textContent('.result')), 'GREEN result');
+  assert.ok(/Risque faible/.test(await page.textContent('.result')), 'low-risk result');
 
   // RECO role: offline report
   await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'reco');

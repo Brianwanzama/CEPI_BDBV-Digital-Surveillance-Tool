@@ -1,5 +1,8 @@
 # 3. Risk-scoring framework (provisional)
 
+> **Labels in the app (26 November 2026).** The three categories are shown to users as **High risk**, **Medium risk** and **Low risk** (French: risque élevé, moyen, faible; Kiswahili: hatari kubwa, ya wastani, ndogo), in red, amber and green. The score is called the *risk score*. This document and the data keep the codes RED, AMBER and GREEN, which mean the same three categories. The score is still an ordinal index, not a probability of infection.
+
+
 > **Status: DRAFT v0.1.0-provisional. Not validated. Not for operational use.**
 > The machine-readable version of this matrix is [`config/scoring_rules.json`](../config/scoring_rules.json). The prototype reads that file, so the table below and the running system cannot drift apart.
 

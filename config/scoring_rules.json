@@ -18,8 +18,8 @@
       "summary": "Symptom list replaced by the 23 supplied symptoms (labels as supplied). Nausea and jaundice removed; anorexia, joint pain, cough, other signs, DT, respiratory breathing, coma, hiccups, DRO, ICT added. DT/DRO/ICT unexpanded and unscored pending definitions. Correlation groups (gi, pain, neuro) with group caps so that correlated symptoms do not add up freely. Coma flags urgent clinical review without scoring."
     }
   ],
-  "output_label": "Score de suspicion BDBV (0-100) - indice ordinal, PAS une probabilite d'infection",
-  "output_label_en": "BDBV suspicion score (0-100) - ordinal index, NOT a probability of infection",
+  "output_label": "Score de risque BDBV (0-100) - indice ordinal, PAS une probabilité d'infection",
+  "output_label_en": "BDBV risk score (0-100) - ordinal index, NOT a probability of infection",
   "thresholds": {
     "red": 70,
     "amber": 50
@@ -782,5 +782,5 @@
   "severity_signs": [
     "coma"
   ],
-  "output_label_sw": "Alama ya kushuku BDBV (0-100) - kipimo cha mpangilio, SI uwezekano wa maambukizi"
+  "output_label_sw": "Alama ya hatari ya BDBV (0-100) - kipimo cha mpangilio, SI uwezekano wa maambukizi"
 }

@@ -86,7 +86,7 @@
   }
   // SMS preview built from the alert record, in the reader's language (GSM-friendly, minimal content).
   function smsText(a) {
-    return L('ALERTE BDBV ROUGE. Dossier ', 'BDBV RED ALERT. Record ') + a.assessment_id + ', ' + nm(G.facilities, a.facility) + ', ' + fmtDT(a.created_at) +
+    return L('ALERTE BDBV RISQUE ÉLEVÉ. Dossier ', 'BDBV HIGH-RISK ALERT. Record ') + a.assessment_id + ', ' + nm(G.facilities, a.facility) + ', ' + fmtDT(a.created_at) +
       L('. Ouvrir l\'application pour details. Repondre OK pour accuser reception.', '. Open the app for details. Reply OK to acknowledge.');
   }
 
@@ -275,7 +275,7 @@
     var actions = {
       reco: [['reco', L('Nouveau rapport communautaire', 'New community report')], ['rumour', L('Signaler une rumeur / un événement', 'Report a rumour / event')], ['myreports', L('Mes rapports et leur statut', 'My reports and status')]],
       soignant: [['triage', L('Nouvelle évaluation de triage', 'New triage assessment')], ['alerts', L('Alertes de ma FOSA', 'My facility alerts')], ['dashboard', L('Tableau de bord', 'Dashboard')]],
-      surveillant: [['verify', L('File de vérification des alertes', 'Alert verification queue')], ['contacts', L('Suivi des contacts', 'Contact follow-up')], ['map', L('Carte de surveillance', 'Surveillance map')], ['alerts', L('Suivre les alertes rouges', 'Follow red alerts')], ['dashboard', L('Tableau de bord intégré', 'Integrated dashboard')]],
+      surveillant: [['verify', L('File de vérification des alertes', 'Alert verification queue')], ['contacts', L('Suivi des contacts', 'Contact follow-up')], ['map', L('Carte de surveillance', 'Surveillance map')], ['alerts', L('Suivre les alertes à risque élevé', 'Follow high-risk alerts')], ['dashboard', L('Tableau de bord intégré', 'Integrated dashboard')]],
       decideur: [['map', L('Carte de surveillance', 'Surveillance map')], ['dashboard', L('Tableau de bord (agrégé)', 'Dashboard (aggregate)')], ['history', L('Données historiques', 'Historical data')], ['reports', L('Rapports', 'Reports')]],
       public: [['rumour', L('Signaler un événement', 'Report an event')]],
       clinician: [['casemgmt', L('Prise en charge des patients', 'Patient case management')], ['triage', L('Nouvelle évaluation de triage', 'New triage assessment')], ['alerts', L('Alertes de ma FOSA', 'My facility alerts')]],
@@ -289,7 +289,7 @@
       '<div class="bigbtns">' + actions.map(function (a) { return '<button class="big" data-go="' + a[0] + '">' + esc(a[1]) + '</button>'; }).join('') + '</div></section>' +
       '<section class="card disclaimer"><h3>' + L('Principes', 'Principles') + '</h3><ul>' +
       '<li>' + L('Outil d\'alerte précoce et d\'aide à la décision : <b>il ne pose pas de diagnostic</b>. Seul le laboratoire confirme une infection BDBV.', 'Early-warning and decision-support tool: <b>it does not diagnose</b>. Only the laboratory confirms BDBV infection.') + '</li>' +
-      '<li>' + L('Suspicion clinique individuelle, signaux communautaires et confirmation biologique sont trois notions <b>séparées</b>.', 'Individual clinical suspicion, community signals and laboratory confirmation are three <b>separate</b> concepts.') + '</li>' +
+      '<li>' + L('Risque clinique individuel, signaux communautaires et confirmation biologique sont trois notions <b>séparées</b>.', 'Individual clinical risk, community signals and laboratory confirmation are three <b>separate</b> concepts.') + '</li>' +
       '<li>' + L('Le jugement du clinicien prime toujours : il peut relever (ou, avec justification, abaisser) la catégorie.', 'Clinician judgement always prevails: they can raise (or, with justification, lower) the category.') + '</li>' +
       '<li>' + L('Saisie possible hors ligne ; les données sont envoyées à la synchronisation.', 'Works offline; data are sent at synchronisation.') + '</li></ul></section>' +
       '<section class="card"><h3>' + L('Données de démonstration', 'Demonstration data') + '</h3>' +
@@ -419,7 +419,7 @@
     var R = rules();
     var h = '<div class="result ' + res.category + '"><div class="rhead">' + chip(res.category) +
       '<div class="score"><b>' + res.score + '</b><small>/100</small></div></div>' +
-      '<p class="muted small">' + esc(t('score_note')) + ' ' + L('Seuils (configurables) : rouge ≥ ', 'Thresholds (configurable): red ≥ ') + R.thresholds.red + ', ' + L('orange ≥ ', 'amber ≥ ') + R.thresholds.amber + ' · ' + esc(res.rule_set) + '</p>' +
+      '<p class="muted small">' + esc(t('score_note')) + ' ' + L('Seuils (configurables) : risque élevé ≥ ', 'Thresholds (configurable): high risk ≥ ') + R.thresholds.red + ', ' + L('risque moyen ≥ ', 'medium risk ≥ ') + R.thresholds.amber + ' · ' + esc(res.rule_set) + '</p>' +
       '<p>' + Object.keys(res.domain_scores).map(function (k) { return '<span class="pill">' + esc(pick(R.domains[k], 'label')) + ' ' + res.domain_scores[k].observed + '/' + res.domain_scores[k].cap + '</span>'; }).join(' ') + '</p>' +
       '<p>' + esc(t('completeness')) + ' : <b>' + res.completeness + '%</b></p>';
     if (res.floors_applied.length) h += '<p class="flag">' + esc(t('floors')) + ' : ' + res.floors_applied.map(function (id) { var f = byId(R.floors.map(function (x) { return Object.assign({ id: x.id }, x); }), id); return '<br>• ' + esc(pick(f, 'label')) + ' → ' + chip(f.min_category); }).join('') + '</p>';
@@ -821,7 +821,7 @@
     var list = db.alerts.slice().sort(function (a, b) { return (a.ack ? 1 : 0) - (b.ack ? 1 : 0) || new Date(b.created_at) - new Date(a.created_at); }).slice(0, 100);
     var amber = db.assessments.filter(function (a) { return a.review && a.review.status === 'pending'; });
     var acts = [['isolation', L('Isolé dans la zone désignée', 'Isolated in designated area')], ['ipc', L('Précautions PCI appliquées', 'IPC precautions applied')], ['clin', L('Évaluation clinique faite', 'Clinical assessment done')], ['specimen', L('Prélèvement demandé', 'Specimen requested')], ['surv', L('Surveillance notifiée', 'Surveillance notified')], ['referral', L('Référé / transféré', 'Referred / transferred')]];
-    v.innerHTML = '<section class="card"><h2>' + L('Alertes ROUGES', 'RED alerts') + '</h2>' + (list.length ? '' : '<p class="muted">' + L('Aucune alerte.', 'No alerts.') + '</p>') +
+    v.innerHTML = '<section class="card"><h2>' + L('Alertes à risque élevé', 'High-risk alerts') + '</h2>' + (list.length ? '' : '<p class="muted">' + L('Aucune alerte.', 'No alerts.') + '</p>') +
       list.map(function (a) {
         var mins = Math.round((Date.now() - new Date(a.created_at)) / 60000);
         var esc8 = !a.ack && mins > ALERT_ESCALATION_MIN;
@@ -831,7 +831,7 @@
           (a.ack ? '<p>✓ ' + esc(t('acked')) + ' ' + L('par', 'by') + ' ' + esc(a.ack.by) + ' · ' + fmtDT(a.ack.at) + ' · ' + L('délai', 'delay') + ' ' + a.ack.delay_min + ' min<br>' + L('Mesures : ', 'Actions: ') + esc(a.actions.map(function (x) { var f = acts.filter(function (y) { return y[0] === x; })[0]; return f ? f[1] : x; }).join(', ') || '-') + (a.ack.note ? '<br>' + esc(a.ack.note) : '') + '</p>' :
             (st.role === 'decideur' ? '' : '<div class="checks">' + acts.map(function (x) { return '<label class="check"><input type="checkbox" data-act="' + a.id + '" value="' + x[0] + '"> ' + esc(x[1]) + '</label>'; }).join('') + '</div><input class="note-in" data-note="' + a.id + '" placeholder="' + L('Commentaire', 'Comment') + '"> <button class="primary sm" data-ack="' + a.id + '">' + esc(t('ack')) + '</button>')) + '</div>';
       }).join('') + '</section>' +
-      '<section class="card"><h2>' + L('Cas ORANGE à revoir', 'AMBER cases for review') + ' (' + amber.length + ')</h2>' +
+      '<section class="card"><h2>' + L('Cas à risque moyen à revoir', 'Medium-risk cases for review') + ' (' + amber.length + ')</h2>' +
       amber.slice(0, 50).map(function (a) { return '<div class="alert"><code>' + esc(a.id) + '</code> · ' + esc(nm(G.facilities, a.geo.facility)) + ' · ' + fmtDT(a.assessed_at) + ' · score ' + a.result.score + ' <button class="sm" data-rev="' + a.id + '">' + L('Marquer revu', 'Mark reviewed') + '</button> <button class="sm" data-open="' + a.id + '">' + esc(t('view')) + '</button></div>'; }).join('') + '</section>';
     $$('[data-open]', v).forEach(function (b) { b.onclick = function (e) { e.preventDefault(); st.lastId = b.getAttribute('data-open'); go('result'); }; });
     $$('[data-rev]', v).forEach(function (b) { b.onclick = function () { var a = byId(db.assessments, b.getAttribute('data-rev')); a.review = { status: 'done', at: iso(new Date()), by: USERS[st.role] }; a.synced = false; audit('review', 'assessment', a.id); render(); }; });
@@ -968,7 +968,7 @@
     var max = Math.max.apply(null, rows.map(function (r) { return r.RED + r.AMBER + r.GREEN; }).concat([1]));
     return '<div class="bars">' + rows.map(function (r) {
       var tot = r.RED + r.AMBER + r.GREEN;
-      return '<div class="bar"><span class="bl">' + esc(r.label) + '</span><span class="bt">' + ['RED', 'AMBER', 'GREEN'].map(function (k) { return '<span class="bf seg-' + k + '" style="width:' + (100 * r[k] / max) + '%" title="' + k + ' ' + r[k] + '"></span>'; }).join('') + '</span><span class="bv">' + tot + ' <small>(' + r.RED + '/' + r.AMBER + '/' + r.GREEN + ')</small></span></div>';
+      return '<div class="bar"><span class="bl">' + esc(r.label) + '</span><span class="bt">' + ['RED', 'AMBER', 'GREEN'].map(function (k) { return '<span class="bf seg-' + k + '" style="width:' + (100 * r[k] / max) + '%" title="' + esc(t(k)) + ' ' + r[k] + '"></span>'; }).join('') + '</span><span class="bv">' + tot + ' <small>(' + r.RED + '/' + r.AMBER + '/' + r.GREEN + ')</small></span></div>';
     }).join('') + '</div>';
   }
   function weekly(list, dateFn, valFn) {
@@ -1032,8 +1032,8 @@
 
       '<section class="card"><h2>A. ' + L('Surveillance individuelle (FOSA)', 'Individual-level surveillance (facilities)') + '</h2><div class="kpis">' +
       kpi(L('Personnes évaluées (toutes soumissions)', 'People assessed (all submissions)'), n) + kpi(L('Cas suspects vérifiés et approuvés', 'Verified and approved suspected cases'), verifiedSusp) +
-      kpi(L('ROUGE', 'RED'), cnt.RED, pct(cnt.RED, n) + '%', 'k-RED') + kpi(L('ORANGE', 'AMBER'), cnt.AMBER, pct(cnt.AMBER, n) + '%', 'k-AMBER') + kpi(L('VERT', 'GREEN'), cnt.GREEN, pct(cnt.GREEN, n) + '%', 'k-GREEN') +
-      kpi(L('Alertes rouges', 'Red alerts'), AL.length) + kpi(L('Acquittées', 'Acknowledged'), acked.length, pct(acked.length, AL.length) + '% · ' + L('délai médian ', 'median delay ') + medDelay + ' min') + kpi(L('Avec mesures enregistrées', 'With actions recorded'), acted.length, pct(acted.length, AL.length) + '%') +
+      kpi(t('RED'), cnt.RED, pct(cnt.RED, n) + '%', 'k-RED') + kpi(t('AMBER'), cnt.AMBER, pct(cnt.AMBER, n) + '%', 'k-AMBER') + kpi(t('GREEN'), cnt.GREEN, pct(cnt.GREEN, n) + '%', 'k-GREEN') +
+      kpi(L('Alertes à risque élevé', 'High-risk alerts (facility)'), AL.length) + kpi(L('Acquittées', 'Acknowledged'), acked.length, pct(acked.length, AL.length) + '% · ' + L('délai médian ', 'median delay ') + medDelay + ' min') + kpi(L('Avec mesures enregistrées', 'With actions recorded'), acted.length, pct(acted.length, AL.length) + '%') +
       kpi(L('Référés pour test', 'Referred for testing'), labReq, L('résultats : ', 'results: ') + labPos + ' + / ' + labNeg + ' −') + '</div>' +
       '<div class="cols"><div><h4>' + L('Par formation sanitaire', 'By health facility') + '</h4>' + (byFac.length ? stacked(byFac) : '<p class="muted">-</p>') + '</div>' +
       '<div><h4>' + L('Par zone de santé', 'By health zone') + '</h4>' + (byZone.length ? stacked(byZone) : '<p class="muted">-</p>') + '</div>' +
@@ -1055,7 +1055,7 @@
       trend(L('Décès inexpliqués', 'Unexplained deaths'), wk('deaths_unexplained')) +
       trend(L('Alertes Ebola suspectes', 'Suspected Ebola alerts'), wk('alerts')) +
       trend(L('Groupes de malades compatibles', 'Compatible illness clusters'), wk('clusters')) +
-      trend(L('Évaluations ROUGES (FOSA)', 'RED assessments (facility)'), weekly(allA, function (a) { return a.assessed_at; }, function (a) { return a.result.category === 'RED' ? 1 : 0; })) +
+      trend(L('Évaluations à risque élevé (FOSA)', 'High-risk assessments (facility)'), weekly(allA, function (a) { return a.assessed_at; }, function (a) { return a.result.category === 'RED' ? 1 : 0; })) +
       '</div><p class="disclaimer small">' + L('Un signal statistique déclenche une revue par l\'équipe de surveillance. Ce n\'est PAS la confirmation d\'une épidémie.', 'A statistical signal triggers review by the surveillance team. It is NOT confirmation of an outbreak.') + '</p></section>';
 
     bindGeo(v.querySelector('.filters'), 'f_', true, t('all'), function (g) { st.f = Object.assign(st.f, g); VIEWS.dashboard(v); });
@@ -1071,7 +1071,7 @@
     v.innerHTML = '<section class="card"><h2>' + esc(t('tab_rules')) + ' - ' + esc(R.rule_set_id) + ' v' + esc(R.version) + '</h2><p class="disclaimer">' + esc(R.status) + '</p>' +
       '<p class="disclaimer">' + esc((R['output_label_' + st.lang] || R.output_label)) + '</p>' +
       (can('edit_rules') ? '' : '<p class="muted small">' + L('Lecture seule : seul l\'administrateur système peut modifier les seuils (après approbation).', 'Read-only: only the system administrator can change thresholds (after approval).') + '</p>') +
-      '<div class="grid"' + (can('edit_rules') ? '' : ' hidden') + '><label>' + L('Seuil ROUGE (≥)', 'RED threshold (≥)') + '<input type="number" id="thr" value="' + R.thresholds.red + '" min="1" max="100"></label><label>' + L('Seuil ORANGE (≥)', 'AMBER threshold (≥)') + '<input type="number" id="tha" value="' + R.thresholds.amber + '" min="1" max="100"></label>' +
+      '<div class="grid"' + (can('edit_rules') ? '' : ' hidden') + '><label>' + L('Seuil risque élevé (≥)', 'High-risk threshold (≥)') + '<input type="number" id="thr" value="' + R.thresholds.red + '" min="1" max="100"></label><label>' + L('Seuil risque moyen (≥)', 'Medium-risk threshold (≥)') + '<input type="number" id="tha" value="' + R.thresholds.amber + '" min="1" max="100"></label>' +
       '<label>&nbsp;<button id="thsave">' + L('Enregistrer (version locale)', 'Save (local version)') + '</button></label><label>&nbsp;<button id="threset" class="ghost">' + L('Revenir à la version de référence', 'Revert to reference version') + '</button></label></div>' +
       '<p class="muted small">' + L('En production, toute modification passe par un circuit d\'approbation (MSP / INSP / comité technique) et crée une nouvelle version ; chaque évaluation garde la version utilisée.', 'In production every change goes through an approval workflow (MoH / INSP / technical committee) and creates a new version; each assessment stores the version used.') + '</p>' +
       '<h3>' + L('Matrice de score', 'Scoring matrix') + '</h3><div class="scroll"><table class="tbl"><tr><th>' + L('Variable', 'Variable') + '</th><th>' + L('Domaine (plafond)', 'Domain (cap)') + '</th><th>Points</th><th>' + L('Preuve', 'Evidence') + '</th><th>' + L('Justification', 'Rationale') + '</th><th>' + L('Sources', 'Sources') + '</th></tr>' +
@@ -1081,7 +1081,7 @@
       '<h3>Sources</h3><ul class="small">' + Object.keys(R.sources).map(function (k) { return '<li><b>' + k + '</b> : ' + esc(R.sources[k]) + '</li>'; }).join('') + '</ul></section>';
     $('#thsave', v).onclick = function () {
       var r = +$('#thr', v).value, a = +$('#tha', v).value;
-      if (!(r > a && a > 0 && r <= 100)) { notify(L('Les seuils doivent respecter 0 < orange < rouge ≤ 100.', 'Thresholds must satisfy 0 < amber < red ≤ 100.'), 'err'); return; }
+      if (!(r > a && a > 0 && r <= 100)) { notify(L('Les seuils doivent respecter 0 < risque moyen < risque élevé ≤ 100.', 'Thresholds must satisfy 0 < medium < high ≤ 100.'), 'err'); return; }
       db.override = { thresholds: { red: r, amber: a }, rev: ((db.override && db.override.rev) || 0) + 1, at: iso(new Date()), by: USERS[st.role] };
       audit('rules_change', 'ruleset', BASE_RULES.version, 'red=' + r + ' amber=' + a); render();
     };

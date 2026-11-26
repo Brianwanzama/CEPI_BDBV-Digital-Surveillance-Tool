@@ -244,15 +244,15 @@
     return { weeks: weeks, imp: imp, sys: sys };
   }
   function chart(s) {
-    var n = s.weeks.length, bw = Math.max(6, Math.min(24, 960 / Math.max(n, 1))), h = 170, top = 12, pad = 30, mx = Math.max.apply(null, s.weeks.map(function (w, i) { return s.imp[i] + s.sys[i]; }).concat([1]));
+    var n = s.weeks.length, bw = Math.max(6, 960 / Math.max(n, 1)), rw = Math.min(bw - 2, 26), h = 170, top = 12, pad = 30, mx = Math.max.apply(null, s.weeks.map(function (w, i) { return s.imp[i] + s.sys[i]; }).concat([1]));
     var W = n * bw + pad + 6, out = '<svg class="hchart" viewBox="0 ' + (-top) + ' ' + W + ' ' + (h + 30 + top) + '" role="img" aria-label="' + L('Courbe épidémique hebdomadaire', 'Weekly epidemic curve') + '">';
     [0, 0.5, 1].forEach(function (f) { var y = h - f * h; out += '<line class="grid" x1="' + pad + '" x2="' + W + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (pad - 4) + '" y="' + (y + 3) + '" text-anchor="end">' + Math.round(f * mx) + '</text>'; });
     s.weeks.forEach(function (w, i) {
-      var x = pad + i * bw + 1, hi = s.imp[i] / mx * h, hs = s.sys[i] / mx * h;
+      var x = pad + i * bw + (bw - rw) / 2, hi = s.imp[i] / mx * h, hs = s.sys[i] / mx * h;
       var tip = '<title>' + L('Semaine du ', 'Week of ') + B.fmtD(w) + ' : ' + L('importé ', 'imported ') + s.imp[i] + ', ' + L('système ', 'system ') + s.sys[i] + '</title>';
-      if (hi) out += '<rect class="bimp" x="' + x + '" y="' + (h - hi).toFixed(1) + '" width="' + (bw - 2) + '" height="' + hi.toFixed(1) + '">' + tip + '</rect>';
-      if (hs) out += '<rect class="bsys" x="' + x + '" y="' + (h - hi - hs).toFixed(1) + '" width="' + (bw - 2) + '" height="' + hs.toFixed(1) + '">' + tip + '</rect>';
-      if (w.slice(8, 10) <= '07') { var m = w.slice(5, 7); if (i === 0 || m === '01' || (+m % 3 === 1)) out += '<text class="ax" x="' + x + '" y="' + (h + 14) + '">' + (m === '01' || i === 0 ? w.slice(0, 7) : w.slice(5, 7)) + '</text>'; }
+      if (hi) out += '<rect class="bimp" x="' + x + '" y="' + (h - hi).toFixed(1) + '" width="' + rw.toFixed(1) + '" height="' + hi.toFixed(1) + '">' + tip + '</rect>';
+      if (hs) out += '<rect class="bsys" x="' + x + '" y="' + (h - hi - hs).toFixed(1) + '" width="' + rw.toFixed(1) + '" height="' + hs.toFixed(1) + '">' + tip + '</rect>';
+      if (w.slice(8, 10) <= '07') { var m = w.slice(5, 7); if (i === 0 || m === '01' || (+m % 3 === 1)) out += '<text class="ax" x="' + x.toFixed(1) + '" y="' + (h + 14) + '">' + (m === '01' || i === 0 ? w.slice(0, 7) : w.slice(5, 7)) + '</text>'; }
     });
     return out + '<line class="base" x1="' + pad + '" x2="' + W + '" y1="' + h + '" y2="' + h + '"/></svg>';
   }

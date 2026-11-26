@@ -137,9 +137,19 @@
   }
   var BUCKETS = { open: ['Toutes ouvertes', 'All open'], to_ack: ['À accuser réception', 'To acknowledge'], to_assign: ['À assigner', 'To assign'], verifying: ['En vérification', 'In verification'], to_approve: ['À approuver', 'To approve'], closed: ['Clôturées', 'Closed'], all: ['Toutes', 'All'] };
   // Description shown in the reader's language (built from the record, not stored text).
+  // Human label for an alert type code (triage_RED, reco_signal, death_unexplained...).
+  function typeLabel(t) {
+    var m = /^triage_(RED|AMBER|GREEN)$/.exec(t || '');
+    if (m) return L('Triage : ', 'Triage: ') + B.t(m[1]);
+    if (t === 'reco_signal') return L('Signal RECO', 'RECO signal');
+    if (t === 'reco_routine') return L('Rapport RECO de routine', 'Routine RECO report');
+    var e = B.evLabel(t);
+    return e && e !== t ? e : String(t || '').replace(/_/g, ' ');
+  }
+  B.queue.typeLabel = typeLabel;
   function describe(a) {
     var d = db();
-    if (a.source === 'facility') { var r = B.byId(d.assessments, a.source_ref); return L('Triage ', 'Triage ') + (a.category || (r && r.result.category) || '') + (r ? ' (score ' + r.result.score + ')' : ''); }
+    if (a.source === 'facility') { var r = B.byId(d.assessments, a.source_ref); return L('Triage : ', 'Triage: ') + ((a.category || (r && r.result.category)) ? B.t(a.category || r.result.category) : '') + (r ? ' (score ' + r.result.score + ')' : ''); }
     if (a.source === 'reco') { var p = B.byId(d.reports, a.source_ref); if (p) return L('Rapport RECO : ', 'RECO report: ') + p.counts.deaths_total + L(' décès, ', ' deaths, ') + p.events.length + L(' évènement(s)', ' event(s)'); }
     return B.sysText(a.description);
   }
@@ -165,7 +175,7 @@
     var shown = rows.slice(0, 150);
     var cnt = {}; all.forEach(function (a) { var b = bucketOf(a); cnt[b] = (cnt[b] || 0) + 1; });
     v.innerHTML = '<section class="card"><h2>' + L('File de vérification des alertes', 'Alert verification queue') + '</h2>' +
-      '<p class="muted small">' + L('Toutes les alertes (FOSA, y compris VERT ; RECO ; rumeurs) passent par : réception → assignation → vérification → résultat → approbation. Seules les alertes vérifiées et approuvées apparaissent comme évènements vérifiés sur le tableau de bord.', 'Every alert (facility, including GREEN; RECO; rumours) goes through: receipt → assignment → verification → outcome → approval. Only verified and approved alerts appear as verified events on the dashboard.') + '</p>' +
+      '<p class="muted small">' + L('Toutes les alertes (FOSA, y compris risque faible ; RECO ; rumeurs) passent par : réception → assignation → vérification → résultat → approbation. Seules les alertes vérifiées et approuvées apparaissent comme évènements vérifiés sur le tableau de bord.', 'Every alert (facility, including low risk; RECO; rumours) goes through: receipt → assignment → verification → outcome → approval. Only verified and approved alerts appear as verified events on the dashboard.') + '</p>' +
       B.tatPanel() + '</section>' +
       '<section class="card"><div class="vbar">' +
       '<label class="inl">' + L('Source', 'Source') + ' <select id="qf-src"><option value="">' + B.t('all') + '</option>' + Object.keys(SOURCES).map(function (k) { return '<option value="' + k + '"' + (vf.source === k ? ' selected' : '') + '>' + esc(lbl2(SOURCES[k])) + '</option>'; }).join('') + '</select></label>' +
@@ -180,7 +190,7 @@
       shown.map(function (a) {
         var o = overdue(a, now);
         return '<tr class="qrow' + (vf.open === a.id ? ' on' : '') + '"><td><input type="checkbox" data-qsel="' + a.id + '"></td><td><a href="#" data-qopen="' + a.id + '"><code>' + esc(a.id) + '</code></a>' + (a.urgent ? ' <span class="sig">' + L('URGENT', 'URGENT') + '</span>' : '') + '</td>' +
-          '<td>' + esc(lbl2(SOURCES[a.source])) + '<br><small>' + esc(a.type) + '</small></td><td>' + placeOf(a) + '</td><td>' + B.fmtDT(a.submitted_at) + '</td>' +
+          '<td>' + esc(lbl2(SOURCES[a.source])) + '<br><small>' + esc(typeLabel(a.type)) + '</small></td><td>' + placeOf(a) + '</td><td>' + B.fmtDT(a.submitted_at) + '</td>' +
           '<td>' + esc(lbl2(STAGE_LABEL[currentStage(a)])) + '</td><td>' + esc(lbl2(OUTCOMES[a.outcome])) + (a.stages.approved ? (a.stages.approved.include ? ' ✓' : ' ✕') : '') + '</td>' +
           '<td>' + (o ? '<span class="' + (o.late ? 'flag' : 'muted') + ' small">' + fmtMin(o.elapsed) + ' / ' + fmtMin(o.target) + (o.late ? L(' en retard', ' late') : '') + '</span>' : '<span class="muted small">' + L('clôturée', 'closed') + '</span>') + '</td></tr>';
       }).join('') + '</table></div></section><section class="card" id="qdetail"></section>';
@@ -222,7 +232,7 @@
     var ns = nextStage(a), canAct = B.can('verify');
     var phone = a.reporter && a.reporter.phone;
     var body = '<h3>' + esc(a.id) + ' · ' + esc(lbl2(SOURCES[a.source])) + (a.urgent ? ' <span class="sig">URGENT</span>' : '') + '</h3>' +
-      '<div class="grid small"><div><b>' + L('Type', 'Type') + '</b><br>' + esc(a.type) + '</div><div><b>' + L('Lieu', 'Location') + '</b><br>' + placeOf(a) + '</div><div><b>' + L('Soumise', 'Submitted') + '</b><br>' + B.fmtDT(a.submitted_at) + '</div>' +
+      '<div class="grid small"><div><b>' + L('Type', 'Type') + '</b><br>' + esc(typeLabel(a.type)) + '</div><div><b>' + L('Lieu', 'Location') + '</b><br>' + placeOf(a) + '</div><div><b>' + L('Soumise', 'Submitted') + '</b><br>' + B.fmtDT(a.submitted_at) + '</div>' +
       '<div><b>' + L('Source de l\'information', 'Information source') + '</b><br>' + esc(a.info_source || '-') + '</div><div><b>' + L('Signalée par', 'Reported by') + '</b><br>' + esc(a.reporter && a.reporter.anonymous ? L('Anonyme', 'Anonymous') : (a.reporter && a.reporter.name) || '-') + '</div>' +
       '<div><b>' + L('Téléphone du déclarant', 'Reporter phone') + '</b><br>' + (phone ? (canAct ? esc(phone) + ' <button class="sm ghost" id="qcall">' + L('Noter : déclarant contacté', 'Log: reporter contacted') + '</button>' : L('masqué', 'hidden')) : '-') + '</div>' +
       '<div><b>' + L('Enregistrement source', 'Source record') + '</b><br>' + sourceLink(a) + '</div></div>' +

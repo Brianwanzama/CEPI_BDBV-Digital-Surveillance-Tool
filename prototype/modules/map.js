@@ -35,7 +35,7 @@
   };
   var CLS_COLOR = { suspected: '#f59e0b', probable: '#ea580c', confirmed: '#b91c1c' };
   var mf = { layers: { burial: true, infection: true, probable: true, deaths: true, alerts: true, cluster: true, increase: true, facility: false, holding: true, contacts: false },
-    level: 'province', days: '30', week: 0, compare: false, approvedOnly: true, ind: 'cases', symbols: true, history: true, vb: null, sel: null, cls: { suspected: true, probable: true, confirmed: true }, geo: {}, open: null };
+    level: 'province', days: '30', week: 0, compare: false, approvedOnly: true, ind: 'risk', symbols: true, history: true, vb: null, sel: null, cls: { suspected: true, probable: true, confirmed: true }, geo: {}, open: null };
 
   /* ---------- projection ---------- */
   var W = 560, H = 560, P = 12;
@@ -105,6 +105,8 @@
       if (r.n_deaths) push('deaths', r.geo, { id: r.id, date: r.date_occurred, n: r.n_deaths, detail: L('Rumeur : ', 'Rumour: ') + r.n_deaths + L(' décès', ' death(s)'), status: B.queueStatus(r.id) });
     });
     d.assessments.forEach(function (a) {
+      // Triage risk category of every assessment (high / medium / low), for the risk-level view.
+      if (a.result && a.result.category && a.geo && inWin(a.assessed_at, range)) push('triage', { province: a.geo.province, zone: a.geo.zone, area: a.geo.area, village: a.geo.village }, { id: a.id, date: a.assessed_at, n: 1, cat: a.result.category, detail: '', status: '' });
       var cs = a.classification && a.classification.status;
       if (['suspected', 'probable', 'confirmed'].indexOf(cs) < 0 || !mf.cls[cs]) return;
       if (!inWin(a.assessed_at, range)) return;
@@ -156,7 +158,10 @@
 
   /* ---------- units (official boundaries) ---------- */
   // Indicators shaded on the map. Each counts items of the listed layers in the period.
+  // Triage risk colours: the same as the category labels in the app.
+  var RISK = { GREEN: '#3f9e6b', AMBER: '#f0a531', RED: '#d64541' }, RISK_ORDER = ['GREEN', 'AMBER', 'RED'];
   var IND = {
+    risk: { fr: 'Niveau de risque au triage (le plus élevé)', en: 'Triage risk level (highest)', layers: ['triage'], ramp: [RISK.GREEN, RISK.AMBER, RISK.RED], risk: true },
     cases: { fr: 'Cas (suspects, probables, confirmés)', en: 'Cases (suspected, probable, confirmed)', layers: ['infection'], ramp: ['#fde4c8', '#f9b77e', '#ef8445', '#cf4f25', '#93270f'] },
     deaths: { fr: 'Décès signalés', en: 'Reported deaths', layers: ['deaths'], ramp: ['#e4e1de', '#beb5ad', '#8f8178', '#5f5049', '#2d2420'] },
     alerts: { fr: 'Alertes et évènements communautaires', en: 'Community alerts and events', layers: ['alerts', 'cluster', 'burial'], ramp: ['#d9e6f2', '#a6c3de', '#6c9bc5', '#38709f', '#0f3d5e'] },
@@ -164,6 +169,14 @@
   };
   var BREAKS = [1, 3, 6, 11, 21];
   var BREAK_LBL = ['1–2', '3–5', '6–10', '11–20', '21+'];
+  // Colour index of a unit: risk level for the risk view, count class otherwise.
+  function shadeIndex(ind, k, vals) { if (ind === 'risk') { var l = vals.riskLvl[k]; return l ? l - 1 : -1; } return klass(vals[ind][k]); }
+  // What a table cell shows for one indicator and unit.
+  function cellHTML(ind, k, vals) {
+    if (ind !== 'risk') return String(vals[ind][k] || 0);
+    var n = vals.riskN[k]; if (!n) return '<span class="muted">-</span>';
+    return B.chip(RISK_ORDER[vals.riskLvl[k] - 1]).replace('class="chip ', 'class="chip sm ') + ' <span class="muted" title="' + esc(B.t('RED') + ' / ' + B.t('AMBER') + ' / ' + B.t('GREEN')) + '">' + n.RED + ' / ' + n.AMBER + ' / ' + n.GREEN + '</span>';
+  }
   function klass(v) { if (!v) return -1; for (var i = BREAKS.length - 1; i >= 0; i--) if (v >= BREAKS[i]) return i; return -1; }
 
   var UNITS = {}; // key -> { key, level, name, prov, code, feature, d, box }
@@ -209,8 +222,16 @@
   function values(items, level, range) {
     var out = {};
     Object.keys(IND).forEach(function (ind) { out[ind] = {}; });
+    out.riskN = {}; out.riskLvl = {};
     items.forEach(function (it) {
       var k = unitKey(it.geo, level); if (!k) return;
+      if (it.layer === 'triage') {
+        var n = out.riskN[k] = out.riskN[k] || { RED: 0, AMBER: 0, GREEN: 0 };
+        n[it.cat] = (n[it.cat] || 0) + 1;
+        out.riskLvl[k] = Math.max(out.riskLvl[k] || 0, RISK_ORDER.indexOf(it.cat) + 1);
+        out.risk[k] = (out.risk[k] || 0) + (it.cat === 'RED' ? 1 : 0); // number used for ranking and trends: high-risk assessments
+        return;
+      }
       Object.keys(IND).forEach(function (ind) { if (IND[ind].layers.indexOf(it.layer) >= 0) out[ind][k] = (out[ind][k] || 0) + it.n; });
     });
     if (range) addHistory(out, range, level);
@@ -362,6 +383,8 @@
   }
   function scaleLegend() {
     var r = IND[mf.ind].ramp;
+    if (IND[mf.ind].risk) return '<div class="mscale"><b>' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + '</b><div class="mscale-row"><span class="sw sw0"></span><span>' + L('aucune évaluation', 'no assessment') + '</span>' +
+      RISK_ORDER.map(function (c) { return '<span class="sw" style="background:' + RISK[c] + '"></span><span>' + esc(B.t(c)) + '</span>'; }).join('') + '</div></div>';
     return '<div class="mscale"><b>' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + '</b><div class="mscale-row"><span class="sw sw0"></span><span>0</span>' +
       r.map(function (c, i) { return '<span class="sw" style="background:' + c + '"></span><span>' + BREAK_LBL[i] + '</span>'; }).join('') + '</div></div>';
   }
@@ -371,8 +394,8 @@
     var end = windowRange()[1], out = [];
     for (var w = 11; w >= 0; w--) {
       var r = [new Date(end - (w + 1) * 7 * DAY), new Date(end - w * 7 * DAY)], n = 0;
-      collectAll(r).forEach(function (it) { if (IND[mf.ind].layers.indexOf(it.layer) >= 0 && unitKey(it.geo, level) === key) n += it.n; });
-      if (mf.history && B.historyRows) B.historyRows(r).forEach(function (h) { if (histOK(h) && histKey(h, level) === key) n += histVals(h)[mf.ind]; });
+      collectAll(r).forEach(function (it) { if (IND[mf.ind].layers.indexOf(it.layer) >= 0 && (mf.ind !== 'risk' || it.cat === 'RED') && unitKey(it.geo, level) === key) n += it.n; });
+      if (mf.history && B.historyRows) B.historyRows(r).forEach(function (h) { if (histOK(h) && histKey(h, level) === key) n += histVals(h)[mf.ind] || 0; });
       out.push({ end: r[1], n: n });
     }
     return out;
@@ -468,7 +491,7 @@
     var ramp = IND[mf.ind].ramp, iv = vals[mf.ind];
     B.$$('#msvg .u', v).forEach(function (p) {
       var k = p.getAttribute('data-u'), act = (mf.level === 'zone') === p.classList.contains('uz');
-      var ci = act ? klass(iv[k]) : -1;
+      var ci = act ? shadeIndex(mf.ind, k, vals) : -1;
       p.style.fill = ci >= 0 ? ramp[ci] : '';
       p.classList.toggle('sel', k === mf.sel);
     });
@@ -490,13 +513,13 @@
   }
 
   function rankTable(vals, prevVals) {
-    var iv = vals[mf.ind], keys = Object.keys(iv).filter(function (k) { return iv[k]; }).sort(function (a, b) { return iv[b] - iv[a]; });
+    var iv = vals[mf.ind], keys = Object.keys(iv).filter(function (k) { return mf.ind === 'risk' ? vals.riskLvl[k] : iv[k]; }).sort(function (a, b) { return mf.ind === 'risk' ? (vals.riskLvl[b] - vals.riskLvl[a]) || (iv[b] - iv[a]) : iv[b] - iv[a]; });
     if (!keys.length) return '';
     return '<details class="card inner"' + (keys.length ? ' open' : '') + '><summary>' + L('Unités par ', 'Units by ') + esc(L(IND[mf.ind].fr, IND[mf.ind].en).toLowerCase()) + ' (' + keys.length + ')</summary><div class="scroll"><table class="tbl small mrank"><tr><th>' + L('Unité', 'Unit') + '</th><th>' + L('Province', 'Province') + '</th>' + Object.keys(IND).map(function (k) { return '<th' + (k === mf.ind ? ' class="hl"' : '') + '>' + esc(L(IND[k].fr, IND[k].en)) + '</th>'; }).join('') + (prevVals ? '<th>' + L('Évolution', 'Change') + '</th>' : '') + '</tr>' +
       keys.map(function (k) {
         var u = UNITS[k], nmU = u ? unitName(u) : (k.charAt(0) === 'Z' ? B.nm(B.G.zones, k.slice(2)) : B.nm(B.G.provinces, k.slice(2)));
         var pr = u ? unitProv(u) : '', d = prevVals ? iv[k] - (prevVals[mf.ind][k] || 0) : null;
-        return '<tr data-rank="' + esc(k) + '" class="' + (k === mf.sel ? 'on' : '') + '"><td><b>' + esc(nmU) + '</b></td><td>' + esc(pr) + '</td>' + Object.keys(IND).map(function (i2) { return '<td>' + (vals[i2][k] || 0) + '</td>'; }).join('') + (prevVals ? '<td>' + (d > 0 ? '<span class="up">+' + d + '</span>' : d) + '</td>' : '') + '</tr>';
+        return '<tr data-rank="' + esc(k) + '" class="' + (k === mf.sel ? 'on' : '') + '"><td><b>' + esc(nmU) + '</b></td><td>' + esc(pr) + '</td>' + Object.keys(IND).map(function (i2) { return '<td>' + cellHTML(i2, k, vals) + '</td>'; }).join('') + (prevVals ? '<td>' + (d > 0 ? '<span class="up">+' + d + '</span>' : d) + '</td>' : '') + '</tr>';
       }).join('') + '</table></div></details>';
   }
 
@@ -516,8 +539,8 @@
     var v = cur.v, box = B.$('#mpanel', v), u = mf.sel && UNITS[mf.sel];
     var iv = cur.vals[mf.ind];
     if (!u && !mf.sel) {
-      var keys = Object.keys(iv).filter(function (k) { return iv[k]; }), total = keys.reduce(function (s, k) { return s + iv[k]; }, 0);
-      box.innerHTML = '<div class="mprof"><p class="eyebrow">' + L('Vue nationale', 'National view') + '</p><div class="mbig">' + total + '</div><p class="small">' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + ' · ' + keys.length + ' ' + (mf.level === 'zone' ? L('zone(s) de santé touchée(s)', 'health zone(s) affected') : L('province(s) touchée(s)', 'province(s) affected')) + '</p><p class="muted small">' + L('Sélectionnez une unité sur la carte ou dans le tableau pour voir son profil.', 'Select a unit on the map or in the table to see its profile.') + '</p></div>';
+      var keys = Object.keys(iv).filter(function (k) { return mf.ind === 'risk' ? cur.vals.riskLvl[k] === 3 : iv[k]; }), total = keys.reduce(function (s, k) { return s + iv[k]; }, 0);
+      box.innerHTML = '<div class="mprof"><p class="eyebrow">' + L('Vue nationale', 'National view') + '</p><div class="mbig">' + total + '</div><p class="small">' + (mf.ind === 'risk' ? esc(L('Évaluations à risque élevé', 'High-risk assessments')) + ' · ' + keys.length + ' ' + (mf.level === 'zone' ? L('zone(s) de santé avec un risque élevé', 'health zone(s) with high risk') : L('province(s) avec un risque élevé', 'province(s) with high risk')) : esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + ' · ' + keys.length + ' ' + (mf.level === 'zone' ? L('zone(s) de santé touchée(s)', 'health zone(s) affected') : L('province(s) touchée(s)', 'province(s) affected'))) + '</p><p class="muted small">' + L('Sélectionnez une unité sur la carte ou dans le tableau pour voir son profil.', 'Select a unit on the map or in the table to see its profile.') + '</p></div>';
       return;
     }
     var name = u ? unitName(u) : mf.sel, level = u ? u.level : mf.level;
@@ -525,8 +548,8 @@
     box.innerHTML = '<div class="mprof"><p class="eyebrow">' + (level === 'zone' ? L('Zone de santé', 'Health zone') : L('Province', 'Province')) + '</p><h3>' + esc(name) + '</h3>' +
       '<p class="muted small">' + esc([u ? unitProv(u) : '', u && u.code ? 'P-code ' + u.code : '', u ? unitAka(u) : ''].filter(Boolean).join(' · ')) + (u && !u.id ? '<br>' + L('Hors de la liste fournie : pas de collecte dans ce pilote.', 'Not in the supplied list: no data collected in this pilot.') : '') + '</p>' +
       '<table class="tbl small mfig">' + Object.keys(IND).map(function (k) {
-        var a = cur.vals[k][mf.sel] || 0, b = cur.prevVals ? (cur.prevVals[k][mf.sel] || 0) : null;
-        return '<tr' + (k === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[k].fr, IND[k].en)) + '</td><td class="num">' + a + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
+        var a = cur.vals[k][mf.sel] || 0, b = cur.prevVals && k !== 'risk' ? (cur.prevVals[k][mf.sel] || 0) : null;
+        return '<tr' + (k === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[k].fr, IND[k].en)) + '</td><td class="num">' + cellHTML(k, mf.sel, cur.vals) + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
       }).join('') + '</table>' + (cur.prevVals ? '<p class="fine">' + L('Évolution par rapport à la période précédente de même durée.', 'Change against the previous period of the same length.') + '</p>' : '') +
       '<p class="small"><b>' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + '</b>, ' + L('12 dernières semaines', 'last 12 weeks') + '</p>' + spark(series) +
       '<div class="vbar"><button class="sm" id="mzoomu" type="button">' + L('Zoomer sur l\'unité', 'Zoom to unit') + '</button>' + (cur.agg.groups[mf.sel] ? '<button class="sm" id="mrecs" type="button">' + L('Voir les enregistrements', 'Show records') + '</button>' : '') + '<button class="sm ghost" id="mclear" type="button">' + L('Fermer', 'Close') + '</button></div></div>';
@@ -648,8 +671,8 @@
     var u = UNITS[k]; if (!u) return '';
     var act = (mf.level === 'zone') === (u.level === 'zone');
     var rows = act ? Object.keys(IND).map(function (i) {
-      var a = cur.vals[i][k] || 0, b = cur.prevVals ? (cur.prevVals[i][k] || 0) : null;
-      return '<tr' + (i === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[i].fr, IND[i].en)) + '</td><td class="num">' + a + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
+      var a = cur.vals[i][k] || 0, b = cur.prevVals && i !== 'risk' ? (cur.prevVals[i][k] || 0) : null;
+      return '<tr' + (i === mf.ind ? ' class="hl"' : '') + '><td>' + esc(L(IND[i].fr, IND[i].en)) + '</td><td class="num">' + cellHTML(i, k, cur.vals) + '</td>' + (b != null ? '<td class="num ' + (a > b ? 'up' : 'muted') + '">' + (a - b > 0 ? '+' : '') + (a - b) + '</td>' : '') + '</tr>';
     }).join('') : '';
     return '<b>' + esc(unitName(u)) + '</b><div class="muted">' + esc([u.level === 'zone' ? L('Zone de santé', 'Health zone') : L('Province', 'Province'), unitProv(u), u.code, unitAka(u)].filter(Boolean).join(' · ')) + '</div>' +
       (u.level === 'zone' && !u.id ? '<div class="muted">' + L('Hors liste fournie : pas de données', 'Not in supplied list: no data') + '</div>' : '') + (rows ? '<table>' + rows + '</table>' : '');

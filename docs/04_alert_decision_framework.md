@@ -1,5 +1,8 @@
 # 4. Alert and decision framework
 
+> **Labels in the app (26 November 2026).** The three categories are shown to users as **High risk**, **Medium risk** and **Low risk** (French: risque élevé, moyen, faible; Kiswahili: hatari kubwa, ya wastani, ndogo), in red, amber and green. The score is called the *risk score*. This document and the data keep the codes RED, AMBER and GREEN, which mean the same three categories. The score is still an ordinal index, not a probability of infection.
+
+
 All action wording is **provisional and must be aligned with the DRC national protocols** (PNLFHV, national IPC guidance, INRB specimen procedures). The tool recommends; it never prevents a clinician from testing, isolating or calling surveillance.
 
 ## 4.1 Decision pathway
