@@ -36,6 +36,8 @@ body = re.sub(r"<script>\s*if \('serviceWorker'.*?</script>\n?", '', body, flags
 
 cdn_tags, js = '', ''
 for src in srcs:
+    if src in ('register-sw.js', 'config.js', 'api.js'):
+        continue
     if src in CDN:
         cdn_tags += '<script src="%s"></script>\n' % CDN[src]
         continue

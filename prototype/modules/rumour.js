@@ -47,18 +47,27 @@
         place_text: place, date_occurred: E.pdate.value, submitted_at: B.iso(new Date()), description: desc, n_people: +E.pn.value || 0, n_deaths: +E.pdeaths.value || 0,
         anonymous: anon, name: anon ? '' : E.pname.value.trim(), phone: anon ? '' : E.pphone.value.trim(), relationship: E.prel.value,
         attachment: f ? { name: f.name, type: f.type, size: f.size } : null, synced: false, demo: false };
-      B.db().rumours.unshift(r);
-      var a = B.queue.submit({ source: 'rumour', source_ref: r.id, type: r.type, geo: r.geo, reporter: { name: r.name || '', phone: r.phone, anonymous: anon },
-        description: desc + (r.n_deaths ? ' · ' + r.n_deaths + L(' décès', ' death(s)') : ''), info_source: 'public:' + r.relationship, supporting: f ? L('Pièce jointe : ', 'Attachment: ') + f.name : '', urgent: r.n_deaths > 1 || r.type === 'cluster' });
-      a.place_text = place;
-      B.audit('create', 'rumour', r.id, anon ? 'anonymous' : '');
-      B.save();
-      v.innerHTML = '<section class="card ok public"><h2>✓ ' + L('Merci, votre signalement est enregistré', 'Thank you, your report is saved') + '</h2>' +
-        '<p>' + L('Numéro de référence : ', 'Reference number: ') + '<b><code>' + esc(r.id) + '</code></b></p>' +
-        '<p>' + L('L\'équipe de surveillance va vérifier. ', 'The surveillance team will check it. ') + (r.phone ? L('Elle pourra vous appeler.', 'They may call you.') : '') + '</p>' +
-        '<p class="small">' + L('En cas de malade grave ou de décès suspect, appelez aussi l\'infirmier titulaire ou le numéro d\'alerte de votre zone.', 'For a seriously ill person or a suspicious death, also call the health-area nurse or your zone\'s alert number.') + '</p>' +
-        '<button class="big" id="pagain">' + L('Nouveau signalement', 'New report') + '</button></section>';
-      B.$('#pagain', v).onclick = function () { B.render(); };
+      var showDone = function (ref, phone) {
+        v.innerHTML = '<section class="card ok public"><h2>✓ ' + L('Merci, votre signalement est enregistré', 'Thank you, your report is saved') + '</h2>' +
+          '<p>' + L('Numéro de référence : ', 'Reference number: ') + '<b><code>' + esc(ref) + '</code></b></p>' +
+          '<p>' + L('L\'équipe de surveillance va vérifier. ', 'The surveillance team will check it. ') + (phone ? L('Elle pourra vous appeler.', 'They may call you.') : '') + '</p>' +
+          '<p class="small">' + L('En cas de malade grave ou de décès suspect, appelez aussi l\'infirmier titulaire ou le numéro d\'alerte de votre zone.', 'For a seriously ill person or a suspicious death, also call the health-area nurse or your zone\'s alert number.') + '</p>' +
+          '<button class="big" id="pagain">' + L('Nouveau signalement', 'New report') + '</button></section>';
+        B.$('#pagain', v).onclick = function () { B.render(); };
+      };
+      var storeLocal = function () {
+        B.db().rumours.unshift(r);
+        var a = B.queue.submit({ source: 'rumour', source_ref: r.id, type: r.type, geo: r.geo, reporter: { name: r.name || '', phone: r.phone, anonymous: anon },
+          description: desc + (r.n_deaths ? ' · ' + r.n_deaths + L(' décès', ' death(s)') : ''), info_source: 'public:' + r.relationship, supporting: f ? L('Pièce jointe : ', 'Attachment: ') + f.name : '', urgent: r.n_deaths > 1 || r.type === 'cluster' });
+        a.place_text = place;
+        B.audit('create', 'rumour', r.id, anon ? 'anonymous' : '');
+        B.save();
+        showDone(r.id, r.phone);
+      };
+      // Straight to the server when one is reachable (public reporters have no account).
+      var srv = B.submitPublicRumour && B.submitPublicRumour({ type: r.type, geo: r.geo, place_text: r.place_text, date_occurred: r.date_occurred, description: r.description, n_people: r.n_people, n_deaths: r.n_deaths, anonymous: r.anonymous, name: r.name, phone: r.phone, relationship: r.relationship, attachment: r.attachment });
+      if (srv) { srv.then(function (res) { showDone(res.id, r.phone); }).catch(storeLocal); return; }
+      storeLocal();
     };
   };
 })();

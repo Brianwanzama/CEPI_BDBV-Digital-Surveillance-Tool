@@ -23,13 +23,24 @@ An integrated design and working prototype to strengthen early detection of **Bu
 | 8 | Implementation roadmap | [docs/08_implementation_roadmap.md](docs/08_implementation_roadmap.md) |
 | 9 | v2 gap analysis, architecture, schema, permissions, tab layout | [docs/09_v2_gap_analysis_and_design.md](docs/09_v2_gap_analysis_and_design.md) |
 | 10 | v2 implementation status, tests, outstanding issues | [docs/10_v2_implementation_status.md](docs/10_v2_implementation_status.md) |
+| 11 | Backend, hosting and GitHub workflow | [docs/11_backend_and_deployment.md](docs/11_backend_and_deployment.md) |
 | – | Assumptions register | [docs/00_assumptions_and_open_questions.md](docs/00_assumptions_and_open_questions.md) |
 | – | References | [docs/references.md](docs/references.md) |
 
 ## Scoring in one paragraph
 Evidence-tiered points in three capped domains: clinical (max 45), exposures within 21 days of onset (max 60) and geography (max 10). Total capped at 100. RED ≥ 70, AMBER ≥ 50 (configurable). **Minimum-category rules** mirror the WHO case-definition structure: compatible illness plus a high-risk exposure is always RED, and fever with unexplained bleeding is at least AMBER. "Unknown" is never treated as "No"; the tool reports completeness and whether missing items could raise the category. Community signals are shown **beside** the score, never added to it. Clinicians can always override.
 
-## Quick start
+## Backend (synthetic-data pilot)
+A Node.js + PostgreSQL API in `backend/` adds sign-in, server-enforced permissions, sync between users, server-side scoring and an append-only audit log. It also serves the app. Run everything with Docker:
+```bash
+cp .env.example .env
+```
+```bash
+docker compose up -d
+```
+Then open http://localhost:8080 and click **Se connecter au serveur**. GitHub runs the tests and builds the container image on every push. Hosting options (Render blueprint, any Docker server, GitHub Pages for the app) are in [docs/11](docs/11_backend_and_deployment.md). **Synthetic data only** until Ministry of Health approval.
+
+## Quick start (app only, no server)
 ```bash
 xdg-open prototype/index.html
 ```
@@ -64,5 +75,8 @@ tools/build_geodata.js      builds the map data from Natural Earth + GeoNames
 tools/build_single_file.py  bundles the prototype into one web page
 prototype/modules/          v2 modules (queue, map, contacts, lab, cases, rumours, facility, reports, analysis, admin)
 prototype/vendor/           SheetJS + jsPDF for offline export
+backend/                    API server (Express + PostgreSQL), tests
+Dockerfile, docker-compose.yml, render.yaml, .env.example   hosting
+.github/workflows/          CI (tests + image) and GitHub Pages
 docs/                       deliverables 1–8, assumptions, references
 ```

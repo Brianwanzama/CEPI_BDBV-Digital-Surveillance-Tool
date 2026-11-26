@@ -46,10 +46,8 @@
 <script src="modules/analysis.js"></script>
 <script src="modules/admin.js"></script>
 <script src="modules/seed2.js"></script>
-<script>
-  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
-  }
-</script>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="register-sw.js"></script>
 </body>
 </html>

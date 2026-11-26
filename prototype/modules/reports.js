@@ -105,14 +105,16 @@
       }));
     } else if (type === 'cases') {
       rows = [['ID'].concat(ident ? [L('Nom', 'Name'), L('Téléphone', 'Phone')] : []).concat([L('Date', 'Date'), L('Province', 'Province'), L('Zone', 'Zone'), L('Village', 'Village'), L('FOSA', 'Facility'), L('Tranche d\'âge', 'Age group'), L('Sexe', 'Sex'), L('Profession', 'Occupation'), L('Catégorie', 'Category'), 'Score', L('Classification', 'Classification'), L('Prise en charge', 'Care status'), L('Début', 'Onset'), L('Expositions (oui)', 'Exposures (yes)'), L('Laboratoire', 'Laboratory'), L('Vérification', 'Verification'), L('Version des règles', 'Rule set')])].concat(cases(f).map(function (a) {
-        return [a.id].concat(ident ? [a.person.last + ' ' + a.person.first, a.person.phone || ''] : []).concat([B.ymd(new Date(a.assessed_at)), provName(a.geo.province), zoneName(a.geo.zone), B.nm(B.G.villages, a.geo.village), B.nm(B.G.facilities, a.geo.facility), a.person.age_group || B.ageGroup(a.person.age), a.person.sex, occLabel(a.person.occ), a.result.category, a.result.score, B.classLabel(a.classification), B.careLabel(a), a.clinical.onset_date || '',
+        var pp = (B.revealed && B.revealed[a.id]) || a.person;
+        return [a.id].concat(ident ? [pp.last + ' ' + pp.first, pp.phone || ''] : []).concat([B.ymd(new Date(a.assessed_at)), provName(a.geo.province), zoneName(a.geo.zone), B.nm(B.G.villages, a.geo.village), B.nm(B.G.facilities, a.geo.facility), a.person.age_group || B.ageGroup(a.person.age), a.person.sex, occLabel(a.person.occ), a.result.category, a.result.score, B.classLabel(a.classification), B.careLabel(a), a.clinical.onset_date || '',
           Object.keys(a.exposures).filter(function (k3) { return a.exposures[k3].s === 'yes'; }).join(' '), labState(a), B.outcomeOf(a.id) || '', a.result.rule_set]);
       }));
     } else if (type === 'contacts') {
       var CS = B.contactsApi.STATUS;
       rows = [['ID'].concat(ident ? [L('Nom', 'Name'), L('Téléphone', 'Phone'), L('Adresse', 'Address')] : []).concat([L('Tranche d\'âge', 'Age group'), L('Sexe', 'Sex'), L('Zone', 'Zone'), L('Village', 'Village'), L('Cas index', 'Index cases'), L('Dernier contact', 'Last exposure'), L('Identifié', 'Identified'), L('Agent', 'Officer'), L('Statut', 'Status'), L('Jour de suivi', 'Follow-up day'), L('Visites', 'Visits'), L('Dernière visite', 'Last visit'), L('En retard', 'Overdue')])].concat(d.contacts.filter(function (c) { return geoMatch(c.geo, Object.assign({}, f, { facility: '' })) && inRange(c.identified_at, f) && (!f.cstat || c.status === f.cstat) && (!f.age || c.age_group === f.age); }).map(function (c) {
         var s = B.contactsApi.state(c), lf = c.followups[c.followups.length - 1];
-        return [c.id].concat(ident ? [c.last + ' ' + c.first, c.phone || '', c.address || ''] : []).concat([c.age_group, c.sex, zoneName(c.geo.zone), B.nm(B.G.villages, c.geo.village), c.index_cases.join(' '), c.last_exposure, B.ymd(new Date(c.identified_at)), c.officer, B.L(CS[c.status][0], CS[c.status][1]), s.day, c.followups.length, lf ? B.fmtDT(lf.at) : '', s.overdue ? L('oui', 'yes') : '']);
+        var rc = (B.revealed && B.revealed[c.id]) || c;
+        return [c.id].concat(ident ? [rc.last + ' ' + rc.first, rc.phone || '', rc.address || ''] : []).concat([c.age_group, c.sex, zoneName(c.geo.zone), B.nm(B.G.villages, c.geo.village), c.index_cases.join(' '), c.last_exposure, B.ymd(new Date(c.identified_at)), c.officer, B.L(CS[c.status][0], CS[c.status][1]), s.day, c.followups.length, lf ? B.fmtDT(lf.at) : '', s.overdue ? L('oui', 'yes') : '']);
       }));
     } else if (type === 'lab') {
       var LS = B.labApi.STATUS, LR = B.labApi.RESULTS;
@@ -185,9 +187,20 @@
         var wantId = canId && rf.identifiers;
         if (wantId && (!B.$('#rreason', v) || B.$('#rreason', v).value.trim().length < 5)) { B.notify(L('Indiquez le motif de l\'export avec identifiants.', 'Give the reason for exporting identifiers.'), 'err'); return; }
         if (wantId) rf.reason = B.$('#rreason', v).value.trim();
-        var out = B.reportRows(rf.type, Object.assign({}, rf, { identifiers: wantId }));
-        B.exportTable(b.getAttribute('data-fmt'), 'rapport_' + rf.type, out.title, out.rows);
-        B.audit('download', 'report', rf.type + '.' + b.getAttribute('data-fmt'), (wantId ? 'IDENTIFIERS - ' + rf.reason + ' - ' : '') + (out.rows.length - 1) + ' rows');
+        var run = function () {
+          var out = B.reportRows(rf.type, Object.assign({}, rf, { identifiers: wantId }));
+          B.revealed = null;
+          B.exportTable(b.getAttribute('data-fmt'), 'rapport_' + rf.type, out.title, out.rows);
+          B.audit('download', 'report', rf.type + '.' + b.getAttribute('data-fmt'), (wantId ? 'IDENTIFIERS - ' + rf.reason + ' - ' : '') + (out.rows.length - 1) + ' rows');
+        };
+        // Server mode: names are fetched from the server (reason logged there), never stored locally.
+        var col = { cases: 'assessments', contacts: 'contacts' }[rf.type];
+        if (wantId && col && B.server && B.server.user()) {
+          var ids = B.db()[col].map(function (x) { return x.id; });
+          B.revealIdentifiers(col, ids, rf.reason).then(function (map) { B.revealed = map; run(); }).catch(function () { B.notify(L('Le serveur a refusé l\'accès aux identifiants.', 'The server refused access to identifiers.'), 'err'); });
+          return;
+        }
+        run();
       };
     });
   };

@@ -1,0 +1,41 @@
+# Optional: publish the web app to GitHub Pages, pointed at a hosted API.
+# Setup: Settings > Pages > Source = "GitHub Actions"; Settings > Secrets and variables >
+# Actions > Variables: BDBV_API_URL = https://<your-api-host>. On the API, set
+# ALLOWED_ORIGINS to the Pages origin (https://<owner>.github.io).
+name: Publish app to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["prototype/**", "config/**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Point the app at the API
+        env:
+          API_URL: ${{ vars.BDBV_API_URL }}
+        run: |
+          node -e 'process.stdout.write("window.BDBV_CONFIG = " + JSON.stringify({ apiUrl: process.env.API_URL || "" }) + ";\n")' > prototype/config.js
+          cat prototype/config.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: prototype
+      - id: deploy
+        uses: actions/deploy-pages@v4

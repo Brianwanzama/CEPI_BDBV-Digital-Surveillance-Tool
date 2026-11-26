@@ -229,6 +229,7 @@
     }).join('');
     var view = $('#view');
     (VIEWS[st.tab] || VIEWS.home)(view);
+    if (window.BDBV.afterRender) window.BDBV.afterRender();
     window.scrollTo(0, 0);
   }
   function go(tab) { st.tab = tab; render(); }
@@ -1131,6 +1132,7 @@
     $('#lang').onchange = function () { st.lang = this.value; try { localStorage.setItem(LANG_KEY, st.lang); } catch (e) {} render(); };
     $('#net').onchange = function () { st.online = this.checked; render(); };
     $('#syncbtn').onclick = function () {
+      if (window.BDBV.serverSync && window.BDBV.serverSync()) return;
       if (!st.online) { notify(L('Hors ligne : les données restent sur l\'appareil et seront envoyées au retour du réseau.', 'Offline: data stay on the device and will be sent when the network returns.'), 'err'); return; }
       var n = pendingCount();
       db.assessments.concat(db.reports, db.alerts).forEach(function (x) { x.synced = true; });
@@ -1143,7 +1145,8 @@
     G.applyConfig(db.config.geo);
     applyGeoLang();
     initVoiceCapabilities();
-    if (upgraded || (!db.assessments.length && !db.reports.length)) seedDemo();
+    // With a server session the data come from the server, never from the local demo generator.
+    if (!window.BDBV.serverMode && (upgraded || (!db.assessments.length && !db.reports.length))) seedDemo();
     render();
   }
   window.BDBVApp = { state: st, db: function () { return db; }, seedDemo: seedDemo, render: render, go: go };
@@ -1155,7 +1158,7 @@
     iso: iso, ymd: ymd, fmtDT: fmtDT, fmtD: fmtD, chip: chip, newId: newId, user: function () { return USERS[st.role]; }, userCtx: function () { return USER_CTX[st.role] || {}; },
     geoFields: geoFields, bindGeo: bindGeo, readGeo: readGeo, geoOfVillage: geoOfVillage, inGeo: inGeo, inPeriod: inPeriod,
     bars: bars, stacked: stacked, weekly: weekly, trend: trend, pct: pct, opts: opts, codeOpts: codeOpts,
-    OCCUPATIONS: OCCUPATIONS, AGE_GROUPS: AGE_GROUPS, ageGroup: ageGroup, classLabel: classLabel, CLASS: CLASS, EVT: EVT, evLabel: evLabel, DAY: DAY, RECO_HOME: RECO_HOME, prng: prng, pois: pois
+    USER_NAMES: USER_NAMES, USER_CTX: USER_CTX, OCCUPATIONS: OCCUPATIONS, AGE_GROUPS: AGE_GROUPS, ageGroup: ageGroup, classLabel: classLabel, CLASS: CLASS, EVT: EVT, evLabel: evLabel, DAY: DAY, RECO_HOME: RECO_HOME, prng: prng, pois: pois
   });
   document.addEventListener('DOMContentLoaded', init);
 })();

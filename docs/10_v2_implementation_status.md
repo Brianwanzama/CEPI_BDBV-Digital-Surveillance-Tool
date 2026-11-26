@@ -52,6 +52,9 @@ Status categories, as requested in the brief:
 
 All tests use synthetic data generated in the browser (`prototype/modules/seed2.js`).
 
+## 10.2b Update: backend (v0.3)
+A backend now exists (document 11). Items marked "prototype scope" above now work across users and devices when signed in to the server: role-based access, facility and zone scoping, and redaction are **enforced on the server**; scores are recomputed by the server; the audit log is append-only in the database; record history is kept; and offline sync uses version checks. Still pending: user administration, 2FA, SMS, attachments storage, backups/monitoring, DHIS2 interfaces, and approval for real data.
+
 ## 10.3 Outstanding issues and inputs needed
 
 1. **Official boundaries and gazetteer** (MoH/DSNIS, possibly GRID3): province and health-zone shapefiles, health-area and village lists with codes and verified coordinates, and the master facility list. Until then the map aggregates at provincial capitals.
