@@ -68,6 +68,22 @@
   function withCheck(s) { var sum = 0; for (var i = 0; i < s.length; i++) sum = (sum * 31 + s.charCodeAt(i)) % B32.length; return s + B32[sum]; }
   function newId(prefix, code, d) { return withCheck(prefix + '-' + (code ? code + '-' : '') + ymd(d || new Date()).replace(/-/g, '').slice(2) + '-' + rnd(4)); }
 
+  // In-page messages and confirmations (browser alert/confirm dialogs are
+  // unreliable in embedded or sandboxed viewers).
+  function notify(msg, kind) {
+    var el = $('#toast'); if (!el) return;
+    el.textContent = msg; el.className = 'toast ' + (kind || ''); el.hidden = false;
+    clearTimeout(notify.t); notify.t = setTimeout(function () { el.hidden = true; }, kind === 'err' ? 9000 : 5000);
+  }
+  function ask(msg, yesLabel, noLabel, onYes, onNo) {
+    var el = $('#ask'); if (!el) return;
+    el.innerHTML = '<div class="askbox" role="dialog" aria-modal="true"><p>' + esc(msg).replace(/\n/g, '<br>') + '</p><div class="actions"><button class="primary" id="askyes">' + esc(yesLabel) + '</button> <button class="ghost" id="askno">' + esc(noLabel) + '</button></div></div>';
+    el.hidden = false;
+    $('#askyes', el).focus();
+    $('#askyes', el).onclick = function () { el.hidden = true; if (onYes) onYes(); };
+    $('#askno', el).onclick = function () { el.hidden = true; if (onNo) onNo(); };
+  }
+
   function audit(action, entity, id, detail) {
     db.audit.unshift({ at: iso(new Date()), user: USERS[st.role], role: st.role, action: action, entity: entity, id: id, detail: detail || '' });
     if (db.audit.length > 1000) db.audit.length = 1000;
@@ -171,7 +187,7 @@
       '<button id="seed">' + esc(t('demo_load')) + '</button> <button id="wipe" class="ghost">' + esc(t('demo_reset')) + '</button></section>';
     $$('[data-go]', v).forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-go')); }; });
     $('#seed', v).onclick = function () { seedDemo(); audit('seed_demo', 'system', '-'); render(); };
-    $('#wipe', v).onclick = function () { if (confirm(L('Effacer toutes les données locales ?', 'Erase all local data?'))) { db = fresh(); save(); render(); } };
+    $('#wipe', v).onclick = function () { ask(L('Effacer toutes les données enregistrées sur cet appareil ?', 'Erase all data stored on this device?'), L('Effacer', 'Erase'), t('cancel'), function () { db = fresh(); save(); render(); notify(L('Données effacées.', 'Data erased.')); }); };
   };
 
   /* ---------- TRIAGE FORM (Module A) ---------- */
@@ -358,7 +374,7 @@
     if (!E.onset.value && !E.onset_unk.checked) miss.push(L('Date de début (ou « inconnue »)', 'Onset date (or "unknown")'));
     if (!E.s_fever.value) miss.push(L('Fièvre (oui / non / inconnu)', 'Fever (yes / no / unknown)'));
     if (E.cl_cat.value && !E.cl_reason.value.trim()) miss.push(L('Justification du clinicien', 'Clinician justification'));
-    if (miss.length) { alert(t('required') + ' :\n- ' + miss.join('\n- ')); return; }
+    if (miss.length) { notify(t('required') + ' :\n- ' + miss.join('\n- '), 'err'); return; }
 
     var input = buildInput(form);
     var res = S.evaluate(input, rules());
@@ -366,10 +382,19 @@
     var key = norm(person.last + person.first) + '|' + (person.dob || person.age) + '|' + g.village;
     if (!rec) {
       var dup = db.assessments.filter(function (a) { return a.patient_key === key && (Date.now() - new Date(a.assessed_at)) < 30 * DAY; })[0];
-      if (dup && !confirm(L('Doublon possible : ', 'Possible duplicate: ') + dup.id + ' (' + fmtD(dup.assessed_at) + ').\n' + L('OK = créer quand même · Annuler = rouvrir l\'existant pour réévaluation', 'OK = create anyway · Cancel = reopen existing for reassessment'))) {
-        st.editing = dup.id; go('triage'); return;
+      if (dup) {
+        ask(L('Doublon possible : ', 'Possible duplicate: ') + dup.id + ' (' + fmtD(dup.assessed_at) + ').\n' + L('Même nom, âge/date de naissance et village dans les 30 derniers jours.', 'Same name, age/DOB and village in the last 30 days.'),
+          L('Rouvrir l\'existant (réévaluation)', 'Reopen existing (reassessment)'), L('Créer un nouveau dossier', 'Create a new record'),
+          function () { st.editing = dup.id; go('triage'); },
+          function () { saveAssessment(form, rec, input, res, person, key, g); });
+        return;
       }
     }
+    saveAssessment(form, rec, input, res, person, key, g);
+  }
+
+  function saveAssessment(form, rec, input, res, person, key, g) {
+    var E = form.elements;
     var symptoms = {}, exposures = {};
     itemsOf('symptom').forEach(function (it) { symptoms[it.id] = { s: input.items[it.id].s, date: input.items[it.id].date, evol: E['e_' + it.id].value, obs: E['o_' + it.id].value }; });
     itemsOf('exposure').concat(itemsOf('geography')).forEach(function (it) { exposures[it.id] = { s: input.items[it.id].s, date: input.items[it.id].date, loc: E['l_' + it.id].value, nature: E['n_' + it.id].value, rel: E['r_' + it.id].value, case_id: E['c_' + it.id].value }; });
@@ -536,10 +561,10 @@
     form.onsubmit = function (e) {
       e.preventDefault();
       var g2 = readGeo(form, 'r_');
-      if (!g2.village) { alert(t('required') + ' : village'); return; }
+      if (!g2.village) { notify(t('required') + ' : village', 'err'); return; }
       var counts = {}; COUNTS.forEach(function (c) { counts[c[0]] = Math.max(0, parseInt(form.elements['c_' + c[0]].value, 10) || 0); });
       var sub = Math.max(counts.deaths_unexplained, counts.deaths_compatible, counts.deaths_suspected_ebola);
-      if (sub > counts.deaths_total) { alert(L('Les décès inexpliqués / compatibles / suspects ne peuvent pas dépasser le total des décès.', 'Unexplained / compatible / suspected deaths cannot exceed total deaths.')); return; }
+      if (sub > counts.deaths_total) { notify(L('Les décès inexpliqués / compatibles / suspects ne peuvent pas dépasser le total des décès.', 'Unexplained / compatible / suspected deaths cannot exceed total deaths.')); return; }
       var gv = geoOfVillage(g2.village);
       var reportedAt = new Date(form.elements.rep_at.value || Date.now()).toISOString();
       var rep = { id: newId('RCO', gv.zone.slice(2)), reco_id: form.elements.reco_id.value, province: gv.province, zone: gv.zone, area: gv.area, village: gv.village, reported_at: reportedAt, period_from: form.elements.p_from.value, period_to: form.elements.p_to.value, counts: counts,
@@ -745,7 +770,7 @@
       '<h3>Sources</h3><ul class="small">' + Object.keys(R.sources).map(function (k) { return '<li><b>' + k + '</b> : ' + esc(R.sources[k]) + '</li>'; }).join('') + '</ul></section>';
     $('#thsave', v).onclick = function () {
       var r = +$('#thr', v).value, a = +$('#tha', v).value;
-      if (!(r > a && a > 0 && r <= 100)) { alert(L('Il faut 0 < orange < rouge ≤ 100', 'Need 0 < amber < red ≤ 100')); return; }
+      if (!(r > a && a > 0 && r <= 100)) { notify(L('Les seuils doivent respecter 0 < orange < rouge ≤ 100.', 'Thresholds must satisfy 0 < amber < red ≤ 100.'), 'err'); return; }
       db.override = { thresholds: { red: r, amber: a }, rev: ((db.override && db.override.rev) || 0) + 1, at: iso(new Date()), by: USERS[st.role] };
       audit('rules_change', 'ruleset', BASE_RULES.version, 'red=' + r + ' amber=' + a); render();
     };
@@ -825,10 +850,10 @@
     $('#lang').onchange = function () { st.lang = this.value; render(); };
     $('#net').onchange = function () { st.online = this.checked; render(); };
     $('#syncbtn').onclick = function () {
-      if (!st.online) { alert(L('Hors ligne : les données restent sur l\'appareil et seront envoyées au retour du réseau.', 'Offline: data stay on the device and will be sent when the network returns.')); return; }
+      if (!st.online) { notify(L('Hors ligne : les données restent sur l\'appareil et seront envoyées au retour du réseau.', 'Offline: data stay on the device and will be sent when the network returns.'), 'err'); return; }
       var n = pendingCount();
       db.assessments.concat(db.reports, db.alerts).forEach(function (x) { x.synced = true; });
-      audit('sync', 'system', '-', n + ' enregistrement(s)'); render();
+      audit('sync', 'system', '-', n + ' enregistrement(s)'); render(); notify(n + L(' enregistrement(s) synchronisé(s).', ' record(s) synced.'));
     };
     $('#nav').onclick = function (e) { var b = e.target.closest('[data-tab]'); if (b) { st.editing = null; go(b.getAttribute('data-tab')); } };
     window.addEventListener('online', function () { st.online = true; render(); });
