@@ -14,6 +14,7 @@ window.BDBV_RULES = {
   }
  ],
  "output_label": "Score de suspicion BDBV (0-100) - indice ordinal, PAS une probabilite d'infection",
+ "output_label_en": "BDBV suspicion score (0-100) - ordinal index, NOT a probability of infection",
  "thresholds": {
   "red": 70,
   "amber": 50
@@ -581,6 +582,7 @@ window.BDBV_RULES = {
   "sd_multiplier": 2,
   "min_sd": 1,
   "min_count": 2,
-  "note": "Statistical signal only: current week > mean + 2 SD of previous 4 weeks. Not an outbreak confirmation."
+  "note": "Statistical signal only: current week > mean + 2 SD of previous 4 weeks. Not an outbreak confirmation.",
+  "note_fr": "Signal statistique uniquement : semaine en cours > moyenne + 2 écarts-types des 4 semaines précédentes. Ce n'est pas la confirmation d'une épidémie."
  }
 };

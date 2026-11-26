@@ -80,7 +80,7 @@ Early detection therefore depends on two things: (1) clinicians suspecting Ebola
 | FR-18 | Role-based access as in 1.3 | Must |
 | FR-19 | Audit trail of create, view, update, verify, acknowledge, sync and rule changes | Must |
 | FR-20 | Update thresholds and weights by configuration with version control and approval | Must |
-| FR-21 | French interface; additional languages by translation file (Lingala, Swahili, Kikongo, Tshiluba) | Must (FR) / Should (others) |
+| FR-21 | Bilingual French/English interface, switchable per user, with the default language set in configuration (prototype default: English; deployment default to be decided by the MoH, expected French); dropdown values stored as language-neutral codes; additional languages by translation file (Lingala, Swahili, Kikongo, Tshiluba) | Must (FR, EN) / Should (others) |
 | FR-22 | Export to national systems (DHIS2 aggregate and tracker, IDSR weekly) | Should |
 
 ## 1.6 Non-functional requirements

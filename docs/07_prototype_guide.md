@@ -9,18 +9,27 @@ cd prototype && python3 -m http.server 8080
 
 Then open `http://localhost:8080` (or the computer's IP from a phone on the same network).
 
-At first launch, **synthetic demonstration data** are generated: 5 health zones, 10 health areas, 30 villages, 160 assessments and 8 weeks of RECO reports, with three "hot" villages so the early-warning signals can be seen. All data stay in the browser (localStorage). *Accueil → Effacer* clears them.
+At first launch, **synthetic demonstration data** are generated: 5 health zones, 10 health areas, 30 villages, 160 assessments and 8 weeks of RECO reports, with three "hot" villages so the early-warning signals can be seen. All data stay in the browser (localStorage). *Home → Erase all local data* clears them.
 
-## 7.2 What to try
+## 7.2 Interface language
+The interface opens in **English** by default. Use the language menu at the top (English / Français) to switch. Each user's choice is remembered on their device. To make French the default for everyone, change one line in `prototype/app.js`:
+
+```js
+var DEFAULT_LANG = 'fr';
+```
+
+All dropdowns and checklists (occupation, comorbidities, rash type, event types, information sources, lab status, verification status) store **language-neutral codes**. Records entered in one language display correctly in the other, and the data exported to national systems do not depend on the interface language. Screen text is in `prototype/i18n.js`, and the code lists are at the top of `prototype/app.js`. Scoring-variable labels are in `config/scoring_rules.json` (`label_fr` / `label_en`). The rationale texts on the scoring-rules screen are in English only (technical documentation).
+
+## 7.3 What to try
 
 | Role (top menu) | Walk-through |
 |---|---|
-| **Agent de santé (FOSA)** | *Triage* → fill name, age, sex; choose village *Village RWA-11* (a hot spot) → tick **Fièvre: Oui** and **Contact avec un cas: Oui** with a date 9 days before onset. Watch the live panel: score 45 but **ROUGE** because rule F1 applies. The purple community panel shows high concern but does not change the score. Save → recommended actions, SMS preview → *Gérer l'alerte* → tick actions → *Accuser réception*. Try a patient with only headache → **VERT** with reassessment triggers. Leave items as *Inconnu* to see the "category could rise" warning. Use *Réévaluer* to update. |
-| **RECO** | Only 3 tabs (no clinical data). Switch the network toggle **off**, fill counts with +/−, add an event, send → "kept on the phone" message and the pending counter. Toggle the network back **on** → *Synchroniser*. *Mes rapports* shows verification status. |
-| **Surveillance (ZS/DPS)** | *Vérification*: set event status; see linked facility assessments from the same village. *Évaluations*: names hidden. *Tableau de bord*: filters, map (click a village), trends with statistical signals. *Règles de score*: full matrix, sources; change thresholds → new local version, logged in *Journal d'audit*. |
-| **Décideur** | Dashboard only (aggregated). Switch the language to English. |
+| **Health worker (facility)** | *Triage* → fill name, age, sex; choose village *Village RWA-11* (a hot spot) → tick **Fever: Yes** and **Contact with a case: Yes** with a date 9 days before onset. Watch the live panel: score 45 but **RED** because rule F1 applies. The purple community panel shows high concern but does not change the score. Save → recommended actions, SMS preview → *Manage alert* → tick actions → *Acknowledge*. Try a patient with only headache → **GREEN** with reassessment triggers. Leave items as *Unknown* to see the "category could rise" warning. Use *Reassess* to update. |
+| **RECO (community volunteer)** | Only 3 tabs (no clinical data). Switch the network toggle **off**, fill counts with +/−, add an event, send → "kept on the phone" message and the pending counter. Toggle the network back **on** → *Sync*. *My reports* shows verification status. |
+| **Surveillance (HZ/DPS)** | *Verification*: set event status; see linked facility assessments from the same village. *Assessments*: names hidden. *Dashboard*: filters, map (click a village), trends with statistical signals. *Scoring rules*: full matrix, sources; change thresholds → new local version, logged in the *Audit log*. |
+| **Policymaker (aggregate)** | Dashboard only (aggregated). Switch the language to French. |
 
-## 7.3 Files
+## 7.4 Files
 | File | Role |
 |---|---|
 | `index.html`, `styles.css` | Shell and responsive styles (light/dark) |
@@ -28,10 +37,10 @@ At first launch, **synthetic demonstration data** are generated: 5 health zones,
 | `scoring.js` | Scoring engine, community concern, early warning (pure functions, shared with tests) |
 | `rules.js` | Generated from `config/scoring_rules.json` by `node tools/build_rules.js` |
 | `geo.js` | Demonstration geography (replace with DHIS2 org units) |
-| `i18n.js` | Interface strings (FR primary, EN; add other languages here) |
+| `i18n.js` | Interface strings (EN default, FR; add other languages here) |
 | `sw.js`, `manifest.webmanifest` | Offline cache and installable app (over HTTP) |
 
-## 7.4 Tests
+## 7.5 Tests
 ```bash
 node tests/scoring.test.js
 ```
@@ -40,8 +49,8 @@ node tests/e2e.test.js
 ```
 The first runs 12 unit tests of the scoring logic (floors, 21-day window, caps, Unknown handling, overrides, configurable thresholds, community separation, early warning). The second is an end-to-end run of all four roles in headless Chromium at phone width (requires Playwright).
 
-## 7.5 Prototype limits (by design)
-- There is no server: *Synchroniser* simulates upload, and SMS is shown as a preview only.
+## 7.6 Prototype limits (by design)
+- There is no server: *Sync* simulates upload, and SMS is shown as a preview only.
 - Security features (accounts, encryption, PINs) are described in document 05 but not implemented. Role switching is open for demonstration.
 - Geography, facilities, names and all numbers are fictitious.
 - Scoring rules are provisional (document 03) and **must not be used for patient care**.

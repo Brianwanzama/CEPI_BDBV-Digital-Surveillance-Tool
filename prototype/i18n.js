@@ -1,6 +1,7 @@
-/* Interface strings. French is the primary language; English is provided to
-   show that additional languages (Lingala, Swahili, Kikongo, Tshiluba) can be
-   added by translating this file only. Clinical/protocol wording marked
+/* Interface strings in English and French. The default language is set by
+   DEFAULT_LANG in app.js (currently English); users can switch at any time.
+   Further languages (Lingala, Swahili, Kikongo, Tshiluba) can be added by
+   translating this file and the code lists in app.js. Clinical/protocol wording marked
    [À VALIDER] must be confirmed against DRC Ministry of Health protocols. */
 window.BDBV_I18N = {
   fr: {
@@ -47,7 +48,8 @@ window.BDBV_I18N = {
     concern_legend: 'Niveau de préoccupation communautaire (zone) - distinct du risque individuel',
     stat_signal: 'Signal statistique (non confirmé)', no_signal: 'Pas de signal',
     privacy_names_hidden: 'Identité masquée pour ce rôle',
-    required: 'Champs obligatoires manquants'
+    required: 'Champs obligatoires manquants',
+    footer: 'Outil d\'aide à la décision : ne remplace ni le jugement clinique ni les procédures nationales (MSP / PNLFHV / INRB). Le score n\'est pas une probabilité d\'infection.'
   },
   en: {
     app_title: 'BDBV Triage & Surveillance',
@@ -93,6 +95,7 @@ window.BDBV_I18N = {
     concern_legend: 'Community concern level (area) - distinct from individual risk',
     stat_signal: 'Statistical signal (not confirmed)', no_signal: 'No signal',
     privacy_names_hidden: 'Identity hidden for this role',
-    required: 'Missing mandatory fields'
+    required: 'Missing mandatory fields',
+    footer: 'Decision-support tool: does not replace clinical judgement or national procedures (MoH / PNLFHV / INRB). The score is not a probability of infection.'
   }
 };

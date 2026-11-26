@@ -3,7 +3,8 @@
  * entities, but health areas, villages, facilities and all coordinates are
  * FICTITIOUS placeholders. In deployment this file is replaced by the official
  * DRC master lists (SNIS / DHIS2 org-unit hierarchy and master facility list),
- * with official codes and GPS coordinates.
+ * with official codes and GPS coordinates. Names are given in French (name_fr)
+ * and English (name_en); the app shows the one for the interface language.
  * x/y are schematic map coordinates (0-600 / 0-380), not GPS.
  */
 (function () {
@@ -20,19 +21,20 @@
     for (var a = 1; a <= 2; a++) {
       var aid = z.id + '-A' + a;
       var acx = z.cx + (a === 1 ? -32 : 32), acy = z.cy + (a === 1 ? -6 : 10);
-      areas.push({ id: aid, zone: z.id, name: 'AS ' + z.name + ' ' + a + ' (démo)' });
-      facilities.push({ id: aid + '-F', area: aid, code: z.id.slice(2) + a, name: 'CS ' + z.name + ' ' + a + ' (démo)', x: acx, y: acy });
+      areas.push({ id: aid, zone: z.id, name_fr: 'AS ' + z.name + ' ' + a + ' (démo)', name_en: 'HA ' + z.name + ' ' + a + ' (demo)' });
+      facilities.push({ id: aid + '-F', area: aid, code: z.id.slice(2) + a, name_fr: 'CS ' + z.name + ' ' + a + ' (démo)', name_en: 'HC ' + z.name + ' ' + a + ' (demo)', x: acx, y: acy });
       for (var v = 0; v < 3; v++) {
         villages.push({
           id: aid + '-V' + (v + 1), area: aid,
-          name: 'Village ' + z.name.slice(0, 3).toUpperCase() + '-' + a + (v + 1) + ' (démo)',
+          name_fr: 'Village ' + z.name.slice(0, 3).toUpperCase() + '-' + a + (v + 1) + ' (démo)',
+          name_en: 'Village ' + z.name.slice(0, 3).toUpperCase() + '-' + a + (v + 1) + ' (demo)',
           x: acx + offsets[v][0] * 0.6 + (zi % 2) * 4, y: acy + offsets[v][1] * 0.6
         });
       }
     }
   });
   window.BDBV_GEO = {
-    provinces: [{ id: 'P-ITU', name: 'Ituri' }, { id: 'P-NKV', name: 'Nord-Kivu' }],
+    provinces: [{ id: 'P-ITU', name_fr: 'Ituri', name_en: 'Ituri' }, { id: 'P-NKV', name_fr: 'Nord-Kivu', name_en: 'North Kivu' }],
     zones: zones, areas: areas, villages: villages, facilities: facilities,
     // Health zones flagged as having active transmission (to be maintained by national surveillance)
     affected_zones: ['Z-BUN', 'Z-RWA', 'Z-MGB']

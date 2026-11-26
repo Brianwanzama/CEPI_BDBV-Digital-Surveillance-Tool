@@ -24,7 +24,7 @@ body { overflow-x: hidden; }
 .top p { margin: 0; font-size: 12px; opacity: .85; }
 .ctrls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ctrls select, .ctrls button { font-size: 13px; }
-.net { white-space: nowrap; display: flex; align-items: center; gap: 4px; font-size: 13px; }
+.net { white-space: nowrap; display: flex; flex-direction: row; align-items: center; gap: 4px; font-size: 13px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .dot.on { background: #22c55e; } .dot.off { background: #ef4444; }
 .nav { display: flex; gap: 4px; overflow-x: auto; padding: 6px 16px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
@@ -128,6 +128,7 @@ code { font-size: 12px; background: var(--bg); padding: 0 4px; border-radius: 4p
   .top { flex-direction: column; align-items: stretch; }
   .seg span { padding: 8px 7px; font-size: 12px; }
   .counter span:first-child { font-size: 14px; }
+  .live { max-height: 30vh; }
 }
 [hidden] { display: none !important; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 30; max-width: min(520px, calc(100% - 32px)); background: var(--brand); color: #fff; border-radius: 10px; padding: 10px 14px; white-space: pre-line; box-shadow: 0 6px 20px rgba(0,0,0,.25); font-size: 14px; }

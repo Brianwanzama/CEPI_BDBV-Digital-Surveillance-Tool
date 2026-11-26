@@ -14,6 +14,16 @@ const assert = require('assert');
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('dialog', d => d.accept());
   await page.goto(url);
+  // Default interface language is English; switch to French for the FR checks below.
+  assert.strictEqual(await page.inputValue('#lang'), 'en', 'English by default');
+  assert.ok(/Health worker/.test(await page.textContent('#role')), 'role menu in English');
+  await page.click('[data-tab="triage"]');
+  assert.ok(/Traditional healer/.test(await page.textContent('[name=occ]')), 'occupation list in English');
+  assert.ok(/North Kivu/.test(await page.textContent('[name=g_province]')), 'province names in English');
+  await page.selectOption('#lang', 'fr');
+  assert.ok(/Tradipraticien/.test(await page.textContent('[name=occ]')), 'occupation list in French');
+  await page.reload();
+  assert.strictEqual(await page.inputValue('#lang'), 'fr', 'language choice remembered');
   const snap = async n => { if (shots) await page.screenshot({ path: path.join(shots, n + '.png'), fullPage: true }); };
 
   // Demo data auto-seeded

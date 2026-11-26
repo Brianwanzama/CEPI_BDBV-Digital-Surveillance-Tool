@@ -30,7 +30,7 @@ Evidence-tiered points in three capped domains: clinical (max 45), exposures wit
 ```bash
 xdg-open prototype/index.html
 ```
-Opening `prototype/index.html` directly in any browser works offline, with synthetic demo data. Run the tests with:
+Opening `prototype/index.html` directly in any browser works offline, with synthetic demo data. The interface opens in English; switch to French from the menu at the top, or set `DEFAULT_LANG = 'fr'` in `prototype/app.js` to make French the default. Run the tests with:
 ```bash
 node tests/scoring.test.js
 ```
@@ -45,7 +45,7 @@ node tools/build_rules.js
 ## Repository layout
 ```
 config/scoring_rules.json   versioned rule set (single source of truth)
-prototype/                  offline-first web app (FR/EN), no build step
+prototype/                  offline-first web app (EN/FR), no build step
 tests/                      unit tests (scoring) + end-to-end (Playwright)
 tools/build_rules.js        copies the rule set into the prototype
 docs/                       deliverables 1–8, assumptions, references

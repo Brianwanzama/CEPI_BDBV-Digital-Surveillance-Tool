@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,8 +13,8 @@
 <header class="top">
   <div class="brand"><h1 id="title"></h1><p id="subtitle"></p></div>
   <div class="ctrls">
-    <label><span class="sr">Rôle</span><select id="role" aria-label="Rôle"></select></label>
-    <label><span class="sr">Langue</span><select id="lang" aria-label="Langue"><option value="fr">Français</option><option value="en">English</option></select></label>
+    <label><span class="sr">Role / Rôle</span><select id="role" aria-label="Role / Rôle"></select></label>
+    <label><span class="sr">Language / Langue</span><select id="lang" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option></select></label>
     <label class="net"><input type="checkbox" id="net" checked> <span id="netdot" class="dot on"></span> <span id="netlabel"></span></label>
     <button id="syncbtn" class="ghost"></button>
   </div>
@@ -23,7 +23,7 @@
 <main id="view"></main>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <div id="ask" class="ask" hidden></div>
-<footer class="foot">Outil d'aide à la décision : ne remplace ni le jugement clinique ni les procédures nationales (MSP / PNLFHV / INRB). Le score n'est pas une probabilité d'infection.</footer>
+<footer class="foot" id="foot"></footer>
 <script src="rules.js"></script>
 <script src="geo.js"></script>
 <script src="i18n.js"></script>

@@ -9,7 +9,12 @@
   var DB_KEY = 'bdbv_proto_db_v1';
   var DAY = 86400000;
 
-  var st = { lang: 'fr', role: 'soignant', tab: 'home', online: true, editing: null, lastId: null,
+  // Interface language. English by default; set DEFAULT_LANG = 'fr' to make
+  // French the default. Each user's own choice (menu at top) is remembered.
+  var DEFAULT_LANG = 'en';
+  var LANG_KEY = 'bdbv_proto_lang';
+  function savedLang() { try { var l = localStorage.getItem(LANG_KEY); return l === 'fr' || l === 'en' ? l : null; } catch (e) { return null; } }
+  var st = { lang: savedLang() || DEFAULT_LANG, role: 'soignant', tab: 'home', online: true, editing: null, lastId: null,
     f: { province: '', zone: '', area: '', village: '', facility: '', days: '30' } };
 
   var ROLES = {
@@ -18,9 +23,21 @@
     surveillant: ['home', 'patients', 'alerts', 'verify', 'dashboard', 'rules', 'audit'],
     decideur: ['home', 'dashboard']
   };
-  var USERS = { reco: 'RECO-BUN1-001 (démo)', soignant: 'Infirmier·e démo', surveillant: 'Surveillant·e ZS démo', decideur: 'Décideur démo' };
+  var USER_NAMES = { reco: ['RECO-BUN1-001 (démo)', 'RECO-BUN1-001 (demo)'], soignant: ['Infirmier·e démo', 'Demo nurse'], surveillant: ['Surveillant·e ZS démo', 'Demo HZ surveillance officer'], decideur: ['Décideur démo', 'Demo policymaker'] };
+  var USERS = new Proxy({}, { get: function (o, k) { var n = USER_NAMES[k]; return n ? L(n[0], n[1]) : k; } });
   var RECO_HOME = { village: 'Z-RWA-A1-V1' };
   var ALERT_ESCALATION_MIN = 30;
+
+  /* ---------- code lists: stored as codes, shown in the interface language ---------- */
+  var OCCUPATIONS = [['', '', ''], ['health_worker', 'Agent de santé', 'Health worker'], ['traditional_healer', 'Tradipraticien', 'Traditional healer'], ['hunter', 'Chasseur', 'Hunter'], ['miner', 'Mineur / orpailleur', 'Miner / gold digger'], ['trader', 'Commerçant', 'Trader'], ['farmer', 'Cultivateur', 'Farmer'], ['student', 'Élève / étudiant', 'Pupil / student'], ['transport', 'Transporteur / moto-taxi', 'Transporter / moto-taxi'], ['homemaker', 'Ménagère', 'Homemaker'], ['child', 'Enfant (non applicable)', 'Child (not applicable)'], ['other', 'Autre', 'Other']];
+  var COMORBIDITIES = [['hiv', 'VIH', 'HIV'], ['diabetes', 'Diabète', 'Diabetes'], ['hypertension', 'HTA', 'Hypertension'], ['sickle_cell', 'Drépanocytose', 'Sickle cell disease'], ['pregnancy', 'Grossesse', 'Pregnancy'], ['malnutrition', 'Malnutrition', 'Malnutrition'], ['tb', 'Tuberculose', 'Tuberculosis'], ['renal', 'Insuffisance rénale', 'Renal failure']];
+  var RASH_TYPES = [['', '', ''], ['maculopapular', 'Maculopapuleuse', 'Maculopapular'], ['petechial', 'Pétéchiale / purpurique', 'Petechial / purpuric'], ['vesicular', 'Vésiculaire / pustuleuse', 'Vesicular / pustular'], ['other', 'Autre', 'Other']];
+  function codeOpts(list, sel) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (sel === o[0] ? ' selected' : '') + '>' + esc(L(o[1], o[2])) + '</option>'; }).join(''); }
+
+  // Demo place names exist in both languages; switch the displayed name.
+  function applyGeoLang() {
+    ['provinces', 'areas', 'facilities', 'villages'].forEach(function (k) { G[k].forEach(function (o) { o.name = st.lang === 'en' ? o.name_en : o.name_fr; }); });
+  }
 
   /* ---------- storage ---------- */
   function fresh() { return { assessments: [], reports: [], alerts: [], audit: [], override: null }; }
@@ -145,6 +162,9 @@
     var tabs = ROLES[st.role];
     if (tabs.indexOf(st.tab) < 0 && st.tab !== 'result') st.tab = 'home';
     document.documentElement.lang = st.lang;
+    applyGeoLang();
+    $('#lang').value = st.lang;
+    if ($('#foot')) $('#foot').textContent = t('footer');
     $('#title').textContent = t('app_title');
     $('#subtitle').textContent = t('app_sub');
     $('#banner').textContent = t('proto_banner');
@@ -203,7 +223,7 @@
       var r = (rec && rec.clinical.rash) || {};
       extra = '<label>' + L('Distribution', 'Distribution') + '<input name="rash_dist" value="' + esc(r.dist) + '" placeholder="' + L('ex. tronc, généralisée', 'e.g. trunk, generalised') + '"></label>' +
         '<label>' + L('Aspect', 'Appearance') + '<input name="rash_app" value="' + esc(r.appearance) + '" placeholder="' + L('ex. maculopapuleuse', 'e.g. maculopapular') + '"></label>' +
-        '<label>' + L('Type', 'Type') + '<select name="rash_type">' + ['', 'maculopapuleuse', 'pétéchiale/purpurique', 'vésiculaire/pustuleuse', 'autre'].map(function (o) { return '<option' + (r.type === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></label>';
+        '<label>' + L('Type', 'Type') + '<select name="rash_type">' + codeOpts(RASH_TYPES, r.type) + '</select></label>';
     }
     if (it.id === 'bleeding') {
       extra = '<label>' + L('Site(s)', 'Site(s)') + '<input name="bleed_sites" value="' + esc((rec && rec.clinical.bleed_sites) || '') + '" placeholder="' + L('gencives, hématémèse, injection, selles...', 'gums, haematemesis, injection site, stool...') + '"></label>';
@@ -240,8 +260,6 @@
   VIEWS.triage = function (v) {
     var rec = st.editing ? byId(db.assessments, st.editing) : null;
     var p = rec ? rec.person : {}, g = rec ? rec.geo : { province: 'P-ITU', zone: 'Z-RWA', area: 'Z-RWA-A1', facility: 'Z-RWA-A1-F' }, c = rec ? rec.clinical : {}, h = rec ? rec.history : {};
-    var comorb = ['VIH', 'Diabète', 'HTA', 'Drépanocytose', 'Grossesse', 'Malnutrition', 'Tuberculose', 'Insuffisance rénale'];
-    var occ = ['', 'Agent de santé', 'Tradipraticien', 'Chasseur', 'Mineur / orpailleur', 'Commerçant', 'Cultivateur', 'Élève / étudiant', 'Transporteur / moto-taxi', 'Ménagère', 'Enfant (non applicable)', 'Autre'];
     v.innerHTML = '<form id="tf" class="card" novalidate autocomplete="off">' +
       '<h2>' + (rec ? L('Réévaluation', 'Reassessment') + ' - ' + esc(rec.id) : L('Nouvelle évaluation de triage', 'New triage assessment')) + '</h2>' +
       '<p class="muted">' + L('* obligatoire. « Inconnu / non évalué » n\'est jamais compté comme une absence.', '* mandatory. "Unknown / not assessed" is never counted as absent.') + '</p>' +
@@ -252,7 +270,7 @@
       '<label>' + L('Âge (années)', 'Age (years)') + ' *<input type="number" min="0" max="120" name="age" value="' + esc(p.age) + '"></label>' +
       '<label>' + L('Sexe', 'Sex') + ' *<select name="sex"><option value=""></option><option value="F"' + (p.sex === 'F' ? ' selected' : '') + '>' + L('Féminin', 'Female') + '</option><option value="M"' + (p.sex === 'M' ? ' selected' : '') + '>' + L('Masculin', 'Male') + '</option></select></label>' +
       '<label>' + L('Téléphone / contact', 'Phone / contact') + '<input type="tel" name="phone" value="' + esc(p.phone) + '"></label>' +
-      '<label>' + L('Profession', 'Occupation') + '<select name="occ">' + occ.map(function (o) { return '<option' + (p.occ === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></label>' +
+      '<label>' + L('Profession', 'Occupation') + '<select name="occ">' + codeOpts(OCCUPATIONS, p.occ) + '</select></label>' +
       '<label class="wide">' + L('Adresse permanente', 'Permanent address') + '<input name="addr_home" value="' + esc(p.addr_home) + '"></label>' +
       '<label class="wide">' + L('Adresse de résidence actuelle', 'Current residence') + '<input name="addr_cur" value="' + esc(p.addr_cur) + '"></label></div>' +
       '<div data-geoholder="g_">' + geoFields('g_', g, true) + '</div>' +
@@ -271,7 +289,7 @@
 
       '<details><summary>A.4 ' + L('Antécédents, voyages, vaccinations (contexte - hors score)', 'History, travel, vaccinations (context - not scored)') + '</summary>' +
       '<p class="muted">' + L('Ces variables sont conservées pour le contexte clinique et épidémiologique. Elles ne modifient pas le score (justification : voir document 03).', 'Kept for clinical/epidemiological context; they do not change the score (see document 03).') + '</p>' +
-      '<div class="checks">' + comorb.map(function (x) { return '<label class="check"><input type="checkbox" name="comorb" value="' + x + '"' + ((h.comorb || []).indexOf(x) >= 0 ? ' checked' : '') + '> ' + x + '</label>'; }).join('') + '</div>' +
+      '<div class="checks">' + COMORBIDITIES.map(function (x) { return '<label class="check"><input type="checkbox" name="comorb" value="' + x[0] + '"' + ((h.comorb || []).indexOf(x[0]) >= 0 ? ' checked' : '') + '> ' + esc(L(x[1], x[2])) + '</label>'; }).join('') + '</div>' +
       '<div class="grid"><label class="wide">' + L('Autres antécédents', 'Other conditions') + '<input name="comorb_other" value="' + esc(h.comorb_other) + '"></label></div>' +
       '<h4>' + L('Voyages (4 semaines avant la maladie)', 'Travel (4 weeks before illness)') + '</h4><div id="trips">' + ((h.travel || []).map(travelRow).join('')) + '</div>' +
       '<button type="button" class="ghost" id="addtrip">+ ' + L('Ajouter un voyage', 'Add a trip') + '</button>' +
@@ -430,7 +448,7 @@
   function createAlert(rec) {
     var fac = byId(G.facilities, rec.geo.facility);
     var a = { id: newId('ALR', fac.code), assessment_id: rec.id, facility: rec.geo.facility, zone: rec.geo.zone, created_at: iso(new Date()), synced: false, ack: null, actions: [], closed: false,
-      sms: 'ALERTE BDBV ROUGE. Dossier ' + rec.id + ', ' + fac.name + ', ' + fmtDT(new Date().toISOString()) + '. Ouvrir l\'application pour details. Repondre OK pour accuser reception.',
+      sms: L('ALERTE BDBV ROUGE. Dossier ', 'BDBV RED ALERT. Record ') + rec.id + ', ' + fac.name + ', ' + fmtDT(new Date().toISOString()) + L('. Ouvrir l\'application pour details. Repondre OK pour accuser reception.', '. Open the app for details. Reply OK to acknowledge.'),
       recipients: [L('Clinicien responsable FOSA', 'Facility responsible clinician'), L('Point focal surveillance ZS', 'HZ surveillance focal point')] };
     db.alerts.unshift(a);
     audit('alert_created', 'alert', a.id, rec.id);
@@ -462,7 +480,7 @@
       (showNames ? '' : '<p class="muted">' + esc(t('privacy_names_hidden')) + '</p>') +
       '<div class="scroll"><table class="tbl"><tr><th>ID</th>' + (showNames ? '<th>' + L('Nom', 'Name') + '</th>' : '') + '<th>' + L('FOSA', 'Facility') + '</th><th>' + L('Date', 'Date') + '</th><th>Score</th><th>' + L('Catégorie', 'Category') + '</th><th>' + L('Revue', 'Review') + '</th><th>' + L('Laboratoire', 'Laboratory') + '</th><th></th></tr>' +
       rows.map(function (a) {
-        return '<tr><td><code>' + esc(a.id) + '</code>' + (a.demo ? ' <span class="tag">démo</span>' : '') + '</td>' + (showNames ? '<td>' + esc(a.person.last + ' ' + a.person.first) + '</td>' : '') +
+        return '<tr><td><code>' + esc(a.id) + '</code>' + (a.demo ? ' <span class="tag">' + L('démo', 'demo') + '</span>' : '') + '</td>' + (showNames ? '<td>' + esc(a.person.last + ' ' + a.person.first) + '</td>' : '') +
           '<td>' + esc(nm(G.facilities, a.geo.facility)) + '</td><td>' + fmtDT(a.assessed_at) + '</td><td>' + a.result.score + '</td><td>' + chip(a.result.category) + '</td>' +
           '<td>' + (a.review ? (a.review.status === 'done' ? '✓' : '<button class="sm" data-rev="' + a.id + '">' + L('Marquer revu', 'Mark reviewed') + '</button>') : '') + '</td>' +
           '<td><select class="sm" data-lab="' + a.id + '">' + [['none', L('Non demandé', 'Not requested')], ['requested', L('Demandé', 'Requested')], ['collected', L('Prélevé', 'Collected')], ['pos', L('Résultat positif', 'Positive')], ['neg', L('Résultat négatif', 'Negative')]].map(function (o) { return '<option value="' + o[0] + '"' + (a.lab.status === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></td>' +
@@ -705,12 +723,12 @@
     var medDelay = (function () { var d = acked.map(function (a) { return a.ack.delay_min; }).sort(function (a, b) { return a - b; }); return d.length ? d[Math.floor(d.length / 2)] : '-'; })();
 
     var byFac = G.facilities.filter(function (fa) { return inGeo({ facility: fa.id, area: fa.area, zone: byId(G.areas, fa.area).zone, province: byId(G.zones, byId(G.areas, fa.area).zone).province, village: f.village ? f.village : undefined }, Object.assign({}, f, { village: '' })); }).map(function (fa) {
-      var r = { label: fa.name.replace(' (démo)', ''), RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.facility === fa.id) r[a.result.category]++; }); return r;
+      var r = { label: fa.name.replace(/ \((démo|demo)\)$/, ''), RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.facility === fa.id) r[a.result.category]++; }); return r;
     }).filter(function (r) { return r.RED + r.AMBER + r.GREEN; });
     var byZone = G.zones.map(function (z) { var r = { label: z.name, RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.zone === z.id) r[a.result.category]++; }); return r; }).filter(function (r) { return r.RED + r.AMBER + r.GREEN; });
     var symp = itemsOf('symptom').map(function (it) { return { label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.clinical.symptoms[it.id] && a.clinical.symptoms[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
     var expo = itemsOf('exposure').concat(itemsOf('geography')).map(function (it) { return { label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.exposures[it.id] && a.exposures[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
-    var byVill = G.villages.map(function (vv) { var s = 0; P.forEach(function (r) { if (r.village === vv.id) s += r.counts.deaths_unexplained + r.counts.deaths_suspected_ebola + r.counts.alerts + r.counts.clusters; }); return { label: vv.name.replace(' (démo)', ''), value: s }; }).filter(function (x) { return x.value; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
+    var byVill = G.villages.map(function (vv) { var s = 0; P.forEach(function (r) { if (r.village === vv.id) s += r.counts.deaths_unexplained + r.counts.deaths_suspected_ebola + r.counts.alerts + r.counts.clusters; }); return { label: vv.name.replace(/ \((démo|demo)\)$/, ''), value: s }; }).filter(function (x) { return x.value; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
 
     var allA = db.assessments.filter(function (a) { return inGeo(a.geo, f); });
     var allP = db.reports.filter(function (r) { return inGeo({ province: r.province, zone: r.zone, area: r.area, village: r.village }, Object.assign({}, f, { facility: '' })); });
@@ -740,7 +758,7 @@
 
       '<section class="card"><h2>C. ' + L('Carte schématique', 'Schematic map') + '</h2><p class="muted small">' + L('Couleur = niveau de préoccupation communautaire des 14 derniers jours (violet), distinct du risque individuel (rouge/orange/vert). Cliquez un village pour filtrer. En production : fond de carte hors ligne et coordonnées GPS officielles.', 'Colour = community concern level, last 14 days (purple), distinct from individual risk (red/amber/green). Click a village to filter. In production: offline basemap and official GPS coordinates.') + '</p>' + mapSvg(A, f) + '</section>' +
 
-      '<section class="card"><h2>D. ' + L('Tendances et alerte précoce', 'Trends and early warning') + '</h2><p class="muted small">' + esc(R.early_warning.note) + ' ' + L('(Filtres géographiques appliqués ; période ignorée : 8 dernières semaines.)', '(Geographic filters applied; period ignored: last 8 weeks.)') + '</p><div class="trends">' +
+      '<section class="card"><h2>D. ' + L('Tendances et alerte précoce', 'Trends and early warning') + '</h2><p class="muted small">' + esc(st.lang === 'en' ? R.early_warning.note : R.early_warning.note_fr) + ' ' + L('(Filtres géographiques appliqués ; période ignorée : 8 dernières semaines.)', '(Geographic filters applied; period ignored: last 8 weeks.)') + '</p><div class="trends">' +
       trend(L('Décès communautaires', 'Community deaths'), wk('deaths_total')) +
       trend(L('Décès inexpliqués', 'Unexplained deaths'), wk('deaths_unexplained')) +
       trend(L('Alertes Ebola suspectes', 'Suspected Ebola alerts'), wk('alerts')) +
@@ -759,7 +777,7 @@
   VIEWS.rules = function (v) {
     var R = rules();
     v.innerHTML = '<section class="card"><h2>' + esc(t('tab_rules')) + ' - ' + esc(R.rule_set_id) + ' v' + esc(R.version) + '</h2><p class="flag">' + esc(R.status) + '</p>' +
-      '<p>' + esc(R.output_label) + '</p>' +
+      '<p>' + esc(st.lang === 'en' ? R.output_label_en : R.output_label) + '</p>' +
       '<div class="grid"><label>' + L('Seuil ROUGE (≥)', 'RED threshold (≥)') + '<input type="number" id="thr" value="' + R.thresholds.red + '" min="1" max="100"></label><label>' + L('Seuil ORANGE (≥)', 'AMBER threshold (≥)') + '<input type="number" id="tha" value="' + R.thresholds.amber + '" min="1" max="100"></label>' +
       '<label>&nbsp;<button id="thsave">' + L('Enregistrer (version locale)', 'Save (local version)') + '</button></label><label>&nbsp;<button id="threset" class="ghost">' + L('Revenir à la version de référence', 'Revert to reference version') + '</button></label></div>' +
       '<p class="muted small">' + L('En production, toute modification passe par un circuit d\'approbation (MSP / INSP / comité technique) et crée une nouvelle version ; chaque évaluation garde la version utilisée.', 'In production every change goes through an approval workflow (MoH / INSP / technical committee) and creates a new version; each assessment stores the version used.') + '</p>' +
@@ -847,7 +865,7 @@
   /* ---------- init ---------- */
   function init() {
     $('#role').onchange = function () { st.role = this.value; st.tab = 'home'; st.editing = null; audit('login', 'session', st.role); render(); };
-    $('#lang').onchange = function () { st.lang = this.value; render(); };
+    $('#lang').onchange = function () { st.lang = this.value; try { localStorage.setItem(LANG_KEY, st.lang); } catch (e) {} render(); };
     $('#net').onchange = function () { st.online = this.checked; render(); };
     $('#syncbtn').onclick = function () {
       if (!st.online) { notify(L('Hors ligne : les données restent sur l\'appareil et seront envoyées au retour du réseau.', 'Offline: data stay on the device and will be sent when the network returns.'), 'err'); return; }
@@ -858,6 +876,7 @@
     $('#nav').onclick = function (e) { var b = e.target.closest('[data-tab]'); if (b) { st.editing = null; go(b.getAttribute('data-tab')); } };
     window.addEventListener('online', function () { st.online = true; render(); });
     window.addEventListener('offline', function () { st.online = false; render(); });
+    applyGeoLang();
     if (!db.assessments.length && !db.reports.length) seedDemo();
     render();
   }
