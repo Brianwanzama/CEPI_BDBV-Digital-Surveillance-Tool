@@ -35,7 +35,7 @@
   };
   var CLS_COLOR = { suspected: '#f59e0b', probable: '#ea580c', confirmed: '#b91c1c' };
   var mf = { layers: { burial: true, infection: true, probable: true, deaths: true, alerts: true, cluster: true, increase: true, facility: false, holding: true, contacts: false },
-    level: 'province', days: '30', week: 0, compare: false, approvedOnly: true, ind: 'cases', symbols: true, vb: null, sel: null, cls: { suspected: true, probable: true, confirmed: true }, geo: {}, open: null };
+    level: 'province', days: '30', week: 0, compare: false, approvedOnly: true, ind: 'cases', symbols: true, history: true, vb: null, sel: null, cls: { suspected: true, probable: true, confirmed: true }, geo: {}, open: null };
 
   /* ---------- projection ---------- */
   var W = 560, H = 560, P = 12;
@@ -206,14 +206,50 @@
     if (level === 'zone') return 'Z:' + z.id;
     return z.province && z.province !== 'P-tbc' ? 'P:' + z.province : null;
   }
-  function values(items, level) {
+  function values(items, level, range) {
     var out = {};
     Object.keys(IND).forEach(function (ind) { out[ind] = {}; });
     items.forEach(function (it) {
       var k = unitKey(it.geo, level); if (!k) return;
       Object.keys(IND).forEach(function (ind) { if (IND[ind].layers.indexOf(it.layer) >= 0) out[ind][k] = (out[ind][k] || 0) + it.n; });
     });
+    if (range) addHistory(out, range, level);
     return out;
+  }
+
+  /* ---------- imported historical counts (modules/history.js) ---------- */
+  var CODE2KEY = null;
+  function histKey(r, level) {
+    var H = B.historyApi;
+    if (level === 'province') return r[H.R_PROV] ? 'P:' + r[H.R_PROV] : null;
+    if (r[H.R_ZONE]) return 'Z:' + r[H.R_ZONE];
+    if (!r[H.R_CODE]) return null;
+    if (!CODE2KEY) { CODE2KEY = {}; Object.keys(UNITS).forEach(function (k) { if (UNITS[k].code) CODE2KEY[UNITS[k].code] = k; }); }
+    return CODE2KEY[r[H.R_CODE]] || null;
+  }
+  function histOK(r) {
+    var H = B.historyApi, g = mf.geo || {};
+    if (g.area || g.village || g.facility) return false; // imported counts have no finer place
+    if (g.zone && r[H.R_ZONE] !== g.zone) return false;
+    if (g.province && r[H.R_PROV] !== g.province) return false;
+    return true;
+  }
+  // Imported counts per indicator for one row (cases follow the classification filter).
+  function histVals(r) {
+    var H = B.historyApi, n = function (k) { return r[H.R_N + H.IND.indexOf(k)] || 0; };
+    return { cases: (mf.cls.suspected ? n('suspected') : 0) + (mf.cls.probable ? n('probable') : 0) + (mf.cls.confirmed ? n('confirmed') : 0), deaths: n('deaths'), alerts: n('alerts'), contacts: n('contacts') };
+  }
+  function addHistory(out, range, level) {
+    if (!mf.history || !B.historyRows) return 0;
+    var used = 0;
+    B.historyRows(range).forEach(function (r) {
+      if (!histOK(r)) return;
+      var k = histKey(r, level); if (!k) return;
+      var hv = histVals(r);
+      Object.keys(hv).forEach(function (ind) { if (hv[ind]) { out[ind][k] = (out[ind][k] || 0) + hv[ind]; used += hv[ind]; } });
+    });
+    out._hist = used;
+    return used;
   }
 
   /* ---------- base map (built once, then only restyled) ---------- */
@@ -336,6 +372,7 @@
     for (var w = 11; w >= 0; w--) {
       var r = [new Date(end - (w + 1) * 7 * DAY), new Date(end - w * 7 * DAY)], n = 0;
       collectAll(r).forEach(function (it) { if (IND[mf.ind].layers.indexOf(it.layer) >= 0 && unitKey(it.geo, level) === key) n += it.n; });
+      if (mf.history && B.historyRows) B.historyRows(r).forEach(function (h) { if (histOK(h) && histKey(h, level) === key) n += histVals(h)[mf.ind]; });
       out.push({ end: r[1], n: n });
     }
     return out;
@@ -362,7 +399,8 @@
       '<label class="inl">' + L('Niveau', 'Level') + ' <select id="mlevel"><option value="province">' + L('Provinces', 'Provinces') + '</option><option value="zone"' + (mf.level === 'zone' ? ' selected' : '') + '>' + L('Zones de santé', 'Health zones') + '</option></select></label>' +
       '<label class="inl">' + B.t('period') + ' <select id="mdays">' + ['7', '14', '30', '90', 'all'].map(function (x) { return '<option value="' + x + '"' + (mf.days === x ? ' selected' : '') + '>' + (x === 'all' ? B.t('all') : x + ' ' + B.t('days')) + '</option>'; }).join('') + '</select></label>' +
       '<label class="check"><input type="checkbox" id="mappr"' + (mf.approvedOnly ? ' checked' : '') + '> ' + L('Signalements approuvés seulement', 'Approved reports only') + '</label>' +
-      '<label class="check"><input type="checkbox" id="mcomp"' + (mf.compare ? ' checked' : '') + '> ' + L('Comparer à la période précédente', 'Compare with previous period') + '</label></div>' +
+      '<label class="check"><input type="checkbox" id="mcomp"' + (mf.compare ? ' checked' : '') + '> ' + L('Comparer à la période précédente', 'Compare with previous period') + '</label>' +
+      (B.historyRows ? '<label class="check"><input type="checkbox" id="mhist"' + (mf.history ? ' checked' : '') + '> ' + L('Inclure les données historiques importées', 'Include imported historical data') + '</label>' : '') + '</div>' +
       '<div class="mtime"><button class="sm" id="mplay" type="button" aria-pressed="false">' + L('Lecture', 'Play') + '</button><input type="range" id="mweek" min="0" max="11" value="' + mf.week + '" aria-label="' + L('Fin de période', 'End of period') + '"><span id="mweeklbl"></span></div>' +
       '<details class="mfilter"><summary>' + L('Filtrer par zone géographique et classification', 'Filter by area and classification') + '</summary><div data-geoholder="m_">' + B.geoFields('m_', mf.geo, false, B.t('all')) + '</div>' +
       '<div class="vbar small">' + L('Classification : ', 'Classification: ') + ['suspected', 'probable', 'confirmed'].map(function (c) { return '<label class="check"><input type="checkbox" data-cls="' + c + '"' + (mf.cls[c] ? ' checked' : '') + '> ' + esc(B.L.apply(null, B.CLASS[c])) + '</label>'; }).join('') + '</div></details>' +
@@ -374,8 +412,8 @@
       '<aside class="mside"><div id="mpanel"></div><details class="msym"' + (BND ? '' : ' open') + '><summary>' + L('Symboles (couches A à E)', 'Symbols (layers A to E)') + '</summary><label class="check"><input type="checkbox" id="msymon"' + (mf.symbols ? ' checked' : '') + '> ' + L('Afficher les symboles', 'Show symbols') + '</label>' + legend() + '</details></aside></div>' +
       '<p class="small" id="msum"></p><div id="mdetail"></div><div id="mextra"></div>' +
       (B.can('reports') ? '<div class="vbar"><button class="sm" id="mcsv">' + L('Télécharger (CSV)', 'Download (CSV)') + '</button><button class="sm" id="mxlsx">Excel</button><button class="sm" id="mpdf">PDF</button></div>' : '') +
-      '<p class="muted small">' + (BND ? L('Chaque unité est colorée selon le total de l\'indicateur dans la période. Les symboles sont des totaux par unité, placés au centre de sa limite officielle : ce n\'est PAS l\'emplacement d\'un ménage, d\'une tombe ou d\'une FOSA. Survolez ou touchez une unité pour les détails ; molette, glisser ou pincer pour zoomer.', 'Each unit is shaded by the indicator\'s total in the period. Symbols are totals per unit, drawn at the centre of its official boundary: NOT the location of a household, grave or facility. Hover over or tap a unit for details; scroll, drag or pinch to zoom.') : L('Chaque symbole = total pour une unité administrative, placé au point de référence de cette unité (GeoNames). Ce n\'est PAS l\'emplacement exact d\'un ménage, d\'une tombe ou d\'une FOSA.', 'Each symbol = total for an administrative unit, drawn at its reference point (GeoNames). It is NOT the exact location of a household, grave or facility.')) + '</p>' +
-      '<p class="muted small">' + esc(GD.attribution) + ' ' + (BND ? L('Limites : ', 'Boundaries: ') + esc(Object.keys(BND.sources || {}).map(function (k) { return BND.sources[k]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ')) + ' (' + L('importé le ', 'imported ') + esc(BND.generated) + ').' : esc(GD.boundaries_note)) + (agOnly ? ' ' + L('Vue agrégée.', 'Aggregated view.') : '') + '</p></section>';
+      '<p class="disclaimer small">' + (BND ? L('Chaque unité est colorée selon le total de l\'indicateur dans la période. Les symboles sont des totaux par unité, placés au centre de sa limite officielle : ce n\'est PAS l\'emplacement d\'un ménage, d\'une tombe ou d\'une FOSA. Survolez ou touchez une unité pour les détails ; molette, glisser ou pincer pour zoomer.', 'Each unit is shaded by the indicator\'s total in the period. Symbols are totals per unit, drawn at the centre of its official boundary: NOT the location of a household, grave or facility. Hover over or tap a unit for details; scroll, drag or pinch to zoom.') : L('Chaque symbole = total pour une unité administrative, placé au point de référence de cette unité (GeoNames). Ce n\'est PAS l\'emplacement exact d\'un ménage, d\'une tombe ou d\'une FOSA.', 'Each symbol = total for an administrative unit, drawn at its reference point (GeoNames). It is NOT the exact location of a household, grave or facility.')) + '</p>' +
+      '<p class="muted small">' + esc(GD.attribution) + ' ' + (BND ? L('Limites administratives : ', 'Administrative boundaries: ') + (BND.citation ? esc(BND.citation) : esc(Object.keys(BND.sources || {}).map(function (k) { return BND.sources[k]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', '))) + ' (' + L('importé le ', 'imported ') + esc(BND.generated) + ').' : esc(GD.boundaries_note)) + (agOnly ? ' ' + L('Vue agrégée.', 'Aggregated view.') : '') + '</p></section>';
 
     cur = { v: v };
     var svgEl = B.$('#msvg', v);
@@ -391,6 +429,7 @@
     B.$('#mcomp', v).onchange = redraw(function () { mf.compare = this.checked; });
     B.$('#mappr', v).onchange = redraw(function () { mf.approvedOnly = this.checked; });
     B.$('#msymon', v).onchange = redraw(function () { mf.symbols = this.checked; });
+    if (B.$('#mhist', v)) B.$('#mhist', v).onchange = redraw(function () { mf.history = this.checked; });
     B.$$('[data-layer]', v).forEach(function (c) { c.onchange = redraw(function () { mf.layers[c.getAttribute('data-layer')] = c.checked; }); });
     B.$$('[data-cls]', v).forEach(function (c) { c.onchange = redraw(function () { mf.cls[c.getAttribute('data-cls')] = c.checked; }); });
     B.$('#mplay', v).onclick = function () { togglePlay(); };
@@ -422,7 +461,7 @@
     var agg = aggregate(items), prevAgg = null, prevAll = null;
     if (mf.days !== 'all') { var len = range[1] - range[0]; prevAll = collectAll([new Date(range[0] - len), range[0]]); }
     if (mf.compare && prevAll) prevAgg = aggregate(prevAll.filter(function (it) { return mf.layers[it.layer]; }));
-    var vals = values(all, mf.level), prevVals = prevAll ? values(prevAll, mf.level) : null;
+    var vals = values(all, mf.level, range), prevVals = prevAll ? values(prevAll, mf.level, [new Date(range[0] - (range[1] - range[0])), range[0]]) : null;
     Object.assign(cur, { range: range, items: items, agg: agg, prevAgg: prevAgg, vals: vals, prevVals: prevVals });
 
     // shading
@@ -441,7 +480,7 @@
 
     // summary line, unmapped, comparison
     var tot = {}; items.forEach(function (it) { tot[it.layer] = (tot[it.layer] || 0) + it.n; });
-    B.$('#msum', v).textContent = Object.keys(tot).map(function (l) { return L(LAYERS[l].fr, LAYERS[l].en) + ' ' + tot[l]; }).join(' · ');
+    B.$('#msum', v).textContent = Object.keys(tot).map(function (l) { return L(LAYERS[l].fr, LAYERS[l].en) + ' ' + tot[l]; }).join(' · ') + (vals._hist ? ' · ' + L('dont données historiques importées dans les zones colorées : ', 'shading includes imported historical counts: ') + vals._hist : '');
     var unplacedKeys = Object.keys(agg.unplaced);
     B.$('#mextra', v).innerHTML = (unplacedKeys.length ? '<details class="card inner"><summary>' + L('Non cartographiés (pas de point de référence vérifié) : ', 'Not mapped (no verified reference point): ') + unplacedKeys.length + L(' zone(s)', ' zone(s)') + '</summary><table class="tbl small"><tr><th>' + L('Zone', 'Zone') + '</th><th>' + L('Couches', 'Layers') + '</th></tr>' + unplacedKeys.map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + Object.keys(agg.unplaced[k]).map(function (l) { return esc(L(LAYERS[l].fr, LAYERS[l].en)) + ' ' + agg.unplaced[k][l]; }).join(' · ') + '</td></tr>'; }).join('') + '</table></details>' : '') +
       (prevAgg ? compareTable(agg, prevAgg) : '') + rankTable(vals, prevVals);
@@ -659,14 +698,21 @@
     var was = JSON.parse(JSON.stringify(mf)), saveVB = mf.vb;
     mf.week = 0; mf.approvedOnly = !B.st.f.showPending; mf.cls = { suspected: true, probable: true, confirmed: true };
     mf.geo = Object.assign({}, B.st.f); delete mf.geo.days; mf.days = B.st.f.days || '30';
-    var vals = values(collectAll(windowRange()), 'zone'), ind = mf.ind; mf.ind = 'cases';
+    mf.history = true;
+    var vals = values(collectAll(windowRange()), 'zone', windowRange()), ind = mf.ind; mf.ind = 'cases';
     var nz = Object.keys(vals.cases).filter(function (k) { return vals.cases[k]; }).length;
     var box = BND ? affectedBox(vals.cases) : null;
     var html = '<div class="mapmini' + (box ? ' two' : '') + '"><figure><figcaption>' + L('Pays entier', 'Whole country') + '</figcaption>' + staticSVG(vals) + '</figure>' +
       (box ? '<figure><figcaption>' + L('Zone touchée', 'Affected area') + '</figcaption>' + staticSVG(vals, box) + '</figure>' : '') + '</div>' +
-      (BND ? '<div class="mscale-mini">' + scaleLegend() + '</div><p class="small muted">' + nz + ' ' + L('zone(s) de santé avec des cas dans la période.', 'health zone(s) with cases in the period.') + '</p>' : '');
+      (BND ? '<div class="mscale-mini">' + scaleLegend() + '</div><p class="small muted">' + nz + ' ' + L('zone(s) de santé avec des cas dans la période.', 'health zone(s) with cases in the period.') + (BND.citation ? ' ' + L('Limites : ', 'Boundaries: ') + esc(BND.citation) : '') + '</p>' : '');
     Object.assign(mf, was); mf.vb = saveVB; mf.ind = ind;
     return html;
   };
-  B.mapApi = { anchor: anchor, LAYERS: LAYERS, IND: IND, UNITS: UNITS, state: mf, select: function (k) { select(k); }, zoomTo: function (k) { zoomTo(k); }, values: function () { return cur && cur.vals; } };
+  // All system items in a range, without the map's own filters (used by the history trend).
+  function collectNeutral(range) {
+    var save = { geo: mf.geo, approvedOnly: mf.approvedOnly, cls: mf.cls };
+    mf.geo = {}; mf.approvedOnly = true; mf.cls = { suspected: true, probable: true, confirmed: true };
+    try { return collectAll(range); } finally { Object.assign(mf, save); }
+  }
+  B.mapApi = { collect: collectNeutral, anchor: anchor, LAYERS: LAYERS, IND: IND, UNITS: UNITS, state: mf, select: function (k) { select(k); }, zoomTo: function (k) { zoomTo(k); }, values: function () { return cur && cur.vals; } };
 })();

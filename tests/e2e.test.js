@@ -167,7 +167,7 @@ const assert = require('assert');
   await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'decideur');
   await page.selectOption('#lang', 'en');
   const tabs2 = await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab')));
-  assert.deepStrictEqual(tabs2, ['home', 'map', 'dashboard', 'rumours', 'analysis', 'reports']);
+  assert.deepStrictEqual(tabs2, ['home', 'map', 'dashboard', 'rumours', 'analysis', 'history', 'reports']);
   await page.click('[data-tab="dashboard"]');
   assert.ok(/People assessed/.test(await page.textContent('#view')), 'English UI');
 

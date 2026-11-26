@@ -73,7 +73,7 @@
       html += '<form id="loginform" autocomplete="on"><label>' + L('Identifiant', 'Username') + '<input id="login-user" autocomplete="username" autocapitalize="none" required></label>' +
         '<label>' + L('Mot de passe', 'Password') + '<input id="login-pass" type="password" autocomplete="current-password" required></label>' +
         '<button class="primary" type="submit">' + L('Se connecter', 'Sign in') + '</button></form>' +
-        '<p class="fine">' + L('Pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot: synthetic data only. Do not enter real patient data.') + '</p>';
+        '<p class="disclaimer small">' + L('Pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot: synthetic data only. Do not enter real patient data.') + '</p>';
     } else {
       html += '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté. Choisissez un compte de démonstration. Dans le système déployé, chaque personne se connecte avec son propre mot de passe.', 'Demonstration mode: no server is connected. Choose a demonstration account. In the deployed system each person signs in with their own password.') + '</p>' +
         '<div class="accounts">' + DEMO.map(function (a) { return '<button class="account" data-demo="' + a[0] + '"><span class="acc-role">' + esc(B.t('role_' + a[1])) + '</span><span class="acc-user">' + esc(a[0]) + '</span></button>'; }).join('') + '</div>';

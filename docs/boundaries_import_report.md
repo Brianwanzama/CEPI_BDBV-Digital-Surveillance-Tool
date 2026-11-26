@@ -2,6 +2,8 @@
 
 Generated 2026-11-26 by `tools/import_boundaries.js`.
 
+Source: OCHA, Democratic Republic of the Congo - Subnational Administrative Boundaries (COD-AB), Humanitarian Data Exchange, https://data.humdata.org/dataset/cod-ab-cod; source credited on HDX: Référentiel Géographique Commun (RGC); version valid from 2019-09-11
+
 ## Provinces
 
 - Source: `DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg` (26 polygons; GeoPackage table drc_admin_boundaries where ADM_LEVEL=ADM1, EPSG:4326); name field `ADM_NAME`.

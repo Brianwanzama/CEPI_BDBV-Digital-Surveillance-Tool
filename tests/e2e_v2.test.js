@@ -268,6 +268,58 @@ const assert = require('assert');
   await page.selectOption('#lang', 'fr');
   ok('Kiswahili: RECO, rumour and triage workflows translated');
 
+  // ---- Historical data import (trend before the system was in use) ----
+  await page.selectOption('#lang', 'en');
+  await role('surveillant'); await tab('history');
+  await page.click('#hdemo');
+  assert.ok(await page.$$eval('.hchart .bimp', (e) => e.length) > 20, 'synthetic earlier wave drawn as imported bars');
+  const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'bdbv-hist-'));
+  const weekly = path.join(tmp, 'sitreps_2025.csv');
+  fs.writeFileSync(weekly, 'Rapport de situation DPS (synthetique)\nsemaine;province;zone_de_sante;cas_suspects;cas_confirmes;deces\n2025-W10;Ituri;ZS Aru;4;1;1\n03/03/2025;Ituri;Ariwara;2;0;0\n2025-03-10;Mai-Ndombe;Banjow Moke;1;0;0\n2025-03-10;Ituri;Nowhere;3;0;0\n2025-03-10;Ituri;Aru;x;0;0\n2025-03-17;Nord-Kivu;;5;2;1\n');
+  await page.setInputFiles('#hfile', weekly);
+  await page.waitForSelector('#hok');
+  const prev = await page.textContent('#hprev');
+  assert.ok(/Weekly counts/.test(prev) && /2 row\(s\) rejected/.test(prev) && /unknown health zone: Nowhere/.test(prev) && /invalid number/.test(prev), 'preview: layout detected, bad rows listed: ' + prev.slice(0, 300));
+  await page.fill('#hsource', 'DPS situation reports (synthetic test)');
+  await page.click('#hok');
+  const b1 = await db(() => BDBV.historyApi.active().find((b) => /sitreps_2025/.test(b.file)));
+  assert.deepStrictEqual(b1.rows.map((r) => [r[0], r[1], r[2]]), [['2025-03-03', 'P-ituri', 'Z-ariwara'], ['2025-03-03', 'P-ituri', 'Z-aru'], ['2025-03-10', 'P-mai-ndombe', 'Z-banzow-moke'], ['2025-03-17', 'P-nord-kivu', '']], 'weeks to Monday, ZS prefix, other spelling, province-only row');
+  assert.deepStrictEqual(b1.totals, [12, 0, 3, 2, 0, 0]);
+  // line list: one row per case, names column present but never stored
+  const ll = path.join(tmp, 'linelist.csv');
+  fs.writeFileSync(ll, 'nom,date,province,health_zone,classification,outcome\nKAHINDO Jean,2025-04-02,Ituri,Aru,Confirmé,Décédé\nMAPENDO Ana,2025-04-03,Ituri,Aru,suspect,vivant\nBARAKA Paul,2025-04-03,Ituri,Aru,non-cas,vivant\n');
+  await page.setInputFiles('#hfile', ll);
+  await page.waitForSelector('#hok');
+  assert.ok(/Line list/.test(await page.textContent('#hprev')) && /1 non-cases left out/.test(await page.textContent('#hprev')));
+  await page.click('#hok');
+  const b2 = await db(() => JSON.stringify(BDBV.historyApi.active().find((b) => b.kind === 'linelist')));
+  assert.ok(!/KAHINDO|MAPENDO|BARAKA/.test(b2), 'no names stored');
+  assert.deepStrictEqual(JSON.parse(b2).rows, [['2025-03-31', 'P-ituri', 'Z-aru', 'CD540904', 1, 0, 1, 1, 0, 0]], 'line list reduced to one weekly row (P-code kept)');
+  // Excel workbook with real date cells (as exported from DHIS2 / Excel)
+  const XLSXn = require(path.join(__dirname, '..', 'prototype', 'vendor', 'xlsx.full.min.js'));
+  const wb = XLSXn.utils.book_new();
+  XLSXn.utils.book_append_sheet(wb, XLSXn.utils.aoa_to_sheet([['week_start', 'province', 'health_zone', 'suspected', 'deaths', 'contacts'], [new Date(Date.UTC(2025, 4, 14)), 'Ituri', 'Adi', 6, 2, 30]], { cellDates: true }), 'Data');
+  const xl = path.join(tmp, 'dhis2_export.xlsx'); fs.writeFileSync(xl, XLSXn.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  await page.setInputFiles('#hfile', xl);
+  await page.waitForSelector('#hok'); await page.click('#hok');
+  const b3 = await db(() => BDBV.historyApi.active().find((b) => b.file === 'dhis2_export.xlsx').rows);
+  assert.deepStrictEqual(b3.map((r) => [r[0], r[2], r[4], r[7], r[9]]), [['2025-05-12', 'Z-adi', 6, 2, 30]], 'Excel date cell read, week starts Monday');
+  // imported counts appear on the map (period: all) and can be switched off
+  await tab('map'); await page.selectOption('#mdays', 'all'); await page.selectOption('#mlevel', 'zone');
+  const withH = await db(() => BDBV.mapApi.values().cases['Z:Z-banzow-moke'] || 0);
+  assert.strictEqual(withH, 1, 'imported case shades Banzow Moke');
+  await page.uncheck('#mhist');
+  assert.strictEqual(await db(() => BDBV.mapApi.values().cases['Z:Z-banzow-moke'] || 0), 0);
+  await page.check('#mhist');
+  // withdraw a batch: kept in the list, no longer counted
+  await tab('history');
+  await page.click('[data-hdel="' + b1.id + '"]'); await page.click('#askyes');
+  assert.ok(await db((id) => BDBV.historyApi.batches().find((b) => b.id === id).deleted, b1.id));
+  assert.ok(/withdrawn/.test(await view()));
+  assert.ok(await db(() => BDBV.db().audit.some((a) => a.action === 'import' && a.entity === 'history') && BDBV.db().audit.some((a) => a.action === 'withdraw')), 'audited');
+  await page.selectOption('#lang', 'fr');
+  ok('historical data: CSV and Excel, weekly counts and line lists imported (names never stored), rows checked and rejected with reasons, shown on map and trend, withdrawable, audited');
+
   // ---- System-generated text follows the chosen language (alerts, queue, SMS) ----
   await page.selectOption('#lang', 'en');
   await role('surveillant'); await tab('alerts');

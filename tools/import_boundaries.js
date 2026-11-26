@@ -6,6 +6,7 @@
 //        [--zone-field NAME] [--province-field NAME] [--zone-province-field NAME] [--tolerance 0.005]
 //        [--zone-filter FIELD=VALUE] [--province-filter FIELD=VALUE] [--zone-layer T] [--province-layer T]
 //        [--alias "Name in file=Name in list;..."]   spelling variants accepted on purpose (listed in the report)
+//        [--citation "Publisher, title, URL, version"]  shown on the map under the boundaries
 //
 // Inputs: an ESRI shapefile (.shp with .dbf/.prj/.cpg beside it), a .zip holding one, GeoJSON, or a
 // GeoPackage (.gpkg, needs Node 22.5+). One GeoPackage table can hold several levels: pick the rows
@@ -165,13 +166,13 @@ const DECODER = `function (R) {
       return { type: 'Feature', properties: g.properties || {}, geometry: geom };
     }) };
   }
-  return { generated: R.generated, sources: R.sources, provinces: layer('provinces'), zones: layer('zones') };
+  return { generated: R.generated, sources: R.sources, citation: R.citation || '', provinces: layer('provinces'), zones: layer('zones') };
 }`;
 
 async function run() {
   const tol = +(args.tolerance || 0.005); // degrees (~500 m)
-  const result = { generated: new Date().toISOString().slice(0, 10), provinces: null, zones: null, sources: {} };
-  const report = ['# Boundary import report', '', 'Generated ' + result.generated + ' by `tools/import_boundaries.js`.', ''];
+  const result = { generated: new Date().toISOString().slice(0, 10), provinces: null, zones: null, sources: {}, citation: args.citation || '' };
+  const report = ['# Boundary import report', '', 'Generated ' + result.generated + ' by `tools/import_boundaries.js`.', ''].concat(args.citation ? ['Source: ' + args.citation, ''] : []);
   const zoneLinks = {}, layers = {};
 
   async function layer(kind, file, field, hints, list, listName, table, filter) {

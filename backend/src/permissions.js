@@ -9,7 +9,8 @@
  */
 
 const ROLES = ['reco', 'soignant', 'clinician', 'surveillant', 'lab', 'facility_head', 'zone_officer', 'decideur', 'sysadmin'];
-const COLLECTIONS = ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours'];
+const COLLECTIONS = ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours', 'history'];
+const HISTORY = ['surveillant', 'zone_officer', 'decideur'];
 const VERIFY = ['surveillant', 'zone_officer'];
 const SEE_NAMES = ['soignant', 'clinician'];
 const CONTACT_NAMES = ['surveillant', 'zone_officer'];
@@ -22,7 +23,8 @@ const READ = {
   queue: ['reco', 'soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
   contacts: ['soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
   samples: ['soignant', 'clinician', 'surveillant', 'lab', 'facility_head', 'zone_officer', 'decideur'],
-  rumours: ['reco', 'surveillant', 'zone_officer', 'decideur']
+  rumours: ['reco', 'surveillant', 'zone_officer', 'decideur'],
+  history: HISTORY
 };
 const WRITE = {
   assessments: { create: ['soignant', 'clinician'], update: ['soignant', 'clinician', 'lab', 'surveillant', 'zone_officer'] },
@@ -31,7 +33,8 @@ const WRITE = {
   queue: { create: ['reco', 'soignant', 'clinician', 'surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer'] },
   contacts: { create: ['surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer', 'soignant', 'clinician'] },
   samples: { create: ['soignant', 'clinician', 'lab'], update: ['soignant', 'clinician', 'lab'] },
-  rumours: { create: ['reco', 'soignant', 'clinician', 'surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer'] }
+  rumours: { create: ['reco', 'soignant', 'clinician', 'surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer'] },
+  history: { create: HISTORY, update: HISTORY }
 };
 
 function canRead(user, collection) { return (READ[collection] || []).includes(user.role); }
@@ -40,6 +43,7 @@ function canWrite(user, collection, isNew) { const w = WRITE[collection]; return
 // SQL condition (with parameters) restricting the records a user can read.
 function scopeWhere(user, collection, params) {
   const p = (v) => { params.push(v); return '$' + params.length; };
+  if (collection === 'history') return 'TRUE'; // aggregated counts only, no personal data
   if (user.role === 'reco') return '(owner = ' + p(user.username) + ')';
   if (FACILITY_ROLES.includes(user.role)) {
     // Own facility; community reports and alert statuses of the facility's zone (no personal data).
@@ -53,9 +57,29 @@ function scopeWhere(user, collection, params) {
 const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
 const PROTECTED_CLASS = ['confirmed', 'lab_negative'];
 
+// Imported historical data must be counts only: [week, province, zone, P-code, 6 non-negative integers].
+const HISTORY_KEYS = ['id', 'kind', 'label', 'source', 'file', 'uploaded_at', 'uploaded_by', 'period', 'n_rows_in', 'n_rejected', 'n_excluded', 'totals', 'rows', 'deleted', 'deleted_at', 'deleted_by', 'geo', 'example', 'demo', 'synthetic'];
+function checkHistory(d) {
+  const extra = Object.keys(d).filter((k) => !HISTORY_KEYS.includes(k));
+  if (extra.length) return 'history_unexpected_fields:' + extra.slice(0, 5).join(',');
+  if (!Array.isArray(d.rows) || d.rows.length > 60000) return 'history_rows_invalid';
+  const id = /^[A-Za-z0-9._-]{0,64}$/;
+  for (const r of d.rows) {
+    if (!Array.isArray(r) || r.length !== 10) return 'history_row_shape';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r[0]) || !id.test(r[1]) || !id.test(r[2]) || !id.test(r[3])) return 'history_row_place_or_date';
+    for (let i = 4; i < 10; i++) if (!Number.isInteger(r[i]) || r[i] < 0 || r[i] > 1e6) return 'history_row_count';
+  }
+  for (const k of ['label', 'source', 'file', 'uploaded_by']) if (d[k] != null && (typeof d[k] !== 'string' || d[k].length > 200)) return 'history_text_too_long';
+  return null;
+}
+
 // Returns an error string when the change is not allowed, else null.
 function guard(user, collection, incoming, stored) {
   const old = stored || {};
+  if (collection === 'history') {
+    const e = checkHistory(incoming); if (e) return e;
+    if (stored && !same(incoming.rows, old.rows)) return 'history_rows_are_locked'; // a batch is withdrawn, never edited
+  }
   if (collection === 'assessments') {
     const cNew = incoming.classification && incoming.classification.status;
     const cOld = old.classification && old.classification.status;

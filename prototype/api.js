@@ -9,7 +9,7 @@
   var B = window.BDBV, CFG = window.BDBV_CONFIG || {};
   var L = function (f, e) { return B.L(f, e); };
   var KEY = 'bdbv_server_session';
-  var COLS = ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours'];
+  var COLS = ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours', 'history'];
   var base = CFG.apiUrl ? CFG.apiUrl.replace(/\/$/, '') : (location.protocol.indexOf('http') === 0 ? location.origin : null);
   var session = null;
   try { session = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { session = null; }

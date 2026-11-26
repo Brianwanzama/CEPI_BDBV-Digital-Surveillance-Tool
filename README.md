@@ -5,7 +5,7 @@ An integrated design and working prototype to strengthen early detection of **Bu
 - **Module A: health facility triage**, which collects clinical and exposure data (optionally by **AI voice capture**, reviewed by the health worker) and gives a transparent **suspicion score** with RED/AMBER/GREEN actions and alerts;
 - **Module B: community-based surveillance (RECO)**, which handles rapid, offline reporting of deaths, burials, clusters and alerts, with a verification workflow;
 - **an integrated dashboard** with a map, trends and early-warning signals;
-- **v2 modules**: alert verification queue with turnaround times, interactive surveillance map (real DRC outline, no invented coordinates), contact tracing and follow-up, laboratory sample tracking with chain of custody, case management, public rumour reporting, facility-head dashboard, occupational analysis, 10 downloadable reports (CSV/Excel/PDF), French and Congolese Kiswahili.
+- **v2 modules**: alert verification queue with turnaround times, interactive surveillance map (real DRC outline, no invented coordinates), contact tracing and follow-up, laboratory sample tracking with chain of custody, case management, public rumour reporting, facility-head dashboard, occupational analysis, 10 downloadable reports (CSV/Excel/PDF), import of historical data (CSV/Excel) for trends, English, French and Congolese Kiswahili.
 
 > **Status: design and demonstration prototype.** The scoring rules are **provisional and not validated**. This is decision support, not a diagnostic tool: the score is **not a probability of infection**. All clinical decisions, specimen collection and confirmation must follow DRC Ministry of Health and WHO procedures. See [assumptions and items to confirm](docs/00_assumptions_and_open_questions.md).
 
@@ -41,7 +41,7 @@ docker compose up -d
 Then open http://localhost:8080 and sign in with a demo account (password: your `SEED_USER_PASSWORD`). GitHub runs the tests and builds the container image on every push. Hosting options (Render blueprint, any Docker server, GitHub Pages for the app) are in [docs/11](docs/11_backend_and_deployment.md). **Synthetic data only** until Ministry of Health approval.
 
 ## Map boundaries
-The map draws the 26 provinces and 519 health zones from the GeoPackage supplied by the project (`data/boundaries/`), shades them by indicator, and supports hover, zoom, search and weekly playback. Boundaries can be replaced from a shapefile, zipped shapefile, GeoJSON or GeoPackage with one command; see [docs/11 §11.9](docs/11_backend_and_deployment.md#119-importing-official-boundaries-shapefile).
+The map draws the 26 provinces and 519 health zones from OCHA's administrative boundaries for the DRC (COD-AB, [Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-cod); `data/boundaries/`), shades them by indicator, and supports hover, zoom, search and weekly playback. Boundaries can be replaced from a shapefile, zipped shapefile, GeoJSON or GeoPackage with one command; see [docs/11 §11.9](docs/11_backend_and_deployment.md#119-importing-official-boundaries-shapefile).
 
 ## Quick start (app only, no server)
 ```bash

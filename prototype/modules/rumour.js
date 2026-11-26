@@ -12,7 +12,7 @@
   B.VIEWS.rumour = function (v) {
     var types = B.EVT.filter(function (e) { return e[0] !== 'contact'; }).concat([['contact', 'Contact avec un malade d\'Ebola', 'Contact with an Ebola patient']]);
     v.innerHTML = '<form id="pf" class="card public" novalidate><h2>' + L('Signaler un évènement de santé', 'Report a health event') + '</h2>' +
-      '<p>' + L('Tout le monde peut signaler. Votre signalement sera <b>vérifié</b> par l\'équipe de santé : ce n\'est pas un diagnostic. Vous pouvez rester anonyme.', 'Anyone can report. Your report will be <b>checked</b> by the health team: it is not a diagnosis. You can stay anonymous.') + '</p>' +
+      '<p class="disclaimer">' + L('Tout le monde peut signaler. Votre signalement sera <b>vérifié</b> par l\'équipe de santé : ce n\'est pas un diagnostic. Vous pouvez rester anonyme.', 'Anyone can report. Your report will be <b>checked</b> by the health team: it is not a diagnosis. You can stay anonymous.') + '</p>' +
       '<fieldset><legend>' + L('1. Qu\'avez-vous vu ou entendu ?', '1. What did you see or hear?') + '</legend><div class="choices">' +
       types.map(function (e, i) { return '<label class="choice"><input type="radio" name="ptype" value="' + e[0] + '"' + (i === 0 ? ' checked' : '') + '><span>' + esc(L(e[1], e[2])) + '</span></label>'; }).join('') + '</div></fieldset>' +
       '<fieldset><legend>' + L('2. Où ?', '2. Where?') + '</legend><div data-geoholder="p_">' + B.geoFields('p_', { province: 'P-ituri' }, false, L('Je ne sais pas', 'I don\'t know')) + '</div>' +

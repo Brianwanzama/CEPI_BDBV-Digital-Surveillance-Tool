@@ -135,7 +135,7 @@ function createApp(pool, opts = {}) {
     if (since && isNaN(new Date(since))) return res.status(400).json({ error: 'invalid_since' });
     const cfg = await loadConfig();
     const accepted = {}, rejected = [];
-    const order = ['assessments', 'reports', 'rumours', 'alerts', 'queue', 'contacts', 'samples'];
+    const order = ['assessments', 'reports', 'rumours', 'alerts', 'queue', 'contacts', 'samples', 'history'];
     const client = await pool.connect();
     try {
       for (const col of order) {

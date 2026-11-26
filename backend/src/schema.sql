@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS records (
-  collection  TEXT NOT NULL,      -- assessments | reports | alerts | queue | contacts | samples | rumours
+  collection  TEXT NOT NULL,      -- assessments | reports | alerts | queue | contacts | samples | rumours | history
   id          TEXT NOT NULL,
   data        JSONB NOT NULL,
   zone        TEXT,               -- health zone (access scoping)

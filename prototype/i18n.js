@@ -50,7 +50,7 @@ window.BDBV_I18N = {
     privacy_names_hidden: 'Identité masquée pour ce rôle',
     required: 'Champs obligatoires manquants',
     role_public: 'Public (signalement)', role_clinician: 'Clinicien', role_surveillant: 'Officier de surveillance', role_lab: 'Personnel de laboratoire', role_facility_head: 'Chef de FOSA', role_zone_officer: 'Surveillant de zone de santé', role_decideur: 'Administrateur santé publique (prov./nat.)', role_sysadmin: 'Administrateur système',
-    tab_verify: 'Vérification', tab_rumour: 'Signaler', tab_lab: 'Laboratoire', tab_casemgmt: 'Prise en charge', tab_contacts: 'Contacts', tab_map: 'Carte', tab_rumours: 'Rumeurs', tab_analysis: 'Analyse', tab_reports: 'Rapports', tab_facility: 'Tableau FOSA', tab_admin: 'Configuration',
+    tab_verify: 'Vérification', tab_rumour: 'Signaler', tab_lab: 'Laboratoire', tab_casemgmt: 'Prise en charge', tab_contacts: 'Contacts', tab_map: 'Carte', tab_rumours: 'Rumeurs', tab_analysis: 'Analyse', tab_history: 'Historique', tab_reports: 'Rapports', tab_facility: 'Tableau FOSA', tab_admin: 'Configuration',
     footer: 'Outil d\'aide à la décision : ne remplace ni le jugement clinique ni les procédures nationales (MSP / PNLFHV / INRB). Le score n\'est pas une probabilité d\'infection.'
   },
   en: {
@@ -99,7 +99,7 @@ window.BDBV_I18N = {
     privacy_names_hidden: 'Identity hidden for this role',
     required: 'Missing mandatory fields',
     role_public: 'Public (report an event)', role_clinician: 'Clinician', role_surveillant: 'Surveillance officer', role_lab: 'Laboratory personnel', role_facility_head: 'Facility head', role_zone_officer: 'Health zone surveillance officer', role_decideur: 'Public health administrator (prov./nat.)', role_sysadmin: 'System administrator',
-    tab_verify: 'Verification', tab_rumour: 'Report', tab_lab: 'Laboratory', tab_casemgmt: 'Case management', tab_contacts: 'Contacts', tab_map: 'Map', tab_rumours: 'Rumours', tab_analysis: 'Analysis', tab_reports: 'Reports', tab_facility: 'Facility dashboard', tab_admin: 'Configuration',
+    tab_verify: 'Verification', tab_rumour: 'Report', tab_lab: 'Laboratory', tab_casemgmt: 'Case management', tab_contacts: 'Contacts', tab_map: 'Map', tab_rumours: 'Rumours', tab_analysis: 'Analysis', tab_history: 'Historical data', tab_reports: 'Reports', tab_facility: 'Facility dashboard', tab_admin: 'Configuration',
     footer: 'Decision-support tool: does not replace clinical judgement or national procedures (MoH / PNLFHV / INRB). The score is not a probability of infection.'
   }
 };

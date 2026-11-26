@@ -57,6 +57,7 @@ function generateSynthetic() {
   const db = sandbox.BDBVApp.db();
   const out = {};
   ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours'].forEach((k) => { out[k] = JSON.parse(JSON.stringify(db[k])); });
+  out.history = []; // imported historical counts are added by users, not seeded
   return out;
 }
 

@@ -121,7 +121,7 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 
 | Test | Result |
 |---|---|
-| `backend`: `npm test` against PostgreSQL 16 (15 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation) | 15/15 pass |
+| `backend`: `npm test` against PostgreSQL 16 (16 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked) | 16/16 pass |
 | `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; no CSP or JS errors | 7/7 pass |
 | Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |
 | Docker image build (dependencies verified at build time) and `docker compose up` | pass |
@@ -177,10 +177,14 @@ The tool is tested on synthetic squares as a shapefile, GeoJSON, a UTM shapefile
 
 ### Import done on 26 November 2026
 
-The project supplied `DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg` (now in `data/boundaries/`). It holds one table with 26 provinces (ADM1), 164 territories (ADM2) and 519 health zones (ADM3), with P-codes and a validity date of 11 September 2019. The command used was:
+The project supplied `DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg` (now in `data/boundaries/`), downloaded from the Humanitarian Data Exchange.
+
+**Citation.** OCHA, *Democratic Republic of the Congo - Subnational Administrative Boundaries* (COD-AB), Humanitarian Data Exchange, https://data.humdata.org/dataset/cod-ab-cod. Source credited on HDX: Référentiel Géographique Commun (RGC). Version valid from 11 September 2019. The citation is stored with the boundaries (`--citation`) and shown under the map and the dashboard map. The licence shown on the HDX page should be checked before the file is redistributed outside the project.
+
+ It holds one table with 26 provinces (ADM1), 164 territories (ADM2) and 519 health zones (ADM3), with P-codes and a validity date of 11 September 2019. The command used was:
 
 ```bash
-node tools/import_boundaries.js --zones data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --zone-filter ADM_LEVEL=ADM3 --zone-field ADM_NAME --zone-province-field ADM1_NAME --provinces data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --province-filter ADM_LEVEL=ADM1 --province-field ADM_NAME --alias "Banjow Moke=Banzow Moke"
+node tools/import_boundaries.js --zones data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --zone-filter ADM_LEVEL=ADM3 --zone-field ADM_NAME --zone-province-field ADM1_NAME --provinces data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --province-filter ADM_LEVEL=ADM1 --province-field ADM_NAME --alias "Banjow Moke=Banzow Moke" --citation "OCHA, Democratic Republic of the Congo - Subnational Administrative Boundaries (COD-AB), Humanitarian Data Exchange, https://data.humdata.org/dataset/cod-ab-cod; source credited on HDX: Référentiel Géographique Commun (RGC); version valid from 2019-09-11"
 ```
 
 Results (full detail in `docs/boundaries_import_report.md`):
@@ -189,4 +193,10 @@ Results (full detail in `docs/boundaries_import_report.md`):
 - the file gives a province for every supplied zone. It agrees with the 22 links proposed earlier and fills the 4 that were unassigned: Baka → Haut-Lomami, Banga Lubaka → Kasaï, Bangabola → Sud-Ubangi, Banzow Moke → Mai-Ndombe. The app now uses these links, marked "from the official boundary file (to confirm)";
 - `prototype/boundaries.js` is 379 KB.
 
-The origin of the file (publisher and version) still needs to be recorded in `data/boundaries/README.md` so the map can cite it.
+
+
+## 11.10 Historical data on the server
+
+Imported historical data (document 07, *Historical data* tab) are stored as a `history` collection: one record per uploaded batch, holding weekly counts per province or health zone and nothing else. The server checks every batch: only the expected fields are accepted, each row must be a date, place codes and six non-negative whole numbers, so names or other personal fields cannot be stored there. Surveillance officers, health-zone officers and public-health administrators can import and read batches (all zones, since the data are aggregated). Clinical and community roles do not receive them. A batch cannot be edited after upload; it can only be withdrawn, and both actions are kept in the record history and the audit log.
+
+The pilot server still runs with synthetic data only (§11.2). Aggregated counts that have already been published, such as situation-report figures, carry no personal data, but uploading them to the pilot should be agreed with the Ministry of Health first.

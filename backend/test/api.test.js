@@ -207,3 +207,25 @@ test('input validation: bad ids, unknown collections, oversized and malformed bo
   const bad = await fetch(base + '/sync', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + T.surveillance }, body: '{oops' });
   assert.strictEqual(bad.status, 400);
 });
+
+test('historical data: counts only, surveillance and administrators import, batches cannot be edited', async () => {
+  const batch = { id: 'HIS-TEST-0001', kind: 'weekly', label: 'Sitreps 2025 (synthetic)', source: 'test', file: 'x.csv', uploaded_at: new Date().toISOString(), uploaded_by: 'surveillance', period: ['2025-03-03', '2025-03-10'], totals: [5, 0, 1, 1, 0, 0], rows: [['2025-03-03', 'P-ituri', 'Z-aru', 'CD540904', 4, 0, 1, 1, 0, 0], ['2025-03-10', 'P-ituri', '', '', 1, 0, 0, 0, 0, 0]], deleted: false, geo: {} };
+  assert.strictEqual((await push(T['reco.aru'], { history: [batch] })).rejected[0].reason, 'forbidden');
+  assert.strictEqual((await push(T['nurse.aru'], { history: [batch] })).rejected[0].reason, 'forbidden');
+  const withNames = Object.assign({}, batch, { id: 'HIS-TEST-0002', names: ['KAHINDO Jean'] });
+  assert.match((await push(T['surveillance'], { history: [withNames] })).rejected[0].reason, /^history_unexpected_fields/);
+  const badRow = Object.assign({}, batch, { id: 'HIS-TEST-0003', rows: [['2025-03-03', 'P-ituri', 'Z-aru', '', 'KAHINDO', 0, 0, 0, 0, 0]] });
+  assert.strictEqual((await push(T['surveillance'], { history: [badRow] })).rejected[0].reason, 'history_row_count');
+  const ok = await push(T['surveillance'], { history: [batch] });
+  assert.strictEqual(ok.rejected.length, 0, JSON.stringify(ok.rejected));
+  // zone officer and administrator see it (aggregated, all zones); clinical staff do not
+  assert.ok((await pull(T['zone.aru'])).records.history.some((b) => b.id === 'HIS-TEST-0001'));
+  assert.ok((await pull(T['admin.ph'])).records.history.some((b) => b.id === 'HIS-TEST-0001'));
+  assert.ok(!((await pull(T['nurse.aru'])).records.history || []).length);
+  // a batch is withdrawn, never edited
+  const cur = (await pull(T['surveillance'])).records.history.find((b) => b.id === 'HIS-TEST-0001');
+  const edited = Object.assign({}, cur, { rows: [['2025-03-03', 'P-ituri', 'Z-aru', '', 99, 0, 0, 0, 0, 0]] });
+  assert.strictEqual((await push(T['admin.ph'], { history: [edited] })).rejected[0].reason, 'history_rows_are_locked');
+  const withdrawn = Object.assign({}, cur, { deleted: true, deleted_at: new Date().toISOString(), deleted_by: 'admin.ph' });
+  assert.strictEqual((await push(T['admin.ph'], { history: [withdrawn] })).rejected.length, 0);
+});

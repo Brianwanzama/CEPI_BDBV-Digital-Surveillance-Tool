@@ -23,11 +23,11 @@
     reco: ['home', 'reco', 'rumour', 'myreports'],
     soignant: ['home', 'triage', 'patients', 'alerts', 'lab', 'dashboard'],
     clinician: ['home', 'triage', 'patients', 'casemgmt', 'alerts', 'lab'],
-    surveillant: ['home', 'verify', 'contacts', 'map', 'dashboard', 'rumours', 'analysis', 'reports', 'patients', 'alerts', 'rules'],
+    surveillant: ['home', 'verify', 'contacts', 'map', 'dashboard', 'rumours', 'analysis', 'history', 'reports', 'patients', 'alerts', 'rules'],
     lab: ['home', 'lab', 'reports'],
     facility_head: ['home', 'facility', 'reports'],
-    zone_officer: ['home', 'verify', 'contacts', 'map', 'dashboard', 'facility', 'rumours', 'analysis', 'reports', 'audit'],
-    decideur: ['home', 'map', 'dashboard', 'rumours', 'analysis', 'reports'],
+    zone_officer: ['home', 'verify', 'contacts', 'map', 'dashboard', 'facility', 'rumours', 'analysis', 'history', 'reports', 'audit'],
+    decideur: ['home', 'map', 'dashboard', 'rumours', 'analysis', 'history', 'reports'],
     sysadmin: ['home', 'admin', 'rules', 'audit']
   };
   // Action permissions (docs/09 §9.4).
@@ -46,7 +46,8 @@
     edit_rules: ['sysadmin'],
     config: ['sysadmin'],
     facility_any: ['zone_officer', 'decideur'],
-    aggregate_only: ['decideur', 'facility_head']
+    aggregate_only: ['decideur', 'facility_head'],
+    history_import: ['surveillant', 'zone_officer', 'decideur']
   };
   function can(perm) { return (PERMS[perm] || []).indexOf(st.role) >= 0; }
   // Demo user context (in production: from the authenticated account).
@@ -96,11 +97,11 @@
 
   /* ---------- storage ---------- */
   var SCHEMA = 3;
-  function fresh() { return { schema: SCHEMA, assessments: [], reports: [], alerts: [], audit: [], override: null, queue: [], contacts: [], samples: [], rumours: [], config: {} }; }
+  function fresh() { return { schema: SCHEMA, assessments: [], reports: [], alerts: [], audit: [], override: null, queue: [], contacts: [], samples: [], rumours: [], history: [], config: {} }; }
   // Upgrade stored data from v1: add v2 collections; v1 demo records use the old
   // geography, so they are dropped and regenerated (user-entered records are kept).
   function ensureSchema() {
-    ['queue', 'contacts', 'samples', 'rumours'].forEach(function (k) { if (!Array.isArray(db[k])) db[k] = []; });
+    ['queue', 'contacts', 'samples', 'rumours', 'history'].forEach(function (k) { if (!Array.isArray(db[k])) db[k] = []; });
     if (!db.config) db.config = {};
     if (db.schema !== SCHEMA) {
       ['assessments', 'reports', 'alerts'].forEach(function (k) { db[k] = db[k].filter(function (x) { return !x.demo; }); });
@@ -275,7 +276,7 @@
       reco: [['reco', L('Nouveau rapport communautaire', 'New community report')], ['rumour', L('Signaler une rumeur / un événement', 'Report a rumour / event')], ['myreports', L('Mes rapports et leur statut', 'My reports and status')]],
       soignant: [['triage', L('Nouvelle évaluation de triage', 'New triage assessment')], ['alerts', L('Alertes de ma FOSA', 'My facility alerts')], ['dashboard', L('Tableau de bord', 'Dashboard')]],
       surveillant: [['verify', L('File de vérification des alertes', 'Alert verification queue')], ['contacts', L('Suivi des contacts', 'Contact follow-up')], ['map', L('Carte de surveillance', 'Surveillance map')], ['alerts', L('Suivre les alertes rouges', 'Follow red alerts')], ['dashboard', L('Tableau de bord intégré', 'Integrated dashboard')]],
-      decideur: [['map', L('Carte de surveillance', 'Surveillance map')], ['dashboard', L('Tableau de bord (agrégé)', 'Dashboard (aggregate)')], ['reports', L('Rapports', 'Reports')]],
+      decideur: [['map', L('Carte de surveillance', 'Surveillance map')], ['dashboard', L('Tableau de bord (agrégé)', 'Dashboard (aggregate)')], ['history', L('Données historiques', 'Historical data')], ['reports', L('Rapports', 'Reports')]],
       public: [['rumour', L('Signaler un événement', 'Report an event')]],
       clinician: [['casemgmt', L('Prise en charge des patients', 'Patient case management')], ['triage', L('Nouvelle évaluation de triage', 'New triage assessment')], ['alerts', L('Alertes de ma FOSA', 'My facility alerts')]],
       lab: [['lab', L('Échantillons et résultats', 'Samples and results')], ['reports', L('Rapports de laboratoire', 'Laboratory reports')]],
@@ -286,7 +287,7 @@
     v.innerHTML = '<section class="card"><h2>' + esc(t('role_' + st.role)) + '</h2>' +
       '<p class="muted">' + L('Utilisateur :', 'User:') + ' ' + esc(USERS[st.role]) + '</p>' +
       '<div class="bigbtns">' + actions.map(function (a) { return '<button class="big" data-go="' + a[0] + '">' + esc(a[1]) + '</button>'; }).join('') + '</div></section>' +
-      '<section class="card warn"><h3>' + L('Principes', 'Principles') + '</h3><ul>' +
+      '<section class="card disclaimer"><h3>' + L('Principes', 'Principles') + '</h3><ul>' +
       '<li>' + L('Outil d\'alerte précoce et d\'aide à la décision : <b>il ne pose pas de diagnostic</b>. Seul le laboratoire confirme une infection BDBV.', 'Early-warning and decision-support tool: <b>it does not diagnose</b>. Only the laboratory confirms BDBV infection.') + '</li>' +
       '<li>' + L('Suspicion clinique individuelle, signaux communautaires et confirmation biologique sont trois notions <b>séparées</b>.', 'Individual clinical suspicion, community signals and laboratory confirmation are three <b>separate</b> concepts.') + '</li>' +
       '<li>' + L('Le jugement du clinicien prime toujours : il peut relever (ou, avec justification, abaisser) la catégorie.', 'Clinician judgement always prevails: they can raise (or, with justification, lower) the category.') + '</li>' +
@@ -1039,7 +1040,7 @@
       '<div><h4>' + L('Par tranche d\'âge', 'By age group') + '</h4>' + bars(byAge, '#0f766e') + '</div>' +
       '<div><h4>' + L('Symptômes les plus fréquents', 'Most common symptoms') + '</h4>' + bars(symp, '#475569') + '</div>' +
       '<div><h4>' + L('Expositions les plus fréquentes', 'Most common exposures') + '</h4>' + bars(expo, '#7c2d12') + '</div></div>' +
-      '<p class="muted small">' + L('Résultats de laboratoire affichés uniquement lorsqu\'ils sont autorisés et disponibles. La catégorie de triage n\'est pas un diagnostic.', 'Lab results shown only where authorised and available. Triage category is not a diagnosis.') + '</p></section>' +
+      '<p class="disclaimer small">' + L('Résultats de laboratoire affichés uniquement lorsqu\'ils sont autorisés et disponibles. La catégorie de triage n\'est pas un diagnostic.', 'Lab results shown only where authorised and available. Triage category is not a diagnosis.') + '</p></section>' +
 
       '<section class="card"><h2>B. ' + L('Surveillance communautaire (RECO)', 'Community-level surveillance (RECO)') + '</h2><div class="kpis">' +
       kpi(L('Rapports reçus', 'Reports received'), P.length) + kpi(L('Décès rapportés', 'Deaths reported'), sum('deaths_total')) + kpi(L('Décès inexpliqués', 'Unexplained deaths'), sum('deaths_unexplained')) + kpi(L('Décès suspects Ebola', 'Suspected Ebola deaths'), sum('deaths_suspected_ebola')) +
@@ -1055,7 +1056,7 @@
       trend(L('Alertes Ebola suspectes', 'Suspected Ebola alerts'), wk('alerts')) +
       trend(L('Groupes de malades compatibles', 'Compatible illness clusters'), wk('clusters')) +
       trend(L('Évaluations ROUGES (FOSA)', 'RED assessments (facility)'), weekly(allA, function (a) { return a.assessed_at; }, function (a) { return a.result.category === 'RED' ? 1 : 0; })) +
-      '</div><p class="flag small">' + L('Un signal statistique déclenche une revue par l\'équipe de surveillance. Ce n\'est PAS la confirmation d\'une épidémie.', 'A statistical signal triggers review by the surveillance team. It is NOT confirmation of an outbreak.') + '</p></section>';
+      '</div><p class="disclaimer small">' + L('Un signal statistique déclenche une revue par l\'équipe de surveillance. Ce n\'est PAS la confirmation d\'une épidémie.', 'A statistical signal triggers review by the surveillance team. It is NOT confirmation of an outbreak.') + '</p></section>';
 
     bindGeo(v.querySelector('.filters'), 'f_', true, t('all'), function (g) { st.f = Object.assign(st.f, g); VIEWS.dashboard(v); });
     $('#fdays', v).onchange = function () { st.f.days = this.value; VIEWS.dashboard(v); };
@@ -1067,8 +1068,8 @@
   /* ---------- RULES ---------- */
   VIEWS.rules = function (v) {
     var R = rules();
-    v.innerHTML = '<section class="card"><h2>' + esc(t('tab_rules')) + ' - ' + esc(R.rule_set_id) + ' v' + esc(R.version) + '</h2><p class="flag">' + esc(R.status) + '</p>' +
-      '<p>' + esc((R['output_label_' + st.lang] || R.output_label)) + '</p>' +
+    v.innerHTML = '<section class="card"><h2>' + esc(t('tab_rules')) + ' - ' + esc(R.rule_set_id) + ' v' + esc(R.version) + '</h2><p class="disclaimer">' + esc(R.status) + '</p>' +
+      '<p class="disclaimer">' + esc((R['output_label_' + st.lang] || R.output_label)) + '</p>' +
       (can('edit_rules') ? '' : '<p class="muted small">' + L('Lecture seule : seul l\'administrateur système peut modifier les seuils (après approbation).', 'Read-only: only the system administrator can change thresholds (after approval).') + '</p>') +
       '<div class="grid"' + (can('edit_rules') ? '' : ' hidden') + '><label>' + L('Seuil ROUGE (≥)', 'RED threshold (≥)') + '<input type="number" id="thr" value="' + R.thresholds.red + '" min="1" max="100"></label><label>' + L('Seuil ORANGE (≥)', 'AMBER threshold (≥)') + '<input type="number" id="tha" value="' + R.thresholds.amber + '" min="1" max="100"></label>' +
       '<label>&nbsp;<button id="thsave">' + L('Enregistrer (version locale)', 'Save (local version)') + '</button></label><label>&nbsp;<button id="threset" class="ghost">' + L('Revenir à la version de référence', 'Revert to reference version') + '</button></label></div>' +
