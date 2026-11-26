@@ -144,7 +144,8 @@ The map can draw official province and health-zone boundaries. None are included
 **What to send.** One layer for health zones and, if available, one for provinces. Any of these works:
 - an ESRI shapefile, meaning the `.shp` together with its `.shx`, `.dbf` and `.prj` (and `.cpg` if there is one);
 - the same files in one `.zip`;
-- GeoJSON.
+- GeoJSON;
+- a GeoPackage (`.gpkg`). Reading it needs Node.js 22.5 or later. One table can hold several levels; choose the rows with `--zone-filter` and `--province-filter`.
 
 Projected files (UTM, for example) are converted to latitude/longitude using the `.prj`. Put the files in `data/boundaries/` on the development branch (GitHub: *Add file → Upload files*), or attach them in the chat, and say where the data come from and which version they are.
 
@@ -158,7 +159,7 @@ cd tools && npm install && cd ..
 node tools/import_boundaries.js --zones data/boundaries/zones.zip --provinces data/boundaries/provinces.zip
 ```
 
-The tool guesses which attribute holds the name (`NOM_ZS`, `ADM2_FR`, `Nom`, …). If it guesses wrong, name it with `--zone-field`, `--province-field` or `--zone-province-field`. `--tolerance` sets how much the outlines are simplified (default 0.002 degrees, about 200 m), which keeps the file small enough for phones.
+The tool guesses which attribute holds the name (`NOM_ZS`, `ADM2_FR`, `Nom`, …). If it guesses wrong, name it with `--zone-field`, `--province-field` or `--zone-province-field`. `--tolerance` sets how much the outlines are simplified (default 0.005 degrees, about 500 m). Provinces and zones are simplified together so shared borders stay identical, and the result is stored as a compact topology that the app expands when it loads. `--alias "Name in file=Name in list"` accepts a spelling variant on purpose; every alias is listed in the report.
 
 **What it writes.**
 
@@ -168,8 +169,24 @@ The tool guesses which attribute holds the name (`NOM_ZS`, `ADM2_FR`, `Nom`, …
 | `docs/boundaries_import_report.md` | Which names matched the supplied province and health-zone lists, which did not, and how each zone's province in the file compares with the link proposed in the app |
 | `config/zone_province_from_boundaries.json` | The zone → province links found in the file |
 
-Names are matched after removing accents, case and prefixes such as "ZS" or "Zone de santé". A name that does not match is listed in the report and drawn with a dashed outline. It is never attached to the nearest list entry. The zone → province links in the file are not applied automatically: the system administrator reviews the report and confirms each link under *Configuration → Geographical hierarchy* (system administrator account), which is audited.
+Names are matched after removing accents, case and prefixes such as "ZS" or "Zone de santé". A name that does not match is listed in the report and drawn as context with no data. It is never attached to the nearest list entry. The zone → province links in the file are not applied automatically: the system administrator reviews the report and confirms each link under *Configuration → Geographical hierarchy* (system administrator account), which is audited.
 
 **What changes on the map.** Units are drawn with their outlines, units with events in the period are shaded, and each marker moves to the centre of its official boundary. Marker details say "centre of the official boundary" so the source of the position stays visible. Markers are still totals per administrative unit, never the position of a household, grave or facility.
 
-The tool is tested on synthetic squares, in geographic and UTM coordinates (`tests/boundaries.test.js`). It has not yet been run on a real DRC boundary file.
+The tool is tested on synthetic squares as a shapefile, GeoJSON, a UTM shapefile and a GeoPackage (`tests/boundaries.test.js`).
+
+### Import done on 26 November 2026
+
+The project supplied `DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg` (now in `data/boundaries/`). It holds one table with 26 provinces (ADM1), 164 territories (ADM2) and 519 health zones (ADM3), with P-codes and a validity date of 11 September 2019. The command used was:
+
+```bash
+node tools/import_boundaries.js --zones data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --zone-filter ADM_LEVEL=ADM3 --zone-field ADM_NAME --zone-province-field ADM1_NAME --provinces data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg --province-filter ADM_LEVEL=ADM1 --province-field ADM_NAME --alias "Banjow Moke=Banzow Moke"
+```
+
+Results (full detail in `docs/boundaries_import_report.md`):
+- all 26 provinces and all 26 supplied health zones matched. "Banzow Moke" is spelt "Banjow Moke" in the file (Maï-Ndombe, P-code CD330201) and was matched through the alias above, which needs confirming;
+- the other 493 health zones are drawn for context and carry no data in this pilot;
+- the file gives a province for every supplied zone. It agrees with the 22 links proposed earlier and fills the 4 that were unassigned: Baka → Haut-Lomami, Banga Lubaka → Kasaï, Bangabola → Sud-Ubangi, Banzow Moke → Mai-Ndombe. The app now uses these links, marked "from the official boundary file (to confirm)";
+- `prototype/boundaries.js` is 379 KB.
+
+The origin of the file (publisher and version) still needs to be recorded in `data/boundaries/README.md` so the map can cite it.

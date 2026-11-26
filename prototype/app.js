@@ -11,7 +11,7 @@
 
   // Interface language. French by default (main administrative language);
   // Kiswahili and English selectable. Each user's own choice (menu at top) is remembered.
-  var DEFAULT_LANG = 'fr';
+  var DEFAULT_LANG = 'en';
   var LANG_KEY = 'bdbv_proto_lang';
   function savedLang() { try { var l = localStorage.getItem(LANG_KEY); return l === 'fr' || l === 'en' || l === 'sw' ? l : null; } catch (e) { return null; } }
   var st = { lang: savedLang() || DEFAULT_LANG, role: 'public', tab: 'login', auth: null, online: true, editing: null, lastId: null,

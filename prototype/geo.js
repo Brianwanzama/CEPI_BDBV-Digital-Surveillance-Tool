@@ -5,9 +5,10 @@
  *  - List 1 ("health zones / geographical areas"): the 26 names match the 26 provinces created in
  *    2015, so they are loaded as PROVINCES. Classification flagged for confirmation.
  *  - List 2 ("provinces / local administrative locations"): loaded as HEALTH ZONES, not provinces.
- *    Their province links are PROPOSALS (status "proposed") from general knowledge, not from an
- *    official source; four are left unassigned. The system administrator confirms or changes them
- *    (Configuration tab); nothing here is presented as verified.
+ *    Their province links come from the boundary file supplied by the project
+ *    (data/boundaries/DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg, ADM3 = health zones, field ADM1_NAME;
+ *    see docs/boundaries_import_report.md). "Banzow Moke" is spelt "Banjow Moke" in that file. The
+ *    system administrator still confirms each link (Configuration tab).
  * DEMO: health areas, villages and facilities below exist only to exercise the prototype. They are
  * fictitious, marked "(démo)", and have NO coordinates. In deployment they come from DHIS2/SNIS.
  */
@@ -22,17 +23,17 @@
   var provinces = PROVINCES.map(function (n) { return { id: pid(n), name_fr: n, name_en: EN[n] || n, name_sw: n, supplied: true }; });
   provinces.push({ id: 'P-tbc', name_fr: '(province à confirmer)', name_en: '(province to confirm)', name_sw: '(jimbo la kuthibitisha)', placeholder: true });
 
-  // Supplied health zones with PROPOSED province (null = unassigned until confirmed).
+  // Supplied health zones with the province given by the official boundary file (to be confirmed).
   var ZONES = [
     ['Aba', 'Haut-Uele'], ['Abuzi', 'Nord-Ubangi'], ['Adi', 'Ituri'], ['Adja', 'Ituri'], ['Aketi', 'Bas-Uele'], ['Alimbongo', 'Nord-Kivu'],
     ['Alunguli', 'Maniema'], ['Ango', 'Bas-Uele'], ['Angumu', 'Ituri'], ['Ankoro', 'Tanganyika'], ['Ariwara', 'Ituri'], ['Aru', 'Ituri'],
-    ['Aungba', 'Ituri'], ['Bafwagbogbo', 'Tshopo'], ['Bafwasende', 'Tshopo'], ['Bagata', 'Kwilu'], ['Bagira', 'Sud-Kivu'], ['Baka', null],
+    ['Aungba', 'Ituri'], ['Bafwagbogbo', 'Tshopo'], ['Bafwasende', 'Tshopo'], ['Bagata', 'Kwilu'], ['Bagira', 'Sud-Kivu'], ['Baka', 'Haut-Lomami'],
     ['Bambo', 'Nord-Kivu'], ['Bambu', 'Ituri'], ['Banalia', 'Tshopo'], ['Bandalungwa', 'Kinshasa'], ['Bandundu', 'Kwilu'],
-    ['Banga Lubaka', null], ['Bangabola', null], ['Banzow Moke', null]
+    ['Banga Lubaka', 'Kasaï'], ['Bangabola', 'Sud-Ubangi'], ['Banzow Moke', 'Mai-Ndombe']
   ];
   var zones = ZONES.map(function (z) {
     var p = z[1] ? pid(z[1]) : 'P-tbc';
-    return { id: 'Z-' + slug(z[0]), name: z[0], province: p, province_default: p, link_status: z[1] ? 'proposed' : 'unassigned', supplied: true };
+    return { id: 'Z-' + slug(z[0]), name: z[0], province: p, province_default: p, link_status: z[1] ? 'boundary' : 'unassigned', supplied: true };
   });
 
   // Demo health areas / villages / facilities (fictitious, no coordinates).
@@ -69,7 +70,7 @@
       var links = cfg.zone_province || {}, conf = cfg.confirmed || {};
       zones.forEach(function (z) {
         z.province = links[z.id] || z.province_default;
-        z.link_status = conf[z.id] ? 'confirmed' : (links[z.id] ? 'set_by_admin' : (z.province_default === 'P-tbc' ? 'unassigned' : 'proposed'));
+        z.link_status = conf[z.id] ? 'confirmed' : (links[z.id] ? 'set_by_admin' : (z.province_default === 'P-tbc' ? 'unassigned' : 'boundary'));
       });
       (cfg.added_zones || []).forEach(function (x) { if (!zones.some(function (z) { return z.id === x.id; })) zones.push(Object.assign({ province_default: x.province, link_status: 'set_by_admin' }, x)); });
       (cfg.added_areas || []).forEach(function (x) { if (!areas.some(function (a) { return a.id === x.id; })) areas.push(x); });

@@ -1,9 +1,9 @@
 {
-  "name": "BDBV Triage et Surveillance (prototype)",
+  "name": "BDBV Triage and Surveillance (prototype)",
   "short_name": "BDBV",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#eceff1",
-  "theme_color": "#10333a",
-  "lang": "fr"
+  "background_color": "#f5f7fa",
+  "theme_color": "#0f3d5e",
+  "lang": "en"
 }

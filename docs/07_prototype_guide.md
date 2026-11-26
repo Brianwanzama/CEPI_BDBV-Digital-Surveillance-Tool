@@ -20,10 +20,10 @@ The app opens on a sign-in screen. Only the public can use it without an account
 *Sign out* (top right) returns to the sign-in screen. The demonstration names (N. Kahindo, J. Mapendo and so on) are fictitious and tagged [DEMO].
 
 ## 7.2 Interface language
-The interface opens in **French** by default (version 2 brief). Use the language menu at the top or on the sign-in screen (Français / English / Kiswahili) to switch. Each user's choice is remembered on their device. To change the default for everyone, edit one line in `prototype/app.js`:
+The interface opens in **English** by default. Use the language menu at the top or on the sign-in screen (English / Français / Kiswahili) to switch. Each user's choice is remembered on their device. To change the default for everyone, edit one line in `prototype/app.js`:
 
 ```js
-var DEFAULT_LANG = 'en';
+var DEFAULT_LANG = 'fr';
 ```
 
 Text the system writes itself (alert SMS, queue descriptions, verification findings in the demo data, care notes) is stored as a code and rendered in the language being viewed, so an alert raised by a French-speaking nurse reads in English for an English-speaking reviewer. Free text typed by a user is shown as typed.
@@ -53,7 +53,7 @@ Where it works: in the published web page, dictation and AI extraction work in C
 | Role | Try this |
 |---|---|
 | **Public (report an event)** | Fill in the simple form (Kiswahili available), tick "stay anonymous", send → you get a reference number |
-| **Surveillance officer** | *Verification*: filter Source = Rumour, open the alert → acknowledge → assign → start → record the outcome → approve. Turnaround medians and overdue alerts at the top. *Contacts*: register a contact for a RED case, add a visit with 38.6 °C → "developed symptoms" → refer. *Map*: toggle layers A–E, click a marker, move the week slider, tick "compare", switch to zone level to see the "not mapped" list, download CSV/Excel/PDF. *Reports*: 10 report types × 3 formats; identifiers need a reason. *Analysis*: occupation, age × sex |
+| **Surveillance officer** | *Verification*: filter Source = Rumour, open the alert → acknowledge → assign → start → record the outcome → approve. Turnaround medians and overdue alerts at the top. *Contacts*: register a contact for a RED case, add a visit with 38.6 °C → "developed symptoms" → refer. *Map*: choose an indicator and see the provinces shaded; hover over a unit for its figures; click one for its profile and 12-week trend; type "Aru" in *Go to*; zoom with the wheel, by dragging or pinching, or with the buttons; press *Play* to step through the last 12 weeks; open *Symbols* to switch layers A–E; tick "compare"; download CSV/Excel/PDF. *Reports*: 10 report types × 3 formats; identifiers need a reason. *Analysis*: occupation, age × sex |
 | **Health worker** | *Assessments*: the referred contact appears at the top → *Start triage* (pre-filled) → save. *Laboratory*: register the sample |
 | **Laboratory personnel** | Open the sample → record custody steps → *Release result*. A positive result is what confirms the case |
 | **Clinician** | *Case management*: move a case to a holding unit (transfer recorded); home-based care is disabled until the administrator enables it |

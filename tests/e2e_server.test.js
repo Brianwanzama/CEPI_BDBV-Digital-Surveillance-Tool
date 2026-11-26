@@ -50,8 +50,8 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
 
   // Nurse: role from the account, own facility, names visible; new triage synced and rescored
   await signIn('nurse.aru');
-  assert.strictEqual(await page.evaluate(() => BDBVApp.state.role), 'soignant', 'role taken from the account'); assert.ok(/Agent de santé/.test(await page.textContent('#who')));
-  assert.ok(/Serveur pilote/i.test(await page.textContent('#banner')));
+  assert.strictEqual(await page.evaluate(() => BDBVApp.state.role), 'soignant', 'role taken from the account'); assert.ok(/Health worker|Agent de santé/.test(await page.textContent('#who')));
+  assert.ok(/Pilot server|Serveur pilote/i.test(await page.textContent('#banner')));
   const facs = await page.evaluate(() => [...new Set(BDBVApp.db().assessments.map((a) => a.geo.facility))]);
   assert.deepStrictEqual(facs, ['Z-aru-A1-F']);
   await page.click('[data-tab="triage"]');

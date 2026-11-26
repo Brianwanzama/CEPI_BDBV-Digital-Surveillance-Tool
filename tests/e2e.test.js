@@ -14,8 +14,8 @@ const assert = require('assert');
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('dialog', d => d.accept());
   await page.goto(url);
-  // v2: French is the default (main administrative language); English and Kiswahili selectable.
-  assert.strictEqual(await page.inputValue('#lang'), 'fr', 'French by default');
+  // English is the default; French and Kiswahili selectable.
+  assert.strictEqual(await page.inputValue('#lang'), 'en', 'English by default');
   // Everyone except the public signs in first: the app opens on the sign-in screen.
   assert.ok(await page.isHidden('#nav'), 'no navigation before sign-in');
   assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 9, 'one demo account per role');

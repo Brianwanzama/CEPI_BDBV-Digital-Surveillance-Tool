@@ -31,8 +31,8 @@ const assert = require('assert');
   const geo = await db(() => ({ prov: BDBV.G.provinces.filter(p => p.supplied).map(p => p.name_fr), zones: BDBV.G.zones.filter(z => z.supplied).map(z => z.name), unassigned: BDBV.G.zones.filter(z => z.link_status === 'unassigned').map(z => z.name) }));
   assert.strictEqual(geo.prov.length, 26); assert.strictEqual(geo.zones.length, 26);
   assert.ok(geo.prov.includes('Ituri') && geo.zones.includes('Banzow Moke'));
-  assert.deepStrictEqual(geo.unassigned.sort(), ['Baka', 'Banga Lubaka', 'Bangabola', 'Banzow Moke']);
-  ok('supplied lists loaded: 26 provinces, 26 health zones; 4 zone links left unassigned for confirmation');
+  assert.deepStrictEqual(geo.unassigned, [], 'every zone linked to a province from the boundary file');
+  ok('supplied lists loaded: 26 provinces, 26 health zones; zone links taken from the official boundary file (to confirm)');
 
   // ---- Symptoms (§12) ----
   await page.selectOption('#lang', 'en');
@@ -173,25 +173,52 @@ const assert = require('assert');
   await role('surveillant'); await tab('map');
   const markers = await page.$$eval('.dmap [data-mk]', els => els.length);
   assert.ok(markers > 0);
-  // every marker anchor must be a real gazetteer point (no invented coordinates)
+  // every marker sits at the centre of an official boundary or a gazetteer point (no invented coordinates)
   const anchorsOk = await db(() => {
-    const GD = window.BDBV_GEODATA, pts = new Set();
+    const GD = window.BDBV_GEODATA, BND = window.BDBV_BOUNDARIES, pts = new Set();
     Object.values(GD.provinces).forEach(p => p.lat != null && pts.add(p.lat + ',' + p.lon));
     Object.values(GD.zones).forEach(z => pts.add(z.lat + ',' + z.lon));
+    ['provinces', 'zones'].forEach(l => BND && BND[l].features.forEach(f => f.properties.c && pts.add(f.properties.c[1] + ',' + f.properties.c[0])));
     const keys = [...document.querySelectorAll('.dmap [data-mk]')].map(e => e.getAttribute('data-mk'));
     return keys.every(k => { const [lvl, id] = k.split(':'); const geo = lvl === 'P' ? { zone: BDBV.G.zones.find(z => z.province === id).id } : { zone: id }; const a = BDBV.mapApi.anchor(geo, lvl === 'P' ? 'province' : 'zone'); return a && pts.has(a.lat + ',' + a.lon); });
   });
-  assert.ok(anchorsOk, 'all markers at gazetteer points');
+  assert.ok(anchorsOk, 'all markers at official centroids or gazetteer points');
+  // official boundaries: 26 provinces + 519 health zones drawn; units shaded by the indicator
+  assert.strictEqual(await page.$$eval('#msvg .up', e => e.length), 26);
+  assert.strictEqual(await page.$$eval('#msvg .uz', e => e.length), 519);
+  const shaded = await page.$$eval('#msvg .up', e => e.filter(x => x.style.fill).map(x => x.getAttribute('data-u')));
+  const vals = await db(() => BDBV.mapApi.values().cases);
+  assert.ok(shaded.length > 0 && shaded.every(k => vals[k] > 0), 'shaded provinces = provinces with cases');
+  // hover card
+  await page.hover('#msvg .up[data-u="' + shaded[0] + '"]', { force: true });
+  await page.waitForSelector('#mtip:not([hidden])');
+  assert.ok(/Cas \(suspects/.test(await page.textContent('#mtip')), 'hover card with indicator values');
   await page.click('.dmap [data-mk]');
   assert.ok(/Point de référence/.test(await page.textContent('#mdetail')));
+  // zone level, search, profile panel with P-code and weekly trend
   await page.selectOption('#mlevel', 'zone');
-  assert.ok(/Non cartographiés/.test(await view()), 'zones without coordinates listed, not placed');
-  await page.uncheck('[data-layer="burial"]');
+  const optAru = await page.$$eval('#munits option', os => os.map(o => o.value).find(v => /^Aru \(/.test(v)));
+  await page.fill('#msearch', optAru); await page.dispatchEvent('#msearch', 'change');
+  assert.strictEqual(await db(() => BDBV.mapApi.state.sel), 'Z:Z-aru');
+  assert.notStrictEqual(await page.getAttribute('#msvg', 'viewBox'), '0 0 560 560', 'zoomed to the zone');
+  assert.ok(/CD54/.test(await page.textContent('#mpanel')) && await page.$('#mpanel svg.spark'), 'profile with P-code and 12-week trend');
+  await page.click('[data-z="reset"]');
+  assert.strictEqual(await page.getAttribute('#msvg', 'viewBox'), '0.00 0.00 560.00 560.00');
+  await page.click('[data-z="in"]');
+  assert.notStrictEqual(await page.getAttribute('#msvg', 'viewBox'), '0.00 0.00 560.00 560.00', 'zoom button');
+  // indicator switch and playback through the weeks
+  await page.selectOption('#mind', 'deaths');
+  assert.ok(/Décès signalés/.test(await page.textContent('#mscale')));
+  await page.click('#mplay');
+  await page.waitForFunction(() => BDBV.mapApi.state.week < 11, null, { timeout: 5000 });
+  await page.click('#mplay');
+  await page.click('details.msym summary'); await page.uncheck('[data-layer="burial"]');
+  assert.strictEqual(await db(() => BDBV.mapApi.state.layers.burial), false, 'symbol layer switched off');
   await page.check('#mcomp');
   assert.ok(/Comparaison avec la période précédente/.test(await view()));
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#mcsv')]);
   assert.ok(/carte_surveillance.*\.csv$/.test(dl.suggestedFilename()));
-  ok('map: markers only at real reference points, details on click, unmapped list, layers, period comparison, CSV export');
+  ok('map: official boundaries (26 provinces, 519 zones), shading by indicator, hover card, marker details, search and zoom, profile with trend, playback, comparison, CSV');
 
   // ---- Reports (§13) ----
   await tab('reports');

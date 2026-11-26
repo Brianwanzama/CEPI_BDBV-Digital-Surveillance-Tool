@@ -36,6 +36,21 @@ srcs = re.findall(r'<script src="([^"]+)"></script>', body)
 body = re.sub(r'<script src="[^"]+"></script>\n?', '', body)
 body = re.sub(r"<script>\s*if \('serviceWorker'.*?</script>\n?", '', body, flags=re.S)
 
+def embed_fonts(css):
+    def data_uri(m):
+        with open(os.path.join(root, m.group(1)), 'rb') as f:
+            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(f.read()).decode('ascii')
+    return re.sub(r'url\("(vendor/fonts/[^"]+\.woff2)"\)', data_uri, css)
+
+
+def embed_images(text):
+    def data_uri(m):
+        with open(os.path.join(root, m.group(1)), 'rb') as f:
+            mime = 'image/png' if m.group(1).endswith('.png') else 'image/jpeg'
+            return 'src="data:%s;base64,%s"' % (mime, base64.b64encode(f.read()).decode('ascii'))
+    return re.sub(r'src="(assets/[^"]+\.(?:png|jpe?g))"', data_uri, text)
+
+
 cdn_tags, js = '', ''
 for src in srcs:
     if src in ('register-sw.js', 'config.js', 'api.js'):
@@ -46,20 +61,13 @@ for src in srcs:
     s = read(src)
     if '</script' in s.lower():
         sys.exit(src + ' contains </script>; cannot inline')
-    js += '\n/* ---- %s ---- */\n' % src + s
-
-def embed_fonts(css):
-    def data_uri(m):
-        with open(os.path.join(root, m.group(1)), 'rb') as f:
-            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(f.read()).decode('ascii')
-    return re.sub(r'url\("(vendor/fonts/[^"]+\.woff2)"\)', data_uri, css)
-
+    js += '\n/* ---- %s ---- */\n' % src + embed_images(s)
 
 title = re.search(r'<title>(.*?)</title>', html).group(1)
 theme = re.search(r'<meta name="theme-color" content="([^"]+)">', html).group(1)
 page = ('<title>%s</title>\n' % title +
         '<meta name="theme-color" content="%s">\n' % theme +
-        '<style>\n' + embed_fonts(read('styles.css')) + '</style>\n' + body + cdn_tags +
+        '<style>\n' + embed_fonts(read('styles.css')) + '</style>\n' + embed_images(body) + cdn_tags +
         '<script>\n' + js + '\n</script>\n')
 with open(out, 'w', encoding='utf-8') as f:
     f.write(page)

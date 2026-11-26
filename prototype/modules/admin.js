@@ -10,7 +10,7 @@
   var esc = function (x) { return B.esc(x); };
   function db() { return B.db(); }
   function cfg() { var c = db().config; c.geo = c.geo || {}; return c; }
-  var LINK = { proposed: ['Proposé (à confirmer)', 'Proposed (to confirm)'], unassigned: ['Non attribué', 'Unassigned'], set_by_admin: ['Défini par l\'administrateur (à confirmer)', 'Set by administrator (to confirm)'], confirmed: ['Confirmé', 'Confirmed'] };
+  var LINK = { boundary: ['Selon le fichier de limites officiel (à confirmer)', 'From the official boundary file (to confirm)'], proposed: ['Proposé (à confirmer)', 'Proposed (to confirm)'], unassigned: ['Non attribué', 'Unassigned'], set_by_admin: ['Défini par l\'administrateur (à confirmer)', 'Set by administrator (to confirm)'], confirmed: ['Confirmé', 'Confirmed'] };
   var slug = function (s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
 
   B.VIEWS.admin = function (v) {
@@ -20,7 +20,7 @@
     v.innerHTML = '<section class="card"><h2>' + L('Configuration du système', 'System configuration') + '</h2><p class="muted small">' + L('Chaque modification est enregistrée dans le journal d\'audit. En production, elles passent par un circuit d\'approbation (MSP / DSNIS).', 'Every change is written to the audit log. In production, changes go through an approval workflow (MoH / DSNIS).') + '</p></section>' +
 
       '<section class="card"><h3>1. ' + L('Hiérarchie géographique : zones de santé → provinces', 'Geographical hierarchy: health zones → provinces') + '</h3>' +
-      '<p class="small">' + L('Liste 1 fournie (26 noms) chargée comme PROVINCES ; liste 2 fournie chargée comme ZONES DE SANTÉ. Les rattachements zone→province sont des propositions à confirmer avec la DSNIS. Point de référence : ville homonyme dans GeoNames, sinon chef-lieu de province, sinon aucun.', 'Supplied list 1 (26 names) loaded as PROVINCES; supplied list 2 loaded as HEALTH ZONES. Zone→province links are proposals to confirm with DSNIS. Reference point: same-name town in GeoNames, otherwise provincial capital, otherwise none.') + '</p>' +
+      '<p class="small">' + L('Liste 1 fournie (26 noms) chargée comme PROVINCES ; liste 2 fournie chargée comme ZONES DE SANTÉ. Les rattachements zone→province viennent du fichier de limites fourni et restent à confirmer avec la DSNIS. Point de référence : ville homonyme dans GeoNames, sinon chef-lieu de province, sinon aucun.', 'Supplied list 1 (26 names) loaded as PROVINCES; supplied list 2 loaded as HEALTH ZONES. Zone→province links come from the supplied boundary file and are still to be confirmed with DSNIS. Reference point: same-name town in GeoNames, otherwise provincial capital, otherwise none.') + '</p>' +
       '<div class="scroll"><table class="tbl small"><tr><th>' + L('Zone de santé', 'Health zone') + '</th><th>' + L('Province', 'Province') + '</th><th>' + L('Statut du rattachement', 'Link status') + '</th><th>' + L('Confirmé', 'Confirmed') + '</th><th>' + L('Point de référence', 'Reference point') + '</th></tr>' +
       G.zones.map(function (z) {
         var pn = (B.byId(G.provinces, z.province) || {}).name_fr, gp = pn && GD.provinces[pn];

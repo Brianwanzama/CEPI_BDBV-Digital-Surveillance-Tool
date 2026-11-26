@@ -4,3 +4,6 @@
 *.log
 tests
 docs
+data
+tools
+.github

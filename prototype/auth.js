@@ -64,7 +64,7 @@
   B.VIEWS.login = function (v) {
     var srv = B.server || {}, checking = srv.checking, server = srv.available;
     var langs = [['fr', 'Français'], ['en', 'English'], ['sw', 'Kiswahili']];
-    var html = '<div class="signin"><section class="panel signin-main">' +
+    var html = '<div class="signin"><section class="panel signin-main"><img class="signin-logo" src="assets/emblem.png" alt="">' +
       '<p class="eyebrow">' + L('Accès réservé', 'Restricted access') + '</p><h2>' + L('Connexion', 'Sign in') + '</h2>' +
       '<label class="inl">' + L('Langue', 'Language') + ' <select id="login-lang">' + langs.map(function (l) { return '<option value="' + l[0] + '"' + (B.st.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select></label>';
     if (checking) {

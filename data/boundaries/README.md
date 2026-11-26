@@ -10,6 +10,6 @@ Add a line below saying where each file came from (organisation, version, date) 
 
 | File | Source | Version / date |
 |---|---|---|
-| | | |
+| `DRC_admin_boundaries_ADM1_ADM2_ADM3.gpkg` | Supplied by the project; publisher to be recorded | Valid from 2019-09-11 (field `VALID_ON`) |
 
 See `docs/11_backend_and_deployment.md` §11.9 for details.

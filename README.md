@@ -41,13 +41,13 @@ docker compose up -d
 Then open http://localhost:8080 and sign in with a demo account (password: your `SEED_USER_PASSWORD`). GitHub runs the tests and builds the container image on every push. Hosting options (Render blueprint, any Docker server, GitHub Pages for the app) are in [docs/11](docs/11_backend_and_deployment.md). **Synthetic data only** until Ministry of Health approval.
 
 ## Map boundaries
-The map ships with the DRC national outline and GeoNames reference points. Official province and health-zone boundaries can be added from a shapefile, zipped shapefile or GeoJSON with one command; see [docs/11 §11.9](docs/11_backend_and_deployment.md#119-importing-official-boundaries-shapefile).
+The map draws the 26 provinces and 519 health zones from the GeoPackage supplied by the project (`data/boundaries/`), shades them by indicator, and supports hover, zoom, search and weekly playback. Boundaries can be replaced from a shapefile, zipped shapefile, GeoJSON or GeoPackage with one command; see [docs/11 §11.9](docs/11_backend_and_deployment.md#119-importing-official-boundaries-shapefile).
 
 ## Quick start (app only, no server)
 ```bash
 xdg-open prototype/index.html
 ```
-Opening `prototype/index.html` directly in any browser works offline, with synthetic demo data. The interface opens in French; switch to Kiswahili or English from the menu at the top (`DEFAULT_LANG` in `prototype/app.js`). The app opens on a sign-in screen: the public can report an event without an account, and everyone else signs in. Without a server the screen offers one demonstration account per role. Run the tests with:
+Opening `prototype/index.html` directly in any browser works offline, with synthetic demo data. The interface opens in English; switch to French or Kiswahili from the menu at the top (`DEFAULT_LANG` in `prototype/app.js`). The app opens on a sign-in screen: the public can report an event without an account, and everyone else signs in. Without a server the screen offers one demonstration account per role. Run the tests with:
 ```bash
 node tests/scoring.test.js
 ```
@@ -76,7 +76,8 @@ tests/                      unit tests (scoring, voice) + end-to-end (Playwright
 tools/build_rules.js        copies the rule set into the prototype
 tools/build_geodata.js      builds the map data from Natural Earth + GeoNames
 tools/build_single_file.py  bundles the prototype into one web page
-tools/import_boundaries.js  imports official boundaries (shapefile/GeoJSON) into the map
+tools/import_boundaries.js  imports official boundaries (shapefile, GeoJSON, GeoPackage) into the map
+data/boundaries/            boundary files supplied by the project
 prototype/modules/          v2 modules (queue, map, contacts, lab, cases, rumours, facility, reports, analysis, admin)
 prototype/vendor/           SheetJS + jsPDF for offline export; fonts (SIL Open Font Licence)
 backend/                    API server (Express + PostgreSQL), tests
