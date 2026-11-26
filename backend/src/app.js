@@ -207,7 +207,7 @@ function createApp(pool, opts = {}) {
       n_people: Math.max(0, parseInt(b.n_people, 10) || 0), n_deaths: Math.max(0, parseInt(b.n_deaths, 10) || 0), anonymous, name: anonymous ? '' : s(b.name, 120), phone: anonymous ? '' : s(b.phone, 40),
       relationship: s(b.relationship, 40), attachment: b.attachment ? { name: s(b.attachment.name, 200), type: s(b.attachment.type, 80), size: +b.attachment.size || 0 } : null, synthetic: true };
     const alert = { id: 'ALT-' + id.slice(4), source: 'rumour', source_ref: id, type: rumour.type, category: null, submitted_at: rumour.submitted_at, reporter: { name: rumour.name, phone: rumour.phone, anonymous },
-      geo, description: desc, info_source: 'public:' + rumour.relationship, supporting: rumour.attachment ? 'Pièce jointe : ' + rumour.attachment.name : '', stages: {}, outcome: 'pending', findings: '', duplicate_of: '', linked: [],
+      geo, description: desc, info_source: 'public:' + rumour.relationship, supporting: rumour.attachment ? 'key:attachment ' + rumour.attachment.name : '', stages: {}, outcome: 'pending', findings: '', duplicate_of: '', linked: [],
       urgent: rumour.n_deaths > 1 || rumour.type === 'cluster', history: [{ at: rumour.submitted_at, by: 'public', action: 'submitted', note: '' }], place_text: rumour.place_text, synthetic: true };
     await pool.query('INSERT INTO records (collection, id, data, zone, owner, updated_by) VALUES ($1,$2,$3,$4,$5,$5), ($6,$7,$8,$4,$5,$5)', ['rumours', id, rumour, geo.zone || null, 'public', 'queue', alert.id, alert]);
     await audit({ ip: req.ip }, 'create', 'rumour', id, anonymous ? 'anonymous' : '');

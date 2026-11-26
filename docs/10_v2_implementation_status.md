@@ -15,7 +15,7 @@ Status categories, as requested in the brief:
 | 2.1 D | Areas reporting deaths; deaths by age group and occupation; trends | **Implemented** | Map layer plus the Analysis tab (age, sex, occupation, weekly trend) |
 | 2.1 E | Facilities, holding/isolation units, community alerts, clusters, contacts, unusual increases | **Implemented** | Increases are a statistical signal (mean + 2 SD), labelled as not confirmed |
 | 2.2 | Filters (province…village), layer toggles, period, time comparison, click details, download | **Implemented** | Week slider plus previous-period comparison. CSV/XLSX/PDF |
-| 2.2 | Real DRC boundaries and locations; no invented coordinates | **Partial** | DRC national outline (Natural Earth) and reference points from GeoNames: 24/26 provincial capitals and 2/26 supplied zones (Aru, Aketi). **Province and health-zone boundaries are not included**: no open, versioned set was available in this build. Markers are aggregates at reference points, and everything else is listed as "not mapped". A test checks that every marker sits on a gazetteer point |
+| 2.2 | Real DRC boundaries and locations; no invented coordinates | **Partial** | DRC national outline (Natural Earth) and reference points from GeoNames: 24/26 provincial capitals and 2/26 supplied zones (Aru, Aketi). **Province and health-zone boundaries are not included**: no open, versioned set was available in this build. An import tool for an official shapefile is ready (document 11 §11.9) and waiting for the file. Markers are aggregates at reference points, and everything else is listed as "not mapped". A test checks that every marker sits on a gazetteer point |
 | 3.1 | Alert fields (ID, time, reporter, phone, location, type, description, source, supporting info) | **Implemented** | Reporter phone visible to verification roles only |
 | 3.2 | 7-step workflow, 6 outcomes, officer, timestamps, findings, decision; GREEN included | **Implemented** | Every facility triage (all categories), RECO report and rumour enters the queue. Bulk actions; duplicate linking; escalation |
 | 3.2 | Not shown as verified on dashboard until approved | **Implemented** | Dashboard and map default to approved-only, with a toggle to show pending (marked) |
@@ -47,7 +47,8 @@ Status categories, as requested in the brief:
 | Voice extraction (FR/EN/Kiswahili keywords, negation, dates, AI-reply validation) | `node tests/voice.test.js` | 9/9 pass |
 | Kiswahili coverage (keys 100%, frontline strings 100%, report for other modules) | `node tests/i18n.test.js` | pass |
 | v1 end-to-end (4 original roles, triage, alerts, RECO offline/sync, verification, dashboard, rules, voice AI path) | `node tests/e2e.test.js` | pass |
-| v2 integration (geography lists; 23 symptoms; public rumour → full verification → approval; duplicate; overdue; dashboard approval gate; contact → follow-up → referral → pre-filled triage → classification; sample → custody → lab-only release → confirmation; care transfer and home-care gate; admin geography; facility dashboard without names; map markers on real points only, details, unmapped list, comparison, CSV; 10 report types with CSV/XLSX/PDF and identifier control; analysis; Kiswahili UI) | `node tests/e2e_v2.test.js` | 16/16 pass |
+| v2 integration (sign-in screen and public access; geography lists; 23 symptoms; public rumour → full verification → approval; duplicate; overdue; dashboard approval gate; contact → follow-up → referral → pre-filled triage → classification; sample → custody → lab-only release → confirmation; care transfer and home-care gate; admin geography; facility dashboard without names; map markers on real points only, details, unmapped list, comparison, CSV; 10 report types with CSV/XLSX/PDF and identifier control; analysis; Kiswahili UI; alerts and queue text in the viewer's language) | `node tests/e2e_v2.test.js` | 17/17 pass |
+| Boundary import (shapefile and GeoJSON, name matching, unmatched names reported, zone → province comparison, UTM conversion) | `node tests/boundaries.test.js` | pass |
 | No horizontal scroll at 375 px on every tab of every role | manual script (Playwright) | pass |
 
 All tests use synthetic data generated in the browser (`prototype/modules/seed2.js`).
@@ -55,9 +56,18 @@ All tests use synthetic data generated in the browser (`prototype/modules/seed2.
 ## 10.2b Update: backend (v0.3)
 A backend now exists (document 11). Items marked "prototype scope" above now work across users and devices when signed in to the server: role-based access, facility and zone scoping, and redaction are **enforced on the server**; scores are recomputed by the server; the audit log is append-only in the database; record history is kept; and offline sync uses version checks. Still pending: user administration, 2FA, SMS, attachments storage, backups/monitoring, DHIS2 interfaces, and approval for real data.
 
+## 10.2c Update: sign-in, language and appearance (v0.4)
+
+| Item | Status | Notes |
+|---|---|---|
+| Sign-in for every role except the public | **Implemented** | The app opens on a sign-in screen. With the server: username and password checked by the API. Without a server: one demonstration account per role, no password, clearly labelled as demonstration. The role menu has been removed, so a user can no longer switch role by hand |
+| System text in the viewer's language | **Implemented** | Alert SMS, queue descriptions and other system-written text are stored as codes and rendered in French, English or Kiswahili at display time. Records created before this change keep their stored French text |
+| Official boundaries on the map | **Partial** | Map and import tool ready (§11.9 of document 11); no boundary file received yet |
+| Visual identity | **Implemented** | Own typefaces (Atkinson Hyperlegible for legibility on low-end phones, Barlow Semi Condensed for headings and figures, IBM Plex Mono for record IDs), all served from the app so they work offline; petrol and saffron palette; demo users have fictitious person names tagged [DEMO] |
+
 ## 10.3 Outstanding issues and inputs needed
 
-1. **Official boundaries and gazetteer** (MoH/DSNIS, possibly GRID3): province and health-zone shapefiles, health-area and village lists with codes and verified coordinates, and the master facility list. Until then the map aggregates at provincial capitals.
+1. **Official boundaries and gazetteer** (MoH/DSNIS, possibly GRID3): province and health-zone shapefiles (the import tool is ready, see document 11 §11.9), health-area and village lists with codes and verified coordinates, and the master facility list. Until then the map aggregates at provincial capitals.
 2. **Confirmation of the supplied geography**: whether list 1 is the provinces (as loaded), the province of each health zone (4 unassigned, 22 proposed), and DT/DRO/ICT definitions.
 3. **Production back end**: server database, authentication, server-side permission checks, immutable audit, SMS gateway, attachment storage, multi-user synchronisation and conflict handling. DHIS2 Tracker remains the recommended base (document 05).
 4. **Kiswahili**: native-speaker review, and translation of the supervisory screens if Kiswahili-speaking supervisors need them.

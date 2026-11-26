@@ -108,7 +108,7 @@ Early detection therefore depends on two things: (1) clinicians suspecting Ebola
 **Workflow**
 1. Tick patient (or carer) consent. Without consent, the microphone and AI extraction do not start.
 2. Dictate (French or English speech-to-text) or type/paste notes. The transcript is editable.
-3. *Extract answers with AI* (Claude), or *Basic offline extraction* (keyword rules on the device) when no AI service is available.
+3. *Extract answers with AI* (a language model), or *Basic offline extraction* (keyword rules on the device) when no AI service is available.
 4. A review table lists each proposed answer, the value, and the exact source phrase. Answers that would overwrite something already entered are unticked by default, and contradictions in the note are flagged.
 5. *Apply selected*: answers go into the form and stay highlighted ("IA / AI") until the worker edits or checks them.
 6. Saving requires the worker to confirm they checked every AI-proposed answer with the patient.

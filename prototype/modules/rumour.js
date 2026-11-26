@@ -58,7 +58,7 @@
       var storeLocal = function () {
         B.db().rumours.unshift(r);
         var a = B.queue.submit({ source: 'rumour', source_ref: r.id, type: r.type, geo: r.geo, reporter: { name: r.name || '', phone: r.phone, anonymous: anon },
-          description: desc + (r.n_deaths ? ' · ' + r.n_deaths + L(' décès', ' death(s)') : ''), info_source: 'public:' + r.relationship, supporting: f ? L('Pièce jointe : ', 'Attachment: ') + f.name : '', urgent: r.n_deaths > 1 || r.type === 'cluster' });
+          description: desc + (r.n_deaths ? ' · ' + r.n_deaths + L(' décès', ' death(s)') : ''), info_source: 'public:' + r.relationship, supporting: f ? 'key:attachment ' + f.name : '', urgent: r.n_deaths > 1 || r.type === 'cluster' });
         a.place_text = place;
         B.audit('create', 'rumour', r.id, anon ? 'anonymous' : '');
         B.save();

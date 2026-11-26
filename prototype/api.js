@@ -25,14 +25,9 @@
     });
   }
 
-  B.server = { available: false, base: base, user: function () { return session && session.user; } };
+  B.server = { available: false, base: base, user: function () { return session && session.user; }, lastSync: function () { return session && session.lastSync; } };
 
-  function applyIdentity() {
-    var u = session.user;
-    B.st.role = u.role;
-    B.USER_NAMES[u.role] = [u.name, u.name];
-    B.USER_CTX[u.role] = { facility: u.facility || undefined, zone: u.zone || undefined };
-  }
+  function applyIdentity() { B.applyAuth(session.user, 'server'); }
 
   function mergeConfig(cfg) {
     var d = B.db(); d.config = Object.assign({}, d.config || {}, cfg || {});
@@ -96,59 +91,43 @@
     return api('/public/rumours', { method: 'POST', body: r });
   };
 
-  function setStatus(txt) { var el = B.$('#srvstate'); if (el) el.textContent = txt; }
-  function header() {
-    var btn = B.$('#srvbtn'); if (!btn) return;
-    btn.hidden = !B.server.available && !session;
-    if (session) {
-      btn.textContent = session.user.name + ' · ' + L('Déconnexion', 'Sign out');
-      var role = B.$('#role'); if (role) { role.disabled = true; role.title = L('Rôle défini par le compte serveur', 'Role set by the server account'); }
-      var ban = B.$('#banner'); if (ban) ban.textContent = L('SERVEUR PILOTE - données SYNTHÉTIQUES uniquement. Ne pas saisir de données réelles de patients.', 'PILOT SERVER - SYNTHETIC data only. Do not enter real patient data.');
-    } else btn.textContent = L('Se connecter au serveur', 'Sign in to server');
-  }
-  B.afterRender = header;
+  function setStatus(txt) { var el = B.$('#syncbtn'); if (el && txt) el.textContent = txt; }
 
-  function loginDialog() {
-    var el = B.$('#ask');
-    el.innerHTML = '<form class="askbox" id="loginf"><h3>' + L('Connexion au serveur', 'Sign in to the server') + '</h3><p class="small muted">' + B.esc(base) + '</p>' +
-      '<label>' + L('Identifiant', 'Username') + '<input id="lu" autocomplete="username" required></label><label>' + L('Mot de passe', 'Password') + '<input id="lp" type="password" autocomplete="current-password" required></label>' +
-      '<p class="small">' + L('Données synthétiques uniquement (pilote). Les données de démonstration locales seront remplacées par celles du serveur.', 'Synthetic data only (pilot). Local demo data will be replaced by the server\'s data.') + '</p>' +
-      '<div class="actions"><button class="primary" type="submit">' + L('Se connecter', 'Sign in') + '</button> <button type="button" class="ghost" id="lcancel">' + B.t('cancel') + '</button></div></form>';
-    el.hidden = false; B.$('#lu', el).focus();
-    B.$('#lcancel', el).onclick = function () { el.hidden = true; };
-    B.$('#loginf', el).onsubmit = function (e) {
-      e.preventDefault();
-      api('/auth/login', { method: 'POST', body: { username: B.$('#lu', el).value, password: B.$('#lp', el).value } }).then(function (r) {
-        el.hidden = true;
-        session = { token: r.token, user: r.user, lastSync: null }; saveSession();
-        B.serverMode = true; applyIdentity();
-        var d = B.db();
-        COLS.forEach(function (c) { d[c] = (d[c] || []).filter(function (x) { return !x.demo && !x.synced; }); });
-        B.st.tab = B.ROLES[r.user.role][0];
-        sync(true);
-      }).catch(function (err) { B.notify(err.status === 401 ? L('Identifiant ou mot de passe incorrect.', 'Wrong username or password.') : L('Serveur injoignable.', 'Server unreachable.'), 'err'); });
-    };
-  }
+  // Called by the sign-in screen (auth.js).
+  B.serverLogin = function (username, password) {
+    return api('/auth/login', { method: 'POST', body: { username: username, password: password } }).then(function (r) {
+      session = { token: r.token, user: r.user, lastSync: null }; saveSession();
+      B.serverMode = true; applyIdentity();
+      var d = B.db();
+      COLS.forEach(function (c) { d[c] = (d[c] || []).filter(function (x) { return !x.demo && !x.synced; }); });
+      B.st.tab = B.ROLES[r.user.role][0];
+      B.render();
+      return sync(true);
+    });
+  };
+  B.serverLogout = function (silent) { logout(silent); };
 
   function logout(silent) {
     var d = B.db();
     var pending = COLS.reduce(function (s, c) { return s + (d[c] || []).filter(function (x) { return !x.synced; }).length; }, 0);
-    var go = function () { session = null; saveSession(); try { localStorage.removeItem('bdbv_proto_db_v1'); } catch (e) { /* ignore */ } location.reload(); };
+    var go = function () { session = null; saveSession(); try { localStorage.removeItem('bdbv_proto_db_v1'); localStorage.removeItem('bdbv_demo_session'); } catch (e) { /* ignore */ } location.reload(); };
     if (pending && !silent) B.ask(pending + L(' enregistrement(s) non synchronisé(s) seront perdus. Se déconnecter quand même ?', ' unsynchronised record(s) will be lost. Sign out anyway?'), L('Se déconnecter', 'Sign out'), B.t('cancel'), go);
     else go();
   }
 
+  if (session && session.token) applyIdentity();
+  B.server.checking = !!base;
+
   document.addEventListener('DOMContentLoaded', function () {
-    var ctrls = B.$('.ctrls');
-    if (ctrls && !B.$('#srvbtn')) { ctrls.insertAdjacentHTML('beforeend', '<button id="srvbtn" class="ghost" hidden></button><span id="srvstate" class="small"></span>'); }
-    B.$('#srvbtn').onclick = function () { if (session) logout(false); else loginDialog(); };
-    if (session) { applyIdentity(); B.render(); }
-    if (!base) return;
+    if (!base) { B.server.checking = false; return; }
     api('/health').then(function (h) {
       B.server.available = h.status === 'ok';
+      B.server.checking = false;
+      // A demonstration session is not valid on a real deployment.
+      if (B.server.available && B.st.auth && B.st.auth.mode === 'demo') { B.signOut(); return; }
       if (session) return api('/auth/me').then(function () { sync(false); }).catch(function (e) { if (e.status === 401) logout(true); });
-      header();
-    }).catch(function () { B.server.available = false; header(); });
+      B.render();
+    }).catch(function () { B.server.available = false; B.server.checking = false; if (B.st.tab === 'login') B.render(); });
     // Background sync every 2 minutes while signed in and online.
     setInterval(function () { if (session && B.st.online) sync(false); }, 120000);
   });

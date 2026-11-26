@@ -11,7 +11,7 @@
  */
 (function () {
   'use strict';
-  var B = window.BDBV, GD = window.BDBV_GEODATA;
+  var B = window.BDBV, GD = window.BDBV_GEODATA, BND = window.BDBV_BOUNDARIES || null;
   var L = function (f, e) { return B.L(f, e); };
   var esc = function (x) { return B.esc(x); };
   var DAY = 86400000;
@@ -42,9 +42,19 @@
   function db() { return B.db(); }
   function provName(pid) { var p = B.byId(B.G.provinces, pid); return p ? p.name_fr : null; }
   // Reference point for a location at the chosen aggregation level, or null.
+  // Official boundaries (tools/import_boundaries.js): reference point = centroid of the polygon.
+  function bndFeature(layer, id) {
+    if (!BND || !BND[layer] || !id) return null;
+    return BND[layer].features.filter(function (f) { return f.properties.id === id; })[0] || null;
+  }
   function anchor(geo, level) {
     if (!geo || !geo.zone) return null;
     var z = B.byId(B.G.zones, geo.zone);
+    var bf = z && bndFeature(level === 'zone' ? 'zones' : 'provinces', level === 'zone' ? z.id : z.province);
+    if (bf && bf.properties.c) {
+      var nmB = level === 'zone' ? L('ZS ', 'HZ ') + z.name : (B.byId(B.G.provinces, z.province) || {}).name_fr;
+      return { key: (level === 'zone' ? 'Z:' + z.id : 'P:' + z.province), label: nmB, lat: bf.properties.c[1], lon: bf.properties.c[0], src: L('centre de la limite officielle', 'centre of the official boundary'), official: true };
+    }
     if (level === 'zone') {
       var g = z && GD.zones[z.name];
       return g ? { key: 'Z:' + z.id, label: L('ZS ', 'HZ ') + z.name, lat: g.lat, lon: g.lon, src: g.source } : null;
@@ -139,8 +149,24 @@
     return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '"' + a + '/>';
   }
 
+  function geoPath(geom) {
+    var polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+    return polys.map(function (poly) { return poly.map(function (ring) { return 'M' + ring.map(function (pt) { var p = proj(pt[0], pt[1]); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L') + 'Z'; }).join(''); }).join('');
+  }
+  var pathCache = {};
+  function boundaryLayer(layer, cls, active) {
+    if (!BND || !BND[layer]) return '';
+    return BND[layer].features.map(function (f, i) {
+      var k = layer + i; if (!pathCache[k]) pathCache[k] = geoPath(f.geometry);
+      var on = f.properties.id && active[(layer === 'zones' ? 'Z:' : 'P:') + f.properties.id];
+      return '<path d="' + pathCache[k] + '" class="' + cls + (on ? ' hasdata' : '') + (f.properties.id ? '' : ' nomatch') + '"><title>' + esc(f.properties.name) + '</title></path>';
+    }).join('');
+  }
+
   function svg(agg, interactive, prevAgg) {
     var out = '<svg class="dmap" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + L('Carte de la RDC', 'Map of the DRC') + '"><path d="' + outlinePath + '" class="drc"/>';
+    out += boundaryLayer('provinces', 'bprov', mf.level === 'province' ? agg.groups : {});
+    if (mf.level === 'zone') out += boundaryLayer('zones', 'bzone', agg.groups);
     // reference points of all provinces (context)
     Object.keys(GD.provinces).forEach(function (pn) { var gp = GD.provinces[pn]; if (gp.lat == null) return; var p = proj(gp.lon, gp.lat); out += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="1.6" class="refpt"><title>' + esc(pn + ' - ' + gp.capital) + '</title></circle>'; });
     Object.keys(agg.groups).forEach(function (key) {
@@ -175,7 +201,7 @@
     var unplacedKeys = Object.keys(agg.unplaced);
     var tot = {}; items.forEach(function (it) { tot[it.layer] = (tot[it.layer] || 0) + it.n; });
     v.innerHTML = '<section class="card"><h2>' + L('Carte de surveillance épidémiologique', 'Epidemiological surveillance map') + '</h2>' +
-      '<p class="muted small">' + L('Chaque symbole = total pour une unité administrative, placé au point de référence de cette unité (chef-lieu de province, ou ville du même nom que la zone de santé ; source GeoNames). Ce n\'est PAS l\'emplacement exact d\'un ménage, d\'une tombe ou d\'une FOSA. Limites de provinces et de zones de santé : à fournir par le MSP/DSNIS.', 'Each symbol = total for an administrative unit, drawn at that unit\'s reference point (provincial capital, or town with the same name as the health zone; GeoNames). It is NOT the exact location of a household, grave or facility. Province and health-zone boundaries: to be supplied by MoH/DSNIS.') + '</p>' +
+      '<p class="muted small">' + (BND ? L('Chaque symbole = total pour une unité administrative, placé au centre de sa limite officielle. Ce n\'est PAS l\'emplacement exact d\'un ménage, d\'une tombe ou d\'une FOSA. Les unités grisées ont des évènements dans la période.', 'Each symbol = total for an administrative unit, drawn at the centre of its official boundary. It is NOT the exact location of a household, grave or facility. Shaded units have events in the period.') : L('Chaque symbole = total pour une unité administrative, placé au point de référence de cette unité (chef-lieu de province, ou ville du même nom que la zone de santé ; source GeoNames). Ce n\'est PAS l\'emplacement exact d\'un ménage, d\'une tombe ou d\'une FOSA. Limites de provinces et de zones de santé : à fournir par le MSP/DSNIS.', 'Each symbol = total for an administrative unit, drawn at that unit\'s reference point (provincial capital, or town with the same name as the health zone; GeoNames). It is NOT the exact location of a household, grave or facility. Province and health-zone boundaries: to be supplied by MoH/DSNIS.')) + '</p>' +
       '<div data-geoholder="m_">' + B.geoFields('m_', mf.geo, false, B.t('all')) + '</div>' +
       '<div class="vbar"><label class="inl">' + L('Niveau d\'agrégation', 'Aggregation level') + ' <select id="mlevel"><option value="province">' + L('Province (chef-lieu)', 'Province (capital)') + '</option><option value="zone"' + (mf.level === 'zone' ? ' selected' : '') + '>' + L('Zone de santé (si géocodée)', 'Health zone (if geocoded)') + '</option></select></label>' +
       '<label class="inl">' + B.t('period') + ' <select id="mdays">' + ['7', '14', '30', '90', 'all'].map(function (x) { return '<option value="' + x + '"' + (mf.days === x ? ' selected' : '') + '>' + (x === 'all' ? B.t('all') : x + ' ' + B.t('days')) + '</option>'; }).join('') + '</select></label>' +
@@ -189,7 +215,7 @@
       (unplacedKeys.length ? '<details class="card inner"><summary>' + L('Non cartographiés (pas de point de référence vérifié) : ', 'Not mapped (no verified reference point): ') + unplacedKeys.length + L(' zone(s)', ' zone(s)') + '</summary><table class="tbl small"><tr><th>' + L('Zone', 'Zone') + '</th><th>' + L('Couches', 'Layers') + '</th></tr>' + unplacedKeys.map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + Object.keys(agg.unplaced[k]).map(function (l) { return esc(L(LAYERS[l].fr, LAYERS[l].en)) + ' ' + agg.unplaced[k][l]; }).join(' · ') + '</td></tr>'; }).join('') + '</table></details>' : '') +
       (prevAgg ? compareTable(agg, prevAgg) : '') +
       (B.can('reports') ? '<div class="vbar"><button class="sm" id="mcsv">' + L('Télécharger (CSV)', 'Download (CSV)') + '</button><button class="sm" id="mxlsx">Excel</button><button class="sm" id="mpdf">PDF</button></div>' : '') +
-      '<p class="muted small">' + esc(GD.attribution) + ' ' + esc(GD.boundaries_note) + (agOnly ? ' ' + L('Vue agrégée.', 'Aggregated view.') : '') + '</p></section>';
+      '<p class="muted small">' + esc(GD.attribution) + ' ' + (BND ? L('Limites officielles : ', 'Official boundaries: ') + esc(Object.keys(BND.sources || {}).map(function (k) { return BND.sources[k]; }).join(', ')) + ' (' + esc(BND.generated) + ').' : esc(GD.boundaries_note)) + (agOnly ? ' ' + L('Vue agrégée.', 'Aggregated view.') : '') + '</p></section>';
     B.bindGeo(v.querySelector('[data-geoholder="m_"]').parentNode, 'm_', false, B.t('all'), function (g) { mf.geo = g; B.VIEWS.map(v); });
     B.$('#mlevel', v).onchange = function () { mf.level = this.value; B.VIEWS.map(v); };
     B.$('#mdays', v).onchange = function () { mf.days = this.value; B.VIEWS.map(v); };

@@ -11,12 +11,22 @@ Then open `http://localhost:8080` (or the computer's IP from a phone on the same
 
 At first launch, **synthetic demonstration data** are generated: 5 health zones, 10 health areas, 30 villages, 160 assessments and 8 weeks of RECO reports, with three "hot" villages so the early-warning signals can be seen. All data stay in the browser (localStorage). *Home → Erase all local data* clears them.
 
+### Signing in
+The app opens on a sign-in screen. Only the public can use it without an account: *Make a report* opens the public event form. Everyone else signs in.
+
+- **Without a server** (the file opened directly, or the published page) the screen lists one demonstration account per role. Click one to sign in as that role. These accounts have no password because there is nothing to protect in a browser holding only synthetic data.
+- **With the pilot server** (document 11) the screen asks for a username and password, the demonstration accounts are not offered, and the role, facility and zone come from the account on the server.
+
+*Sign out* (top right) returns to the sign-in screen. The demonstration names (N. Kahindo, J. Mapendo and so on) are fictitious and tagged [DEMO].
+
 ## 7.2 Interface language
-The interface opens in **English** by default. Use the language menu at the top (English / Français) to switch. Each user's choice is remembered on their device. To make French the default for everyone, change one line in `prototype/app.js`:
+The interface opens in **French** by default (version 2 brief). Use the language menu at the top or on the sign-in screen (Français / English / Kiswahili) to switch. Each user's choice is remembered on their device. To change the default for everyone, edit one line in `prototype/app.js`:
 
 ```js
-var DEFAULT_LANG = 'fr';
+var DEFAULT_LANG = 'en';
 ```
+
+Text the system writes itself (alert SMS, queue descriptions, verification findings in the demo data, care notes) is stored as a code and rendered in the language being viewed, so an alert raised by a French-speaking nurse reads in English for an English-speaking reviewer. Free text typed by a user is shown as typed.
 
 All dropdowns and checklists (occupation, comorbidities, rash type, event types, information sources, lab status, verification status) store **language-neutral codes**. Records entered in one language display correctly in the other, and the data exported to national systems do not depend on the interface language. Screen text is in `prototype/i18n.js`, and the code lists are at the top of `prototype/app.js`. Scoring-variable labels are in `config/scoring_rules.json` (`label_fr` / `label_en`). The rationale texts on the scoring-rules screen are in English only (technical documentation).
 
@@ -24,22 +34,22 @@ All dropdowns and checklists (occupation, comorbidities, rash type, event types,
 On the **Triage** screen, open *AI voice capture (optional)*:
 1. Tick the patient-consent box.
 2. Press *Start dictation* and speak (French or English), or type or paste a note. *Insert example note* fills in a sample.
-3. Press *Extract answers with AI* (shown when the page can use Claude), or *Basic offline extraction*.
+3. Press *Extract answers with AI* (shown when the page can use an AI service), or *Basic offline extraction*.
 4. Check the review table (value + source phrase), untick anything wrong, then *Apply selected to the form*.
 5. AI-filled fields are highlighted until you edit them. Before saving, tick "I have checked every AI-proposed answer…".
 
-Where it works: in the published claude.ai page, dictation and AI extraction work in Chrome or Edge, and in the main window of the Claude desktop app. Each viewer is asked once to allow the microphone and AI use, and AI use counts against the viewer's own Claude usage. Opened from the repository, dictation uses the browser's speech recognition where available, and extraction is the offline keyword version. **Use role-played cases only.**
+Where it works: in the published web page, dictation and AI extraction work in Chrome or Edge and in the desktop viewer app. Each viewer is asked once to allow the microphone and AI use, and AI use counts against the viewer's own account allowance. Opened from the repository, dictation uses the browser's speech recognition where available, and extraction is the offline keyword version. **Use role-played cases only.**
 
 ## 7.4 What to try
 
-| Role (top menu) | Walk-through |
+| Role (demo account) | Walk-through |
 |---|---|
 | **Health worker (facility)** | *Triage* → fill name, age, sex; choose village *Village RWA-11* (a hot spot) → tick **Fever: Yes** and **Contact with a case: Yes** with a date 9 days before onset. Watch the live panel: score 45 but **RED** because rule F1 applies. The purple community panel shows high concern but does not change the score. Save → recommended actions, SMS preview → *Manage alert* → tick actions → *Acknowledge*. Try a patient with only headache → **GREEN** with reassessment triggers. Leave items as *Unknown* to see the "category could rise" warning. Use *Reassess* to update. Try *AI voice capture* with the example note. |
 | **RECO (community volunteer)** | Only 3 tabs (no clinical data). Switch the network toggle **off**, fill counts with +/−, add an event, send → "kept on the phone" message and the pending counter. Toggle the network back **on** → *Sync*. *My reports* shows verification status. |
 | **Surveillance (HZ/DPS)** | *Verification*: set event status; see linked facility assessments from the same village. *Assessments*: names hidden. *Dashboard*: filters, map (click a village), trends with statistical signals. *Scoring rules*: full matrix, sources; change thresholds → new local version, logged in the *Audit log*. |
 | **Policymaker (aggregate)** | Dashboard only (aggregated). Switch the language to French. |
 
-## 7.4b Version 2 walk-through (one role at a time, from the role menu)
+## 7.4b Version 2 walk-through (sign in with one role at a time)
 | Role | Try this |
 |---|---|
 | **Public (report an event)** | Fill in the simple form (Kiswahili available), tick "stay anonymous", send → you get a reference number |

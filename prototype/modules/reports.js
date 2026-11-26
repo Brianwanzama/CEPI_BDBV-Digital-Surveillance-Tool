@@ -127,7 +127,7 @@
       var tg = B.queue.targets(), now = new Date();
       rows = [['ID', L('Source', 'Source'), L('Type', 'Type'), L('Zone', 'Zone'), L('Soumise', 'Submitted'), L('Étape', 'Stage'), L('Résultat', 'Outcome'), L('Urgente', 'Urgent')].concat(type === 'alerts' && ident ? [L('Téléphone du déclarant', 'Reporter phone')] : []).concat([L('Réception (min)', 'Acknowledgement (min)'), L('Début vérif. (min)', 'Verification start (min)'), L('Vérification (min)', 'Verification (min)'), L('Approbation (min)', 'Approval (min)'), L('En retard', 'Overdue'), L('Constatations', 'Findings')])].concat(Qa.map(function (q) {
         var du = B.queue.durations(q), o = B.queue.overdue(q, now);
-        return [q.id, q.source, q.type, zoneName(q.geo.zone), B.fmtDT(q.submitted_at), B.queue.currentStage(q), q.outcome, q.urgent ? 'x' : ''].concat(type === 'alerts' && ident ? [(q.reporter && q.reporter.phone) || ''] : []).concat([du.ack, du.start, du.complete, du.approve, o && o.late ? L('oui', 'yes') + ' (' + o.interval + ')' : '', q.findings]);
+        return [q.id, q.source, q.type, zoneName(q.geo.zone), B.fmtDT(q.submitted_at), B.queue.currentStage(q), q.outcome, q.urgent ? 'x' : ''].concat(type === 'alerts' && ident ? [(q.reporter && q.reporter.phone) || ''] : []).concat([du.ack, du.start, du.complete, du.approve, o && o.late ? L('oui', 'yes') + ' (' + o.interval + ')' : '', B.sysText(q.findings)]);
       }));
       if (type === 'tat') rows.push([], [L('Cibles (min)', 'Targets (min)'), '', '', '', '', '', '', '', tg.ack, tg.start, tg.complete, tg.approve]);
     } else if (type === 'deaths') {

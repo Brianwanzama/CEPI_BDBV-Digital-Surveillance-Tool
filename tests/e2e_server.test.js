@@ -22,18 +22,21 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
   page.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy|Refused to/.test(m.text())) errors.push('CSP: ' + m.text()); });
   let n = 0; const ok = (m) => { n++; console.log('ok -', m); };
   const signIn = async (u) => {
-    await page.click('#srvbtn'); await page.fill('#lu', u); await page.fill('#lp', PW); await page.click('#loginf button[type=submit]');
-    await page.waitForFunction((who) => document.querySelector('#srvbtn') && /Déconnexion|Sign out/.test(document.querySelector('#srvbtn').textContent), u);
-    await page.waitForFunction(() => !/Synchronisation/.test(document.querySelector('#srvstate').textContent));
+    if (!(await page.$('#loginform'))) { await page.click('#authbtn'); }
+    await page.waitForSelector('#loginform');
+    await page.fill('#login-user', u); await page.fill('#login-pass', PW); await page.click('#loginform button[type=submit]');
+    await page.waitForFunction(() => /Déconnexion|Se déconnecter|Sign out/.test(document.querySelector('#authbtn').textContent));
+    await page.waitForFunction(() => !!BDBV.server.lastSync()); // first full sync finished
   };
-  const signOut = async () => { await page.click('#srvbtn'); const yes = await page.$('#askyes'); if (yes) await yes.click(); await page.waitForSelector('#srvbtn:has-text("Se connecter")'); };
+  const signOut = async () => { await page.click('#authbtn'); const yes = await page.$('#askyes'); if (yes) await yes.click(); await page.waitForSelector('#loginform'); };
 
   await page.goto(BASE + '/');
-  await page.waitForSelector('#srvbtn:not([hidden])');
-  ok('app served by the API; server detected');
+  await page.waitForSelector('#loginform');
+  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 0, 'no demo accounts when a server is connected');
+  ok('app served by the API; server detected; password sign-in shown');
 
   // Public report goes straight to the server (no account)
-  await page.selectOption('#role', 'public');
+  await page.click('#go-public');
   await page.click('input[name=ptype][value=cluster]', { force: true });
   await page.selectOption('[name=p_zone]', 'Z-aru');
   await page.fill('[name=pdesc]', 'Test serveur : trois malades dans la même maison');
@@ -47,9 +50,8 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
 
   // Nurse: role from the account, own facility, names visible; new triage synced and rescored
   await signIn('nurse.aru');
-  assert.strictEqual(await page.inputValue('#role'), 'soignant');
-  assert.ok(await page.isDisabled('#role'), 'role locked to account');
-  assert.ok(/SERVEUR PILOTE/.test(await page.textContent('#banner')));
+  assert.strictEqual(await page.evaluate(() => BDBVApp.state.role), 'soignant', 'role taken from the account'); assert.ok(/Agent de santé/.test(await page.textContent('#who')));
+  assert.ok(/Serveur pilote/i.test(await page.textContent('#banner')));
   const facs = await page.evaluate(() => [...new Set(BDBVApp.db().assessments.map((a) => a.geo.facility))]);
   assert.deepStrictEqual(facs, ['Z-aru-A1-F']);
   await page.click('[data-tab="triage"]');

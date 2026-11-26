@@ -13,7 +13,15 @@ const assert = require('assert');
   page.on('pageerror', e => errors.push(e.message));
   page.on('dialog', d => d.accept());
   await page.goto(url);
-  const role = async (r) => { await page.selectOption('#role', r); };
+  const role = async (r) => { assert.ok(await page.evaluate((x) => BDBVApp.signInDemoRole(x), r), 'sign in ' + r); };
+  // Sign-in screen: only the public can use the app without an account.
+  assert.ok(await page.isHidden('#nav'));
+  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 9);
+  await page.click('#go-public');
+  assert.deepStrictEqual(await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab'))), ['rumour']);
+  await page.click('#authbtn');
+  await page.waitForSelector('[data-demo]');
+  console.log('ok - sign-in screen: nine role accounts; public can report without an account');
   const tab = async (t) => { await page.click('[data-tab="' + t + '"]'); };
   const db = (fn, arg) => page.evaluate(fn, arg);
   const view = () => page.textContent('#view');
@@ -128,7 +136,7 @@ const assert = require('assert');
   await page.click('[data-sopen="' + sid + '"]');
   await page.selectOption('#lres', 'positive'); await page.click('#lresb'); await page.click('#askyes');
   const lab = await db((id) => { const s = BDBV.labApi.latest(id); const a = BDBV.db().assessments.find(x => x.id === id); return { st: s.status, custody: s.custody.length, cls: a.classification.status, by: s.released_by }; }, newCase);
-  assert.strictEqual(lab.st, 'result_released'); assert.ok(lab.custody >= 4); assert.strictEqual(lab.cls, 'confirmed'); assert.ok(/Laborantin|lab/i.test(lab.by));
+  assert.strictEqual(lab.st, 'result_released'); assert.ok(lab.custody >= 4); assert.strictEqual(lab.cls, 'confirmed'); assert.ok(/Ndjoli/.test(lab.by), 'released by the signed-in lab user: ' + lab.by);
   ok('sample registered → custody chain → result released by lab only → case confirmed only then');
 
   // ---- Case management (§6) ----
@@ -224,6 +232,18 @@ const assert = require('assert');
   assert.ok(/Homa/.test(await view()) && /Dalili za kutokwa damu/.test(await view()));
   await page.selectOption('#lang', 'fr');
   ok('Kiswahili: RECO, rumour and triage workflows translated');
+
+  // ---- System-generated text follows the chosen language (alerts, queue, SMS) ----
+  await page.selectOption('#lang', 'en');
+  await role('surveillant'); await tab('alerts');
+  const al = await view();
+  assert.ok(/BDBV RED ALERT\. Record /.test(al) && !/ALERTE BDBV ROUGE|Ouvrir l'application/.test(al), 'alert SMS in English');
+  await tab('verify');
+  const qv = await view();
+  assert.ok(!/Triage ROUGE|Visite de terrain|Lieu de démonstration/.test(qv), 'queue descriptions in English');
+  await page.selectOption('#lang', 'fr'); await tab('alerts');
+  assert.ok(/ALERTE BDBV ROUGE\. Dossier /.test(await view()), 'same alert in French after switching');
+  ok('alerts, SMS text and queue descriptions are rendered in the language chosen, not the language they were stored in');
 
   assert.deepStrictEqual(errors, [], 'no JS errors: ' + errors.join(' | '));
   await browser.close();

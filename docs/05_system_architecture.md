@@ -94,7 +94,7 @@ flowchart LR
   M[Microphone] -->|speech| STT[Speech-to-text<br/>words only, no audio kept]
   K[Typed / pasted notes] --> T
   STT --> T[Editable transcript]
-  T -->|online| LLM[LLM extraction<br/>Claude, JSON]
+  T -->|online| LLM[LLM extraction<br/>JSON]
   T -->|offline| KW[Keyword extractor<br/>on device]
   LLM --> VAL[Validation<br/>known fields, valid values]
   KW --> REV
@@ -104,10 +104,10 @@ flowchart LR
 ```
 
 **Prototype implementation**
-| Step | In the claude.ai web page | In the stand-alone prototype (repo) |
+| Step | In the published web page | In the stand-alone prototype (repo) |
 |---|---|---|
 | Speech-to-text | Platform dictation (Anthropic speech-to-text; the page receives words, never audio) | Browser Web Speech API where available (Chrome sends audio to its vendor's online service) |
-| Extraction | Claude, called on the viewer's account | Offline keyword extractor (`voice.js`) |
+| Extraction | Language model provided by the hosting platform, on the viewer's account | Offline keyword extractor (`voice.js`) |
 | Fallback | Typing/pasting; offline extractor | Typing/pasting |
 
 **Options for production (decision for the MoH)**

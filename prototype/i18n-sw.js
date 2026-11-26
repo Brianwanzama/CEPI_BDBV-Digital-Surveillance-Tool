@@ -119,7 +119,7 @@
     'AI is not allowed for this page. Use basic extraction.': 'AI hairuhusiwi kwa ukurasa huu. Tumia utoaji wa kawaida.', 'AI is not available for this account. Use basic extraction.': 'AI haipatikani kwa akaunti hii. Tumia utoaji wa kawaida.',
     'Too many requests. Try later or use basic extraction.': 'Maombi mengi mno. Jaribu baadaye au tumia utoaji wa kawaida.', 'The AI reply could not be read. Try again.': 'Jibu la AI halikusomeka. Jaribu tena.',
     'The AI declined this note. Edit it or use basic extraction.': 'AI imekataa maelezo haya. Yarekebishe au tumia utoaji wa kawaida.', 'AI failed. Try again or use basic extraction.': 'AI imeshindwa. Jaribu tena au tumia utoaji wa kawaida.',
-    'Temperature': 'Joto', 'Deceased': 'Amefariki', 'offline': 'bila mtandao', 'Proposed by AI (Claude). Check every line.': 'Imependekezwa na AI (Claude). Hakikisha kila mstari.',
+    'Temperature': 'Joto', 'Deceased': 'Amefariki', 'offline': 'bila mtandao', 'Proposed by the AI assistant. Check every line.': 'Imependekezwa na msaidizi wa AI. Hakikisha kila mstari.',
     'Proposed by basic keyword extraction. Check every line; it can miss things.': 'Imependekezwa kwa utoaji wa maneno muhimu. Hakikisha kila mstari; inaweza kukosa mambo.', 'No answers found in the note.': 'Hakuna majibu yaliyopatikana kwenye maelezo.',
     'Field': 'Sehemu', 'Proposed': 'Lililopendekezwa', 'Source phrase': 'Sentensi chanzo', 'Already entered: ': 'Tayari imejazwa: ', 'The note contradicts itself': 'Maelezo yanajipinga', 'Apply selected to the form': 'Tumia yaliyochaguliwa kwenye fomu',
     'Items not mentioned stay "Unknown". The score is computed from the form only.': 'Mambo yasiyotajwa yanabaki "Haijulikani". Alama inahesabiwa kutoka kwenye fomu pekee.', 'No lines selected.': 'Hakuna mstari uliochaguliwa.',
@@ -195,6 +195,19 @@
     'None (no symptoms)': 'Hakuna (hana dalili)', 'Advice given': 'Ushauri umetolewa', 'Referred for assessment': 'Amepelekwa kwa tathmini', 'Not found - revisit': 'Hakupatikana - atembelewe tena',
     'Contact identified': 'Aliyegusana ametambuliwa', 'Contact tracing initiated': 'Utafutaji umeanza', 'Contact successfully located': 'Amepatikana', 'Under follow-up': 'Anafuatiliwa', 'Follow-up completed': 'Ufuatiliaji umekamilika',
     'Referred for clinical assessment': 'Amepelekwa kwa tathmini ya kitabibu',
+    // system-generated texts
+    'Synthetic demonstration event': 'Tukio la kubuni la majaribio', 'Demo neighbourhood': 'Mtaa wa majaribio', 'Triage data checked': 'Data ya uchunguzi imehakikishwa', 'Routine report in order': 'Ripoti ya kawaida iko sawa',
+    'Verification visit (synthetic)': 'Ziara ya uthibitisho (ya kubuni)', 'Field verification (synthetic)': 'Uthibitisho shambani (wa kubuni)', 'Burial (synthetic)': 'Mazishi (ya kubuni)', 'Cemetery / demo site': 'Makaburi / mahali pa majaribio',
+    'Synthetic demonstration report': 'Ripoti ya kubuni ya majaribio', 'Demo landmark': 'Alama ya mahali ya majaribio', 'Demo address': 'Anwani ya majaribio', 'Transfer to holding unit': 'Uhamisho kwenda kituo cha kusubiri', 'Negative result': 'Matokeo hasi',
+    'Died before sampling': 'Alifariki kabla ya kuchukuliwa sampuli', 'Routine care': 'Huduma ya kawaida', 'Transfer to treatment centre': 'Uhamisho kwenda kituo cha matibabu', 'Bulk verification': 'Uthibitisho wa pamoja', 'Attachment:': 'Kiambatisho:',
+    'BDBV RED ALERT. Record ': 'TAHADHARI NYEKUNDU BDBV. Faili ', '. Open the app for details. Reply OK to acknowledge.': '. Fungua programu kwa maelezo. Jibu OK kuthibitisha kupokea.',
+    // sign-in
+    'Restricted access': 'Ufikiaji wenye vikwazo', 'Sign in': 'Ingia', 'Language': 'Lugha', 'Looking for the server…': 'Inatafuta seva…', 'Username': 'Jina la mtumiaji', 'Password': 'Nenosiri',
+    'Pilot: synthetic data only. Do not enter real patient data.': 'Majaribio: data ya kubuni tu. Usiingize data halisi za wagonjwa.',
+    'Demonstration mode: no server is connected. Choose a demonstration account. In the deployed system each person signs in with their own password.': 'Hali ya majaribio: hakuna seva iliyounganishwa. Chagua akaunti ya majaribio. Katika mfumo halisi kila mtu anaingia kwa nenosiri lake mwenyewe.',
+    'No account needed': 'Hakuna akaunti inayohitajika', 'An unexplained death, several sick people in one family, a risky burial? Anyone can report it, anonymously if you wish.': 'Kifo kisichoelezeka, wagonjwa kadhaa katika familia moja, mazishi ya hatari? Mtu yeyote anaweza kuripoti, bila kujitambulisha ukipenda.',
+    'Make a report': 'Toa ripoti', 'Wrong username or password.': 'Jina la mtumiaji au nenosiri si sahihi.', 'Server unreachable. Try again.': 'Seva haipatikani. Jaribu tena.', 'Sign out': 'Toka',
+    'Pilot server: synthetic data only. Do not enter real patient data.': 'Seva ya majaribio: data ya kubuni tu. Usiingize data halisi za wagonjwa.', ' (demo)': ' (majaribio)',
     // demo user names
     'Public (anonymous)': 'Umma (bila jina)', 'RECO-ARU1-001 (demo)': 'RECO-ARU1-001 (majaribio)', 'Demo nurse': 'Muuguzi wa majaribio', 'Demo clinician': 'Daktari wa majaribio', 'Demo surveillance officer': 'Afisa wa ufuatiliaji wa majaribio',
     'Demo lab technician': 'Fundi wa maabara wa majaribio', 'Demo facility head': 'Mkuu wa kituo wa majaribio', 'Demo HZ surveillance officer': 'Afisa wa ufuatiliaji wa eneo wa majaribio', 'Demo public health administrator': 'Msimamizi wa afya ya umma wa majaribio', 'Demo system administrator': 'Msimamizi wa mfumo wa majaribio', 'Classified as suspected case': 'Ameainishwa kama mgonjwa anayeshukiwa', 'Follow-up closed': 'Ufuatiliaji umefungwa'

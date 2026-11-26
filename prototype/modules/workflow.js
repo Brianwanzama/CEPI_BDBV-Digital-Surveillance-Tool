@@ -19,7 +19,7 @@
     duplicate: ['Doublon', 'Duplicate report'], insufficient: ['Informations insuffisantes', 'Insufficient information'], referred: ['Référée pour investigation', 'Referred for further investigation']
   };
   var SOURCES = { facility: ['FOSA (triage)', 'Facility (triage)'], reco: ['RECO', 'RECO'], rumour: ['Rumeur / public', 'Rumour / public'] };
-  var OFFICERS = ['Officier·e de surveillance démo', 'Surveillant·e ZS démo', 'Équipe d\'investigation AS (démo)', 'Infirmier·e titulaire AS (démo)'];
+  var OFFICERS = ['J. Mapendo [DEMO]', 'R. Kambale [DEMO]', 'A. Baraka [DEMO]', 'E. Uvon [DEMO]'];
   var DEFAULT_TAT = { ack: 60, start: 240, complete: 1440, approve: 720 }; // minutes; configurable by sysadmin
   var INTERVALS = [['ack', null, 'acknowledged'], ['start', 'acknowledged', 'started'], ['complete', 'started', 'completed'], ['approve', 'completed', 'approved']];
   var INT_LABEL = { ack: ['Soumission → réception', 'Submission → acknowledgement'], start: ['Réception → début vérification', 'Acknowledgement → verification start'], complete: ['Début → fin de vérification', 'Verification start → completion'], approve: ['Fin de vérification → approbation', 'Verification completion → dashboard approval'] };
@@ -90,7 +90,7 @@
   }
 
   // Public hooks used by app.js and other modules.
-  B.queue = { submit: submit, act: act, complete: complete, approve: approve, byRef: byRef, overdue: overdue, durations: durations, targets: targets, currentStage: currentStage, OUTCOMES: OUTCOMES, DEFAULT_TAT: DEFAULT_TAT, INT_LABEL: INT_LABEL, OFFICERS: OFFICERS };
+  B.queue = { describe: null, submit: submit, act: act, complete: complete, approve: approve, byRef: byRef, overdue: overdue, durations: durations, targets: targets, currentStage: currentStage, OUTCOMES: OUTCOMES, DEFAULT_TAT: DEFAULT_TAT, INT_LABEL: INT_LABEL, OFFICERS: OFFICERS };
   B.isApproved = function (ref) { var a = byRef(ref); return !!(a && a.stages.approved && a.stages.approved.include); };
   B.outcomeOf = function (ref) { var a = byRef(ref); return a ? a.outcome : null; };
   B.queueStatus = function (ref) { var a = byRef(ref); if (!a) return ''; return lbl2(STAGE_LABEL[currentStage(a)]) + (a.outcome !== 'pending' ? ' - ' + lbl2(OUTCOMES[a.outcome]) : ''); };
@@ -136,6 +136,14 @@
     return 'to_ack';
   }
   var BUCKETS = { open: ['Toutes ouvertes', 'All open'], to_ack: ['À accuser réception', 'To acknowledge'], to_assign: ['À assigner', 'To assign'], verifying: ['En vérification', 'In verification'], to_approve: ['À approuver', 'To approve'], closed: ['Clôturées', 'Closed'], all: ['Toutes', 'All'] };
+  // Description shown in the reader's language (built from the record, not stored text).
+  function describe(a) {
+    var d = db();
+    if (a.source === 'facility') { var r = B.byId(d.assessments, a.source_ref); return L('Triage ', 'Triage ') + (a.category || (r && r.result.category) || '') + (r ? ' (score ' + r.result.score + ')' : ''); }
+    if (a.source === 'reco') { var p = B.byId(d.reports, a.source_ref); if (p) return L('Rapport RECO : ', 'RECO report: ') + p.counts.deaths_total + L(' décès, ', ' deaths, ') + p.events.length + L(' évènement(s)', ' event(s)'); }
+    return B.sysText(a.description);
+  }
+  B.queue.describe = describe;
   function placeOf(a) {
     var g = a.geo || {};
     return esc([g.village && B.nm(B.G.villages, g.village), g.zone && B.nm(B.G.zones, g.zone)].filter(function (x) { return x && x !== '-'; }).join(', ') || a.place_text || '-');
@@ -191,7 +199,7 @@
         var kind = btn.getAttribute('data-bulk'), n = 0, skipped = 0;
         ids.forEach(function (id) {
           var a = B.byId(q(), id);
-          if (kind === 'verified') { if (a.stages.started && !a.stages.completed) { complete(a, 'verified', L('Vérification groupée', 'Bulk verification')); n++; } else skipped++; return; }
+          if (kind === 'verified') { if (a.stages.started && !a.stages.completed) { complete(a, 'verified', 'key:bulk_verify'); n++; } else skipped++; return; }
           if (kind === 'approved') { if (a.stages.completed && !a.stages.approved) { approve(a, a.outcome === 'verified' || a.outcome === 'referred'); n++; } else skipped++; return; }
           if (nextStage(a) !== kind) { skipped++; return; }
           act(a, kind, kind === 'assigned' ? { to: B.user() } : null); n++;
@@ -218,8 +226,8 @@
       '<div><b>' + L('Source de l\'information', 'Information source') + '</b><br>' + esc(a.info_source || '-') + '</div><div><b>' + L('Signalée par', 'Reported by') + '</b><br>' + esc(a.reporter && a.reporter.anonymous ? L('Anonyme', 'Anonymous') : (a.reporter && a.reporter.name) || '-') + '</div>' +
       '<div><b>' + L('Téléphone du déclarant', 'Reporter phone') + '</b><br>' + (phone ? (canAct ? esc(phone) + ' <button class="sm ghost" id="qcall">' + L('Noter : déclarant contacté', 'Log: reporter contacted') + '</button>' : L('masqué', 'hidden')) : '-') + '</div>' +
       '<div><b>' + L('Enregistrement source', 'Source record') + '</b><br>' + sourceLink(a) + '</div></div>' +
-      '<p><b>' + L('Description', 'Description') + ' :</b> ' + esc(a.description) + (a.supporting ? '<br><b>' + L('Informations complémentaires', 'Supporting information') + ' :</b> ' + esc(a.supporting) : '') + '</p>' +
-      '<p><b>' + L('Résultat', 'Outcome') + ' :</b> ' + esc(lbl2(OUTCOMES[a.outcome])) + (a.findings ? ' - ' + esc(a.findings) : '') + (a.duplicate_of ? ' · ' + L('doublon de ', 'duplicate of ') + esc(a.duplicate_of) : '') + (a.linked.length ? ' · ' + L('lié à ', 'linked to ') + esc(a.linked.join(', ')) : '') + '</p>';
+      '<p><b>' + L('Description', 'Description') + ' :</b> ' + esc(describe(a)) + (a.supporting ? '<br><b>' + L('Informations complémentaires', 'Supporting information') + ' :</b> ' + esc(B.sysText(a.supporting)) : '') + '</p>' +
+      '<p><b>' + L('Résultat', 'Outcome') + ' :</b> ' + esc(lbl2(OUTCOMES[a.outcome])) + (a.findings ? ' - ' + esc(B.sysText(a.findings)) : '') + (a.duplicate_of ? ' · ' + L('doublon de ', 'duplicate of ') + esc(a.duplicate_of) : '') + (a.linked.length ? ' · ' + L('lié à ', 'linked to ') + esc(a.linked.join(', ')) : '') + '</p>';
     if (canAct) {
       body += '<div class="vbar">';
       if (ns === 'acknowledged') body += '<button class="primary" data-step="acknowledged">' + L('Accuser réception', 'Acknowledge receipt') + '</button>';
@@ -240,7 +248,7 @@
         '<input id="qlink" placeholder="' + L('Lier à un cas / évènement (ID)', 'Link to case / event (ID)') + '" style="max-width:260px"><button class="ghost sm" id="qlinkb">' + L('Lier', 'Link') + '</button></div>';
     }
     body += '<h4>' + L('Historique', 'History') + '</h4><div class="scroll"><table class="tbl small"><tr><th>' + L('Quand', 'When') + '</th><th>' + L('Action', 'Action') + '</th><th>' + L('Par', 'By') + '</th><th>' + L('Note', 'Note') + '</th></tr>' +
-      a.history.map(function (h) { return '<tr><td>' + B.fmtDT(h.at) + '</td><td>' + esc(lbl2(STAGE_LABEL[h.action]) || h.action) + '</td><td>' + esc(h.by) + '</td><td>' + esc(h.note) + '</td></tr>'; }).join('') + '</table></div>' +
+      a.history.map(function (h) { return '<tr><td>' + B.fmtDT(h.at) + '</td><td>' + esc(lbl2(STAGE_LABEL[h.action]) || h.action) + '</td><td>' + esc(h.by) + '</td><td>' + esc(B.sysText(h.note)) + '</td></tr>'; }).join('') + '</table></div>' +
       '<p class="small">' + L('Durées : ', 'Durations: ') + INTERVALS.map(function (iv) { return esc(lbl2(INT_LABEL[iv[0]])) + ' ' + fmtMin(durations(a)[iv[0]]); }).join(' · ') + '</p>';
     box.innerHTML = body;
     var after = function (what) { B.audit('queue_' + what, 'alert', a.id, a.outcome); B.save(); B.VIEWS.verify(v); };

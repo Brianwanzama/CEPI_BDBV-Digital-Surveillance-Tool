@@ -16,8 +16,13 @@ const assert = require('assert');
   await page.goto(url);
   // v2: French is the default (main administrative language); English and Kiswahili selectable.
   assert.strictEqual(await page.inputValue('#lang'), 'fr', 'French by default');
+  // Everyone except the public signs in first: the app opens on the sign-in screen.
+  assert.ok(await page.isHidden('#nav'), 'no navigation before sign-in');
+  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 9, 'one demo account per role');
   await page.selectOption('#lang', 'en');
-  assert.ok(/Health worker/.test(await page.textContent('#role')), 'role menu in English');
+  assert.ok(/Sign in/.test(await page.textContent('#view')) && /Health worker/.test(await page.textContent('#view')), 'sign-in screen in English');
+  await page.click('[data-demo="nurse.aru"]');
+  assert.ok(/Health worker/.test(await page.textContent('#who')), 'signed in as health worker');
   await page.click('[data-tab="triage"]');
   assert.ok(/Traditional healer/.test(await page.textContent('[name=occ]')), 'occupation list in English');
   assert.ok(/North Kivu/.test(await page.textContent('[name=g_province]')), 'province names in English');
@@ -114,7 +119,7 @@ const assert = require('assert');
   assert.ok(/VERT/.test(await page.textContent('.result')), 'GREEN result');
 
   // RECO role: offline report
-  await page.selectOption('#role', 'reco');
+  await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'reco');
   const tabs = await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab')));
   assert.deepStrictEqual(tabs, ['home', 'reco', 'rumour', 'myreports'], 'RECO has no clinical tabs');
   await page.uncheck('#net');
@@ -133,7 +138,7 @@ const assert = require('assert');
   assert.ok(/\(0 en attente\)/.test(await page.textContent('#syncbtn')), 'synced');
 
   // Surveillance: verify the event, dashboard, rules
-  await page.selectOption('#role', 'surveillant');
+  await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'surveillant');
   await page.click('[data-tab="verify"]');
   await page.selectOption('#qf-src', 'reco');
   await page.selectOption('#qf-b', 'to_ack');
@@ -151,7 +156,7 @@ const assert = require('assert');
   assert.ok(/Aru/.test(await page.textContent('#view')), 'zone filter applied');
   await page.click('[data-tab="rules"]');
   assert.ok(await page.isHidden('#thr'), 'surveillance officer: thresholds read-only');
-  await page.selectOption('#role', 'sysadmin');
+  await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'sysadmin');
   await page.click('[data-tab="rules"]');
   await page.fill('#thr', '60'); await page.fill('#tha', '40'); await page.click('#thsave');
   assert.ok(/local\.1/.test(await page.textContent('#view')), 'threshold versioned');
@@ -159,7 +164,7 @@ const assert = require('assert');
   assert.ok(/rules_change/.test(await page.textContent('#view')), 'audit records rule change');
 
   // Policymaker: dashboard only; English
-  await page.selectOption('#role', 'decideur');
+  await page.evaluate((r) => BDBVApp.signInDemoRole(r), 'decideur');
   await page.selectOption('#lang', 'en');
   const tabs2 = await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab')));
   assert.deepStrictEqual(tabs2, ['home', 'map', 'dashboard', 'rumours', 'analysis', 'reports']);
@@ -181,6 +186,7 @@ const assert = require('assert');
     window.claude = { use: name => Promise.resolve(name === 'dictation' ? dictation : name === 'sample' ? sample : null) };
   });
   await p2.goto(url);
+  await p2.click('[data-demo="nurse.aru"]');
   await p2.click('[data-tab="triage"]');
   await p2.click('#vpanel summary');
   await p2.waitForSelector('#vextract:not([hidden])');

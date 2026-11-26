@@ -8,8 +8,10 @@ Usage: python3 tools/build_single_file.py OUTPUT.html
   versions from the jsDelivr CDN, because hosts that add a document skeleton usually
   only allow scripts from approved CDNs.
 - The service worker is dropped (not available in embedded viewers).
+- Vendored fonts are embedded as data URIs so the page needs no font host.
 - The output has no <html>/<head>/<body> wrapper; browsers open it as-is.
 """
+import base64
 import os
 import re
 import sys
@@ -46,9 +48,18 @@ for src in srcs:
         sys.exit(src + ' contains </script>; cannot inline')
     js += '\n/* ---- %s ---- */\n' % src + s
 
-page = ('<title>BDBV Triage et Surveillance</title>\n'
-        '<meta name="theme-color" content="#0f3d5e">\n'
-        '<style>\n' + read('styles.css') + '</style>\n' + body + cdn_tags +
+def embed_fonts(css):
+    def data_uri(m):
+        with open(os.path.join(root, m.group(1)), 'rb') as f:
+            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(f.read()).decode('ascii')
+    return re.sub(r'url\("(vendor/fonts/[^"]+\.woff2)"\)', data_uri, css)
+
+
+title = re.search(r'<title>(.*?)</title>', html).group(1)
+theme = re.search(r'<meta name="theme-color" content="([^"]+)">', html).group(1)
+page = ('<title>%s</title>\n' % title +
+        '<meta name="theme-color" content="%s">\n' % theme +
+        '<style>\n' + embed_fonts(read('styles.css')) + '</style>\n' + body + cdn_tags +
         '<script>\n' + js + '\n</script>\n')
 with open(out, 'w', encoding='utf-8') as f:
     f.write(page)

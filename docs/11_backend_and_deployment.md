@@ -6,7 +6,7 @@ GitHub holds the code, runs the tests and builds the container image. It **canno
 
 ```mermaid
 flowchart LR
-  DEV[Changes: you / Claude] -->|git push| GH[GitHub repository]
+  DEV[Development changes] -->|git push| GH[GitHub repository]
   GH --> CI[GitHub Actions CI<br/>unit · API · browser tests]
   CI --> IMG[Container image<br/>ghcr.io/&lt;owner&gt;/&lt;repo&gt;]
   IMG --> HOST[Any Docker host<br/>Render · Railway · VPS · MoH server]
@@ -68,7 +68,7 @@ Edit `.env`: set `POSTGRES_PASSWORD`, `JWT_SECRET` (32+ characters, e.g. from `o
 docker compose up -d
 ```
 
-Open http://localhost:8080, click **Se connecter au serveur**, and sign in with a demo account. Stop with:
+Open http://localhost:8080. The sign-in screen asks for a username and password: use a demo account from §11.3 with the `SEED_USER_PASSWORD` you set. The public report form is available from the same screen without an account. Stop with:
 
 ```bash
 docker compose down
@@ -122,8 +122,8 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 | Test | Result |
 |---|---|
 | `backend`: `npm test` against PostgreSQL 16 (15 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation) | 15/15 pass |
-| `tests/e2e_server.test.js` against the Docker Compose stack: app served by API; public rumour to server; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; no CSP or JS errors | 7/7 pass |
-| Existing suites (scoring, voice, i18n, offline e2e v1 and v2) | pass, so offline mode is unchanged |
+| `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; no CSP or JS errors | 7/7 pass |
+| Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |
 | Docker image build (dependencies verified at build time) and `docker compose up` | pass |
 
 The GitHub Actions workflows were written and checked for valid YAML, but have **not yet run on GitHub**: they run at the next push. The Render blueprint has not been deployed from here.
@@ -136,3 +136,40 @@ The GitHub Actions workflows were written and checked for valid YAML, but have *
 - Field-level merge of concurrent edits. Currently the first writer wins and the second gets the server copy.
 - DHIS2 / IDSR / Go.Data / laboratory system interfaces.
 - Penetration test, data-protection impact assessment, MoH approval: see §11.2.
+
+## 11.9 Importing official boundaries (shapefile)
+
+The map can draw official province and health-zone boundaries. None are included yet: they have to come from the Ministry of Health (DSNIS) or a source it accepts, such as GRID3. Until a file is imported, markers sit at provincial capitals and GeoNames towns, as described in document 10.
+
+**What to send.** One layer for health zones and, if available, one for provinces. Any of these works:
+- an ESRI shapefile, meaning the `.shp` together with its `.shx`, `.dbf` and `.prj` (and `.cpg` if there is one);
+- the same files in one `.zip`;
+- GeoJSON.
+
+Projected files (UTM, for example) are converted to latitude/longitude using the `.prj`. Put the files in `data/boundaries/` on the development branch (GitHub: *Add file → Upload files*), or attach them in the chat, and say where the data come from and which version they are.
+
+**Run the import.**
+
+```bash
+cd tools && npm install && cd ..
+```
+
+```bash
+node tools/import_boundaries.js --zones data/boundaries/zones.zip --provinces data/boundaries/provinces.zip
+```
+
+The tool guesses which attribute holds the name (`NOM_ZS`, `ADM2_FR`, `Nom`, …). If it guesses wrong, name it with `--zone-field`, `--province-field` or `--zone-province-field`. `--tolerance` sets how much the outlines are simplified (default 0.002 degrees, about 200 m), which keeps the file small enough for phones.
+
+**What it writes.**
+
+| File | Content |
+|---|---|
+| `prototype/boundaries.js` | Simplified outlines and the centre of each unit, loaded by the map |
+| `docs/boundaries_import_report.md` | Which names matched the supplied province and health-zone lists, which did not, and how each zone's province in the file compares with the link proposed in the app |
+| `config/zone_province_from_boundaries.json` | The zone → province links found in the file |
+
+Names are matched after removing accents, case and prefixes such as "ZS" or "Zone de santé". A name that does not match is listed in the report and drawn with a dashed outline. It is never attached to the nearest list entry. The zone → province links in the file are not applied automatically: the system administrator reviews the report and confirms each link under *Configuration → Geographical hierarchy* (system administrator account), which is audited.
+
+**What changes on the map.** Units are drawn with their outlines, units with events in the period are shaded, and each marker moves to the centre of its official boundary. Marker details say "centre of the official boundary" so the source of the position stays visible. Markers are still totals per administrative unit, never the position of a household, grave or facility.
+
+The tool is tested on synthetic squares, in geographic and UTM coordinates (`tests/boundaries.test.js`). It has not yet been run on a real DRC boundary file.

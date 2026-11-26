@@ -92,7 +92,7 @@ The former section *Medical and travel history* (comorbidities, travel log, Ebol
 ### Voice-capture provenance (when AI voice capture was used)
 | Variable | Definition | Format | M/O |
 |---|---|---|---|
-| `voice.engine` | `ai` (Claude) or `local` (offline keyword extraction) | system | C |
+| `voice.engine` | `ai` (language model) or `local` (offline keyword extraction) | system | C |
 | `voice.ai_fields[]` | Fields whose value came from an accepted AI proposal (e.g. `age`, `item:fever`) | system | C |
 | `voice.edited_after_ai[]` | AI-filled fields the health worker changed afterwards | system | C |
 | `voice.reviewed` | Health worker confirmed every AI answer was checked with the patient | boolean | C (mandatory if any AI field) |

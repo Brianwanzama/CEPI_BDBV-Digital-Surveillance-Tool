@@ -6,8 +6,8 @@
  * directly: the health worker reviews and applies them in the form.
  *
  * Two engines:
- *  - buildPrompt()/validate(): Claude reads the note and returns JSON
- *    (used where the hosting platform offers AI, e.g. a claude.ai artifact);
+ *  - buildPrompt()/validate(): a language model reads the note and returns JSON
+ *    (used where the hosting platform offers an AI service);
  *  - extractLocal(): a basic offline keyword extractor (French/English),
  *    used when no AI is available. It is deliberately conservative.
  *
@@ -167,7 +167,7 @@
     return out;
   }
 
-  /* ---------------- AI (Claude) extraction ---------------- */
+  /* ---------------- AI (language model) extraction ---------------- */
 
   function buildPrompt(transcript, rules, assessedYmd) {
     var items = rules.items.map(function (it) { return '- ' + it.id + ' (' + it.kind + '): ' + it.label_en; }).join('\n');

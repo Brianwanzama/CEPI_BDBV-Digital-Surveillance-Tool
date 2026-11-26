@@ -14,7 +14,7 @@
   var DEFAULT_LANG = 'fr';
   var LANG_KEY = 'bdbv_proto_lang';
   function savedLang() { try { var l = localStorage.getItem(LANG_KEY); return l === 'fr' || l === 'en' || l === 'sw' ? l : null; } catch (e) { return null; } }
-  var st = { lang: savedLang() || DEFAULT_LANG, role: 'soignant', tab: 'home', online: true, editing: null, lastId: null,
+  var st = { lang: savedLang() || DEFAULT_LANG, role: 'public', tab: 'login', auth: null, online: true, editing: null, lastId: null,
     f: { province: '', zone: '', area: '', village: '', facility: '', days: '30' } };
 
   // Tabs per role (docs/09 §9.5). Order = order in the role menu.
@@ -51,7 +51,11 @@
   function can(perm) { return (PERMS[perm] || []).indexOf(st.role) >= 0; }
   // Demo user context (in production: from the authenticated account).
   var USER_CTX = { soignant: { facility: 'Z-aru-A1-F' }, clinician: { facility: 'Z-aru-A1-F' }, facility_head: { facility: 'Z-aru-A1-F' }, zone_officer: { zone: 'Z-aru' }, lab: { lab: 'Laboratoire provincial (démo)' } };
-  var USER_NAMES = { public: ['Public (anonyme)', 'Public (anonymous)'], reco: ['RECO-ARU1-001 (démo)', 'RECO-ARU1-001 (demo)'], soignant: ['Infirmier·e démo', 'Demo nurse'], clinician: ['Clinicien·ne démo', 'Demo clinician'], surveillant: ['Officier·e de surveillance démo', 'Demo surveillance officer'], lab: ['Laborantin·e démo', 'Demo lab technician'], facility_head: ['Chef·fe de FOSA démo', 'Demo facility head'], zone_officer: ['Surveillant·e ZS démo', 'Demo HZ surveillance officer'], decideur: ['Administrateur·rice santé publique démo', 'Demo public health administrator'], sysadmin: ['Administrateur·rice système démo', 'Demo system administrator'] };
+  // Display names of the signed-in user (replaced at sign-in by the account's name).
+  // Demonstration users (person names are fictitious and tagged [DEMO]).
+  var DEMO_PEOPLE = { reco: 'RECO ARU1-001', soignant: 'N. Kahindo', clinician: 'Dr K. Lusamba', surveillant: 'J. Mapendo', lab: 'P. Ndjoli', facility_head: 'M. Furaha', zone_officer: 'R. Kambale', decideur: 'A. Baraka', sysadmin: 'T. Ilunga' };
+  var USER_NAMES = { public: ['Public (anonyme)', 'Public (anonymous)'] };
+  Object.keys(DEMO_PEOPLE).forEach(function (k) { var n = DEMO_PEOPLE[k] + ' [DEMO]'; USER_NAMES[k] = [n, n]; });
   var USERS = new Proxy({}, { get: function (o, k) { var n = USER_NAMES[k]; return n ? L(n[0], n[1]) : k; } });
   var RECO_HOME = { village: 'Z-aru-A1-V1', id: 'RECO-ARU1-001', phone: '+243 000 000 001 (démo)' };
   var AGE_GROUPS = ['0-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70+'];
@@ -63,13 +67,35 @@
   var RASH_TYPES = [['', '', ''], ['maculopapular', 'Maculopapuleuse', 'Maculopapular'], ['petechial', 'Pétéchiale / purpurique', 'Petechial / purpuric'], ['vesicular', 'Vésiculaire / pustuleuse', 'Vesicular / pustular'], ['other', 'Autre', 'Other']];
   function codeOpts(list, sel) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (sel === o[0] ? ' selected' : '') + '>' + esc(L(o[1], o[2])) + '</option>'; }).join(''); }
 
+  // System-generated text is stored as a key ("key:name optional suffix") and shown in the
+  // current language; text typed by a person is stored and shown as typed.
+  var SYS = {
+    synthetic_event: ['Évènement synthétique de démonstration', 'Synthetic demonstration event'], demo_place: ['Quartier démo', 'Demo neighbourhood'],
+    triage_check: ['Données de triage contrôlées', 'Triage data checked'], routine_ok: ['Rapport de routine conforme', 'Routine report in order'],
+    field_visit: ['Visite de vérification (synthétique)', 'Verification visit (synthetic)'], field_check: ['Vérification sur le terrain (synthétique)', 'Field verification (synthetic)'],
+    burial_synth: ['Inhumation (synthétique)', 'Burial (synthetic)'], burial_place: ['Cimetière / site démo', 'Cemetery / demo site'],
+    rumour_synth: ['Signalement synthétique de démonstration', 'Synthetic demonstration report'], landmark: ['Repère démo', 'Demo landmark'], demo_address: ['Adresse démo', 'Demo address'],
+    to_holding: ['Transfert vers l\'unité de transit', 'Transfer to holding unit'], neg_result: ['Résultat négatif', 'Negative result'], died_before_sample: ['Décès avant prélèvement', 'Died before sampling'],
+    routine_care: ['Prise en charge de routine', 'Routine care'], to_etc: ['Transfert vers le CTE', 'Transfer to treatment centre'], bulk_verify: ['Vérification groupée', 'Bulk verification'], attachment: ['Pièce jointe :', 'Attachment:']
+  };
+  function sysText(x) {
+    if (typeof x !== 'string' || x.indexOf('key:') !== 0) return x == null ? '' : x;
+    var m = /^key:(\w+)(.*)$/.exec(x);
+    return m && SYS[m[1]] ? L(SYS[m[1]][0], SYS[m[1]][1]) + m[2] : x.slice(4);
+  }
+  // SMS preview built from the alert record, in the reader's language (GSM-friendly, minimal content).
+  function smsText(a) {
+    return L('ALERTE BDBV ROUGE. Dossier ', 'BDBV RED ALERT. Record ') + a.assessment_id + ', ' + nm(G.facilities, a.facility) + ', ' + fmtDT(a.created_at) +
+      L('. Ouvrir l\'application pour details. Repondre OK pour accuser reception.', '. Open the app for details. Reply OK to acknowledge.');
+  }
+
   // Demo place names exist in both languages; switch the displayed name.
   function applyGeoLang() {
     ['provinces', 'areas', 'facilities', 'villages'].forEach(function (k) { G[k].forEach(function (o) { o.name = o['name_' + st.lang] || o.name_fr; }); });
   }
 
   /* ---------- storage ---------- */
-  var SCHEMA = 2;
+  var SCHEMA = 3;
   function fresh() { return { schema: SCHEMA, assessments: [], reports: [], alerts: [], audit: [], override: null, queue: [], contacts: [], samples: [], rumours: [], config: {} }; }
   // Upgrade stored data from v1: add v2 collections; v1 demo records use the old
   // geography, so they are dropped and regenerated (user-entered records are kept).
@@ -207,20 +233,28 @@
 
   /* ---------- layout ---------- */
   function render() {
+    // Everyone except the public must be signed in (auth.js / api.js set st.auth).
+    if (!st.auth && st.role !== 'public') st.role = 'public';
     var tabs = ROLES[st.role];
-    if (tabs.indexOf(st.tab) < 0 && st.tab !== 'result') st.tab = tabs[0];
+    if (st.auth && st.tab === 'login') st.tab = tabs[0];
+    if (tabs.indexOf(st.tab) < 0 && st.tab !== 'result' && st.tab !== 'login') st.tab = tabs[0];
+    if (st.tab === 'result' && !st.auth) st.tab = 'login';
     document.documentElement.lang = st.lang;
     applyGeoLang();
     $('#lang').value = st.lang;
     if ($('#foot')) $('#foot').textContent = t('footer');
     $('#title').textContent = t('app_title');
     $('#subtitle').textContent = t('app_sub');
-    $('#banner').textContent = t('proto_banner');
-    $('#role').innerHTML = Object.keys(ROLES).map(function (r) { return '<option value="' + r + '"' + (r === st.role ? ' selected' : '') + '>' + esc(t('role_' + r)) + '</option>'; }).join('');
+    $('#banner').textContent = st.auth && st.auth.mode === 'server' ? L('Serveur pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot server: synthetic data only. Do not enter real patient data.') : t('proto_banner');
+    $('#who').innerHTML = st.auth ? '<b>' + esc(st.auth.name) + '</b><span>' + esc(t('role_' + st.role)) + '</span>' : '<span>' + esc(t('role_public')) + '</span>';
+    $('#authbtn').textContent = st.auth ? L('Se déconnecter', 'Sign out') : L('Se connecter', 'Sign in');
+    $('#authbtn').hidden = !st.auth && st.tab === 'login';
+    $('#syncbtn').hidden = !st.auth;
     $('#netlabel').textContent = st.online ? t('online') : t('offline');
     $('#net').checked = st.online;
     $('#netdot').className = 'dot ' + (st.online ? 'on' : 'off');
     $('#syncbtn').textContent = t('sync') + ' (' + pendingCount() + ' ' + t('pending') + ')';
+    $('#nav').hidden = st.tab === 'login';
     $('#nav').innerHTML = tabs.map(function (k) {
       var badge = '';
       if (k === 'alerts') { var n = db.alerts.filter(function (a) { return !a.ack && visibleAlert(a); }).length; if (n) badge = ' <span class="badge">' + n + '</span>'; }
@@ -390,7 +424,7 @@
     if (res.floors_applied.length) h += '<p class="flag">' + esc(t('floors')) + ' : ' + res.floors_applied.map(function (id) { var f = byId(R.floors.map(function (x) { return Object.assign({ id: x.id }, x); }), id); return '<br>• ' + esc(pick(f, 'label')) + ' → ' + chip(f.min_category); }).join('') + '</p>';
     if (res.severity_signs && res.severity_signs.length) h += '<p class="flag">' + L('Signe de gravité : ', 'Severity sign: ') + esc(res.severity_signs.map(function (id) { return lbl(itemById(id)); }).join(', ')) + L(' - revue clinique urgente, quel que soit le score.', ' - urgent clinical review whatever the score.') + '</p>';
     if (res.override) h += '<p class="flag">' + L('Catégorie de l\'outil : ', 'Tool category: ') + chip(res.override.from) + ' → ' + L('catégorie du clinicien : ', 'clinician category: ') + chip(res.override.to) + (res.override.direction === 'down' ? ' <b>' + L('(abaissement - revue requise)', '(lowered - review required)') + '</b>' : '') + '</p>';
-    if (res.incomplete_could_escalate) h += '<p class="flag">⚠ ' + esc(t('potential')) + ' ' + chip(res.potential_category) + ' (' + L('éléments inconnus : ', 'unknown items: ') + res.unknown_items.length + ')</p>';
+    if (res.incomplete_could_escalate) h += '<p class="flag">' + esc(t('potential')) + ' ' + chip(res.potential_category) + ' (' + L('éléments inconnus : ', 'unknown items: ') + res.unknown_items.length + ')</p>';
     var oow = res.notes.filter(function (n) { return n.indexOf('OUT_OF_WINDOW') === 0; });
     if (oow.length) h += '<p class="muted small">' + L('Expositions hors fenêtre de 21 jours (non comptées) : ', 'Exposures outside 21-day window (not counted): ') + oow.map(function (n) { return esc(lbl(itemById(n.split(':')[1]))); }).join(', ') + '</p>';
     h += '<details><summary>' + L('Détail du calcul', 'Score breakdown') + '</summary><table class="tbl"><tr><th>' + L('Variable', 'Variable') + '</th><th>' + L('Statut', 'Status') + '</th><th>' + L('Points', 'Points') + '</th><th>' + L('Niveau de preuve', 'Evidence') + '</th></tr>' +
@@ -413,9 +447,9 @@
 
 
   /* ---------- VOICE CAPTURE (AI-assisted, optional) ---------- */
-  // Speech-to-text: the hosting platform's dictation when offered (claude.ai
+  // Speech-to-text: the hosting platform's dictation when offered (embedded
   // artifact), else the browser's Web Speech API, else typing/pasting.
-  // Extraction: Claude when offered, else the basic offline extractor.
+  // Extraction: a language model when the platform offers one, else the basic offline extractor.
   // Proposals are reviewed and applied by the health worker; nothing is
   // written to the form or the record without that step.
   var V = window.BDBVVoice;
@@ -563,8 +597,8 @@
     });
     rows.forEach(function (r) { r.current = currentOf(form, r.key); r.clash = !!r.current && r.current !== r.value && r.current !== 'unk'; });
     st.voice.rows = rows;
-    audit('ai_extract', 'voice', '-', (engine === 'ai' ? 'Claude' : L('hors ligne', 'offline')) + ': ' + rows.length);
-    $('#vengine').textContent = engine === 'ai' ? L('Proposé par l\'IA (Claude). Vérifiez chaque ligne.', 'Proposed by AI (Claude). Check every line.') : L('Proposé par l\'extraction de base (mots-clés). Vérifiez chaque ligne ; elle peut manquer des éléments.', 'Proposed by basic keyword extraction. Check every line; it can miss things.');
+    audit('ai_extract', 'voice', '-', (engine === 'ai' ? 'AI' : L('hors ligne', 'offline')) + ': ' + rows.length);
+    $('#vengine').textContent = engine === 'ai' ? L('Proposé par l\'assistant IA. Vérifiez chaque ligne.', 'Proposed by the AI assistant. Check every line.') : L('Proposé par l\'extraction de base (mots-clés). Vérifiez chaque ligne ; elle peut manquer des éléments.', 'Proposed by basic keyword extraction. Check every line; it can miss things.');
     if (!rows.length) { $('#vreview').innerHTML = '<p class="muted">' + L('Aucune réponse trouvée dans la note.', 'No answers found in the note.') + '</p>'; return; }
     $('#vreview').innerHTML = '<div class="scroll"><table class="tbl vtbl"><tr><th>' + L('Appliquer', 'Apply') + '</th><th>' + L('Champ', 'Field') + '</th><th>' + L('Proposé', 'Proposed') + '</th><th>' + L('Phrase source', 'Source phrase') + '</th></tr>' +
       rows.map(function (r, i) {
@@ -734,7 +768,6 @@
   function createAlert(rec) {
     var fac = byId(G.facilities, rec.geo.facility);
     var a = { id: newId('ALR', fac.code), assessment_id: rec.id, facility: rec.geo.facility, zone: rec.geo.zone, created_at: iso(new Date()), synced: false, ack: null, actions: [], closed: false,
-      sms: L('ALERTE BDBV ROUGE. Dossier ', 'BDBV RED ALERT. Record ') + rec.id + ', ' + fac.name + ', ' + fmtDT(new Date().toISOString()) + L('. Ouvrir l\'application pour details. Repondre OK pour accuser reception.', '. Open the app for details. Reply OK to acknowledge.'),
       recipients: [L('Clinicien responsable FOSA', 'Facility responsible clinician'), L('Point focal surveillance ZS', 'HZ surveillance focal point')] };
     db.alerts.unshift(a);
     audit('alert_created', 'alert', a.id, rec.id);
@@ -748,10 +781,10 @@
     var ctx = S.communityContext(db.reports, rules(), geoOfVillage(rec.geo.village));
     var al = db.alerts.filter(function (a) { return a.assessment_id === rec.id; })[0];
     v.innerHTML = '<section class="card"><h2>' + L('Évaluation enregistrée', 'Assessment saved') + ' <code>' + esc(rec.id) + '</code></h2>' +
-      '<p class="muted">' + (rec.synced ? '✓ ' + L('synchronisée', 'synced') : '⏳ ' + L('en attente de synchronisation', 'pending synchronisation')) + '</p>' +
+      '<p class="muted">' + (rec.synced ? '✓ ' + L('synchronisée', 'synced') : '' + L('en attente de synchronisation', 'pending synchronisation')) + '</p>' +
       resultBlock(rec.result, ctx) +
       '<h3>' + L('Conduite à tenir recommandée', 'Recommended actions') + '</h3><ol class="recs">' + t('rec_' + rec.result.category).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol><p class="muted small">' + esc(t('rec_flag')) + '</p>' +
-      (al ? '<div class="sms"><b>' + esc(t('sms_preview')) + '</b> → ' + esc(al.recipients.join(', ')) + '<pre>' + esc(al.sms) + '</pre></div>' : '') +
+      (al ? '<div class="sms"><b>' + esc(t('sms_preview')) + '</b> → ' + esc(al.recipients.join(', ')) + '<pre>' + esc(smsText(al)) + '</pre></div>' : '') +
       '<div class="actions"><button data-go="triage" id="newb" class="primary">' + L('Nouvelle évaluation', 'New assessment') + '</button> <button id="reb">' + esc(t('reassess')) + '</button>' + (al ? ' <button data-go="alerts">' + L('Gérer l\'alerte', 'Manage alert') + '</button>' : '') + '</div></section>';
     $('#newb', v).onclick = function () { st.editing = null; go('triage'); };
     $('#reb', v).onclick = function () { st.editing = rec.id; go('triage'); };
@@ -793,7 +826,7 @@
         var esc8 = !a.ack && mins > ALERT_ESCALATION_MIN;
         return '<div class="alert ' + (a.ack ? 'done' : 'open') + '"><div class="ahead">' + chip('RED') + ' <code>' + esc(a.id) + '</code> · ' + L('dossier', 'record') + ' <a href="#" data-open="' + a.assessment_id + '">' + esc(a.assessment_id) + '</a> · ' + esc(nm(G.facilities, a.facility)) + ' · ' + fmtDT(a.created_at) + '</div>' +
           (esc8 ? '<p class="flag">' + esc(t('escalated')) + ' ' + ALERT_ESCALATION_MIN + ' min</p>' : '') +
-          '<details><summary>' + esc(t('sms_preview')) + '</summary><pre>' + esc(a.sms) + '</pre></details>' +
+          '<details><summary>' + esc(t('sms_preview')) + '</summary><pre>' + esc(smsText(a)) + '</pre></details>' +
           (a.ack ? '<p>✓ ' + esc(t('acked')) + ' ' + L('par', 'by') + ' ' + esc(a.ack.by) + ' · ' + fmtDT(a.ack.at) + ' · ' + L('délai', 'delay') + ' ' + a.ack.delay_min + ' min<br>' + L('Mesures : ', 'Actions: ') + esc(a.actions.map(function (x) { var f = acts.filter(function (y) { return y[0] === x; })[0]; return f ? f[1] : x; }).join(', ') || '-') + (a.ack.note ? '<br>' + esc(a.ack.note) : '') + '</p>' :
             (st.role === 'decideur' ? '' : '<div class="checks">' + acts.map(function (x) { return '<label class="check"><input type="checkbox" data-act="' + a.id + '" value="' + x[0] + '"> ' + esc(x[1]) + '</label>'; }).join('') + '</div><input class="note-in" data-note="' + a.id + '" placeholder="' + L('Commentaire', 'Comment') + '"> <button class="primary sm" data-ack="' + a.id + '">' + esc(t('ack')) + '</button>')) + '</div>';
       }).join('') + '</section>' +
@@ -910,7 +943,7 @@
     var mine = db.reports.filter(function (r) { return r.reco_id === 'RECO-ARU1-001'; });
     v.innerHTML = '<section class="card"><h2>' + esc(t('tab_myreports')) + '</h2><p class="muted">' + L('Vous voyez vos rapports et le statut de vérification - pas les dossiers cliniques.', 'You see your reports and verification status - not clinical records.') + '</p>' +
       (mine.length ? mine.map(function (r) {
-        return '<div class="alert"><b>' + fmtDT(r.reported_at) + '</b> · ' + esc(nm(G.villages, r.village)) + ' · ' + (r.synced ? '✓ ' + L('envoyé', 'sent') : '⏳ ' + L('en attente', 'pending')) + (window.BDBV.queueStatus ? ' · ' + window.BDBV.queueStatus(r.id) : '') + '<br>' + L('Décès', 'Deaths') + ' ' + r.counts.deaths_total + ' · ' + L('inexpliqués', 'unexplained') + ' ' + r.counts.deaths_unexplained + ' · ' + L('alertes', 'alerts') + ' ' + r.counts.alerts +
+        return '<div class="alert"><b>' + fmtDT(r.reported_at) + '</b> · ' + esc(nm(G.villages, r.village)) + ' · ' + (r.synced ? '✓ ' + L('envoyé', 'sent') : '' + L('en attente', 'pending')) + (window.BDBV.queueStatus ? ' · ' + window.BDBV.queueStatus(r.id) : '') + '<br>' + L('Décès', 'Deaths') + ' ' + r.counts.deaths_total + ' · ' + L('inexpliqués', 'unexplained') + ' ' + r.counts.deaths_unexplained + ' · ' + L('alertes', 'alerts') + ' ' + r.counts.alerts +
           (r.events.length ? '<ul>' + r.events.map(function (e) { return '<li>' + esc(evLabel(e.type)) + ' (' + fmtD(e.date_occurred) + ') - <span class="vs ' + e.verification + '">' + esc(vlabel(e.verification)) + '</span></li>'; }).join('') + '</ul>' : '') + '</div>';
       }).join('') : '<p class="muted">' + L('Aucun rapport.', 'No reports.') + '</p>') + '</section>';
   };
@@ -954,7 +987,7 @@
         '<text x="' + (pad + i * bw + bw / 2) + '" y="' + (y(val) - 2) + '" font-size="9" text-anchor="middle" fill="currentColor">' + val + '</text>';
     }).join('');
     var line = ew.threshold != null ? '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + y(ew.threshold) + '" y2="' + y(ew.threshold) + '" stroke="#b91c1c" stroke-dasharray="4 3"/><text x="' + (W - pad) + '" y="' + (y(ew.threshold) - 3) + '" font-size="9" text-anchor="end" fill="#b91c1c">' + L('seuil', 'threshold') + ' ' + ew.threshold + '</text>' : '';
-    return '<div class="trend"><div class="th"><b>' + esc(title) + '</b> ' + (ew.signal ? '<span class="sig">▲ ' + esc(t('stat_signal')) + '</span>' : '<span class="muted small">' + esc(t('no_signal')) + '</span>') + '</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(title) + '">' + bs + line + '</svg></div>';
+    return '<div class="trend"><div class="th"><b>' + esc(title) + '</b> ' + (ew.signal ? '<span class="sig">' + esc(t('stat_signal')) + '</span>' : '<span class="muted small">' + esc(t('no_signal')) + '</span>') + '</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(title) + '">' + bs + line + '</svg></div>';
   }
 
   VIEWS.dashboard = function (v) {
@@ -1078,7 +1111,7 @@
         c.deaths_total = Math.max(c.deaths_unexplained, c.deaths_compatible, c.deaths_suspected_ebola) + pois(r, 0.5);
         c.burials = c.deaths_total;
         var rep = { id: 'RCO-DEMO-' + vv.id + '-W' + w, reco_id: vv.id === 'Z-aru-A1-V1' ? 'RECO-ARU1-001' : 'RECO-' + vv.id.slice(2), province: gv.province, zone: gv.zone, area: gv.area, village: vv.id, reported_at: iso(at), period_from: ymd(new Date(at - 6 * DAY)), period_to: ymd(at), counts: c, practices: { family_washing: boost ? 'yes' : 'unk', no_sdb: boost ? 'yes' : 'no' }, events: [], synced: true, demo: true };
-        var mk = function (type, k) { for (var i = 0; i < k; i++) rep.events.push({ id: 'EVT-DEMO-' + vv.id + '-' + w + '-' + type + i, type: type, date_occurred: ymd(new Date(at - Math.floor(r() * 5) * DAY)), date_reported: iso(at), n: 1, location: L('Quartier démo', 'Demo neighbourhood'), source: ['family', 'leader', 'direct', 'rumour'][Math.floor(r() * 4)], description: L('Évènement synthétique de démonstration', 'Synthetic demonstration event'), verification: w >= 2 ? (r() < 0.8 ? 'discarded' : 'verified') : (w === 1 ? (r() < 0.5 ? 'verified' : 'in_progress') : 'reported'), history: [] }); };
+        var mk = function (type, k) { for (var i = 0; i < k; i++) rep.events.push({ id: 'EVT-DEMO-' + vv.id + '-' + w + '-' + type + i, type: type, date_occurred: ymd(new Date(at - Math.floor(r() * 5) * DAY)), date_reported: iso(at), n: 1, location: 'key:demo_place', source: ['family', 'leader', 'direct', 'rumour'][Math.floor(r() * 4)], description: 'key:synthetic_event', verification: w >= 2 ? (r() < 0.8 ? 'discarded' : 'verified') : (w === 1 ? (r() < 0.5 ? 'verified' : 'in_progress') : 'reported'), history: [] }); };
         mk('death_unexplained', c.deaths_unexplained); mk('cluster', c.clusters); mk('sick_compatible', Math.min(c.compatible_illness_people, 2));
         db.reports.push(rep);
       }
@@ -1116,9 +1149,9 @@
       if (res.category === 'RED') {
         var ackd = ageD >= 1 || r() < 0.5, delay = Math.floor(5 + r() * 90);
         db.alerts.push({ id: 'ALR-' + fac.code + '-DEMO-' + (1000 + i), demo: true, synced: true, assessment_id: id, facility: fac.id, zone: gv.zone, created_at: iso(at), closed: false,
-          ack: ackd ? { at: iso(new Date(at.getTime() + delay * 60000)), by: 'Clinicien démo', note: '', delay_min: delay } : null,
+          ack: ackd ? { at: iso(new Date(at.getTime() + delay * 60000)), by: 'Dr K. Lusamba [DEMO]', note: '', delay_min: delay } : null,
           actions: ackd ? ['isolation', 'ipc', 'clin', 'specimen', 'surv'].filter(function () { return r() < 0.85; }) : [],
-          sms: 'ALERTE BDBV ROUGE. Dossier ' + id + ', ' + fac.name + '. Ouvrir l\'application pour details.', recipients: [] });
+          recipients: [] });
       }
     }
     db.assessments.sort(function (a, b) { return new Date(b.assessed_at) - new Date(a.assessed_at); });
@@ -1128,7 +1161,7 @@
 
   /* ---------- init ---------- */
   function init() {
-    $('#role').onchange = function () { st.role = this.value; st.tab = ROLES[st.role][0]; st.editing = null; st.prefill = null; audit('login', 'session', st.role); render(); };
+    $('#authbtn').onclick = function () { if (st.auth) window.BDBV.signOut(); else go('login'); };
     $('#lang').onchange = function () { st.lang = this.value; try { localStorage.setItem(LANG_KEY, st.lang); } catch (e) {} render(); };
     $('#net').onchange = function () { st.online = this.checked; render(); };
     $('#syncbtn').onclick = function () {
@@ -1158,7 +1191,7 @@
     iso: iso, ymd: ymd, fmtDT: fmtDT, fmtD: fmtD, chip: chip, newId: newId, user: function () { return USERS[st.role]; }, userCtx: function () { return USER_CTX[st.role] || {}; },
     geoFields: geoFields, bindGeo: bindGeo, readGeo: readGeo, geoOfVillage: geoOfVillage, inGeo: inGeo, inPeriod: inPeriod,
     bars: bars, stacked: stacked, weekly: weekly, trend: trend, pct: pct, opts: opts, codeOpts: codeOpts,
-    USER_NAMES: USER_NAMES, USER_CTX: USER_CTX, OCCUPATIONS: OCCUPATIONS, AGE_GROUPS: AGE_GROUPS, ageGroup: ageGroup, classLabel: classLabel, CLASS: CLASS, EVT: EVT, evLabel: evLabel, DAY: DAY, RECO_HOME: RECO_HOME, prng: prng, pois: pois
+    USER_NAMES: USER_NAMES, USER_CTX: USER_CTX, sysText: sysText, SYS: SYS, OCCUPATIONS: OCCUPATIONS, AGE_GROUPS: AGE_GROUPS, ageGroup: ageGroup, classLabel: classLabel, CLASS: CLASS, EVT: EVT, evLabel: evLabel, DAY: DAY, RECO_HOME: RECO_HOME, prng: prng, pois: pois
   });
   document.addEventListener('DOMContentLoaded', init);
 })();

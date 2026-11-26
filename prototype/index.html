@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0f3d5e">
+<meta name="theme-color" content="#10333a">
 <title>BDBV Triage et Surveillance</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="styles.css">
@@ -11,12 +11,16 @@
 <body>
 <div id="banner" class="banner" role="note"></div>
 <header class="top">
-  <div class="brand"><h1 id="title"></h1><p id="subtitle"></p></div>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="7.5" fill="none" stroke="currentColor" stroke-width="2.2" opacity=".55"/><path d="M16 2.5v6M16 23.5v6M2.5 16h6M23.5 16h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/><circle cx="16" cy="16" r="2.6" class="mark-dot"/></svg>
+    <div><h1 id="title"></h1><p id="subtitle"></p></div>
+  </div>
   <div class="ctrls">
-    <label><span class="sr">Role / Rôle</span><select id="role" aria-label="Role / Rôle"></select></label>
+    <span id="who" class="who"></span>
     <label><span class="sr">Language / Langue</span><select id="lang" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option><option value="sw">Kiswahili</option></select></label>
     <label class="net"><input type="checkbox" id="net" checked> <span id="netdot" class="dot on"></span> <span id="netlabel"></span></label>
     <button id="syncbtn" class="ghost"></button>
+    <button id="authbtn" class="ghost"></button>
   </div>
 </header>
 <nav id="nav" class="nav" aria-label="Navigation"></nav>
@@ -29,6 +33,7 @@
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
 <script src="rules.js"></script>
 <script src="geodata.js"></script>
+<script src="boundaries.js"></script>
 <script src="geo.js"></script>
 <script src="i18n.js"></script>
 <script src="i18n-sw.js"></script>
@@ -48,6 +53,7 @@
 <script src="modules/seed2.js"></script>
 <script src="config.js"></script>
 <script src="api.js"></script>
+<script src="auth.js"></script>
 <script src="register-sw.js"></script>
 </body>
 </html>

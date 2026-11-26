@@ -12,15 +12,15 @@ const P = require('./permissions');
 const { generateSynthetic } = require('./shared');
 
 const USERS = [
-  ['reco.aru', 'reco', 'RECO Aru 1 (démo)', null, 'Z-aru'],
-  ['nurse.aru', 'soignant', 'Infirmier·e CS Aru 1 (démo)', 'Z-aru-A1-F', 'Z-aru'],
-  ['clinician.aru', 'clinician', 'Clinicien·ne CS Aru 1 (démo)', 'Z-aru-A1-F', 'Z-aru'],
-  ['surveillance', 'surveillant', 'Officier·e de surveillance (démo)', null, null],
-  ['lab', 'lab', 'Laboratoire provincial (démo)', null, null],
-  ['head.aru', 'facility_head', 'Chef·fe de FOSA CS Aru 1 (démo)', 'Z-aru-A1-F', 'Z-aru'],
-  ['zone.aru', 'zone_officer', 'Surveillant·e ZS Aru (démo)', null, 'Z-aru'],
-  ['admin.ph', 'decideur', 'Administrateur·rice santé publique (démo)', null, null],
-  ['sysadmin', 'sysadmin', 'Administrateur·rice système (démo)', null, null]
+  ['reco.aru', 'reco', 'RECO ARU1-001 [DEMO]', null, 'Z-aru'],
+  ['nurse.aru', 'soignant', 'N. Kahindo [DEMO]', 'Z-aru-A1-F', 'Z-aru'],
+  ['clinician.aru', 'clinician', 'Dr K. Lusamba [DEMO]', 'Z-aru-A1-F', 'Z-aru'],
+  ['surveillance', 'surveillant', 'J. Mapendo [DEMO]', null, null],
+  ['lab', 'lab', 'P. Ndjoli [DEMO]', null, null],
+  ['head.aru', 'facility_head', 'M. Furaha [DEMO]', 'Z-aru-A1-F', 'Z-aru'],
+  ['zone.aru', 'zone_officer', 'R. Kambale [DEMO]', null, 'Z-aru'],
+  ['admin.ph', 'decideur', 'A. Baraka [DEMO]', null, null],
+  ['sysadmin', 'sysadmin', 'T. Ilunga [DEMO]', null, null]
 ];
 
 async function seedUsers(pool, log = console.log) {
