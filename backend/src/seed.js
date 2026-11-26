@@ -74,7 +74,18 @@ async function seedData(pool, log = console.log) {
   return n;
 }
 
-module.exports = { seedUsers, seedData, USERS };
+// Set every demo account's password to `pw` (used when the first-start passwords were lost).
+// Touches only the demo accounts listed above; reactivates none and leaves other users alone.
+async function resetDemoPasswords(pool, pw, log = console.log) {
+  if (!pw || pw.length < 8) throw new Error('RESET_DEMO_PASSWORDS needs SEED_USER_PASSWORD (8+ characters).');
+  const h = await hash(pw);
+  const r = await pool.query('UPDATE users SET password_hash = $1 WHERE username = ANY($2::text[])', [h, USERS.map((u) => u[0])]);
+  await pool.query("INSERT INTO audit_log (username, role, action, entity, detail) VALUES ('system', 'system', 'reset_demo_passwords', 'users', $1)", [r.rowCount + ' demo account(s)']);
+  log('Demo account passwords set from SEED_USER_PASSWORD (' + r.rowCount + ' account(s)). Remove RESET_DEMO_PASSWORDS now.');
+  return r.rowCount;
+}
+
+module.exports = { seedUsers, seedData, resetDemoPasswords, USERS };
 
 if (require.main === module) {
   const { createPool, migrate, waitForDb } = require('./db');

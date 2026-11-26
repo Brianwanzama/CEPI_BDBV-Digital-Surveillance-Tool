@@ -25,6 +25,10 @@ services:
         value: "true"
       - key: ALLOWED_ORIGINS
         sync: false
+      # Set to "true" for one deploy to give all demo accounts the SEED_USER_PASSWORD
+      # (if the first-start passwords were lost), then set it back to "false".
+      - key: RESET_DEMO_PASSWORDS
+        value: "false"
 databases:
   - name: bdbv-db
     plan: free

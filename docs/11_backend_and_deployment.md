@@ -107,6 +107,14 @@ The free tier sleeps when idle, and Render's free databases expire after a perio
 | `TRUST_PROXY` | no | `true` behind a reverse proxy / platform load balancer |
 | `PORT` | no | Default 8080 |
 | `TOKEN_TTL` | no | Token lifetime, default `12h` |
+| `RESET_DEMO_PASSWORDS` | no | `true` for one start: sets every demo account's password to `SEED_USER_PASSWORD` (8+ characters), logged in the audit log. Set it back to `false` afterwards |
+
+### If the site does not open or sign-in fails (Render)
+
+- **The page takes a long time or shows "waking up".** On the free plan the service sleeps after about 15 minutes without visits. The first visit after that wakes it, which can take about a minute. Wait and reload. A paid instance does not sleep.
+- **"Wrong username or password".** Demo accounts receive their password only on the very first start. If `SEED_USER_PASSWORD` was empty then, each account got a random password that was printed once in that first deploy's log (Render > the service > *Logs*, search for "Demo accounts created"). Changing `SEED_USER_PASSWORD` later does not change existing accounts. To set them: in Render > *Environment*, give `SEED_USER_PASSWORD` a value of 8+ characters and set `RESET_DEMO_PASSWORDS` to `true`, save (Render redeploys), sign in, then set `RESET_DEMO_PASSWORDS` back to `false`.
+- **Usernames** are listed in §11.3 (for example `surveillance`, `nurse.aru`, `admin.ph`).
+- **Check the server itself:** `https://<your-service>.onrender.com/api/v1/health` should return `{"status":"ok","data_mode":"synthetic",...}`.
 
 ## 11.6 GitHub Actions
 
@@ -121,7 +129,7 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 
 | Test | Result |
 |---|---|
-| `backend`: `npm test` against PostgreSQL 16 (16 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked) | 16/16 pass |
+| `backend`: `npm test` against PostgreSQL 16 (17 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset) | 17/17 pass |
 | `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; no CSP or JS errors | 7/7 pass |
 | Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |
 | Docker image build (dependencies verified at build time) and `docker compose up` | pass |

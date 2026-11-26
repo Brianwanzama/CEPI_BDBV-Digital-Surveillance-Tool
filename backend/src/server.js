@@ -2,7 +2,7 @@
 const { createPool, migrate, waitForDb } = require('./db');
 const { createApp, DATA_MODE } = require('./app');
 const { secret } = require('./auth');
-const { seedUsers, seedData } = require('./seed');
+const { seedUsers, seedData, resetDemoPasswords } = require('./seed');
 
 async function main() {
   // This version is a synthetic-data pilot: refuse to run in any other mode.
@@ -14,6 +14,7 @@ async function main() {
   await waitForDb(pool);
   await migrate(pool);
   if (process.env.SEED_DEMO === 'true') { await seedUsers(pool); await seedData(pool); }
+  if (process.env.RESET_DEMO_PASSWORDS === 'true') await resetDemoPasswords(pool, process.env.SEED_USER_PASSWORD);
   const port = +(process.env.PORT || 8080);
   const server = createApp(pool).listen(port, () => console.log('BDBV API listening on :' + port + ' (data mode: ' + DATA_MODE + ')'));
   const stop = () => { server.close(() => pool.end().then(() => process.exit(0))); };

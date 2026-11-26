@@ -11,7 +11,7 @@ process.env.LOGIN_RATE_LIMIT = '1000';
 process.env.PUBLIC_RATE_LIMIT = '3';
 const { createPool, migrate } = require('../src/db');
 const { createApp } = require('../src/app');
-const { seedUsers, seedData } = require('../src/seed');
+const { seedUsers, seedData, resetDemoPasswords } = require('../src/seed');
 
 const url = process.env.DATABASE_URL || '';
 if (!/_test(\?|$)/.test(url)) { console.error('Refusing to run: DATABASE_URL must point to a *_test database.'); process.exit(1); }
@@ -228,4 +228,13 @@ test('historical data: counts only, surveillance and administrators import, batc
   assert.strictEqual((await push(T['admin.ph'], { history: [edited] })).rejected[0].reason, 'history_rows_are_locked');
   const withdrawn = Object.assign({}, cur, { deleted: true, deleted_at: new Date().toISOString(), deleted_by: 'admin.ph' });
   assert.strictEqual((await push(T['admin.ph'], { history: [withdrawn] })).rejected.length, 0);
+});
+
+test('demo passwords can be reset from the environment (lost first-start passwords)', async () => {
+  await assert.rejects(resetDemoPasswords(pool, 'short', () => {}));
+  assert.strictEqual(await resetDemoPasswords(pool, 'New-Demo-Pass-9', () => {}), 9);
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'lab', password: 'Test-Password-1' })).status, 401);
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'lab', password: 'New-Demo-Pass-9' })).status, 200);
+  assert.ok((await pool.query("SELECT 1 FROM audit_log WHERE action = 'reset_demo_passwords'")).rows.length);
+  await resetDemoPasswords(pool, 'Test-Password-1', () => {});
 });
