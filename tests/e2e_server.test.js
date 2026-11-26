@@ -28,6 +28,13 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
     await page.waitForFunction(() => /Déconnexion|Se déconnecter|Sign out/.test(document.querySelector('#authbtn').textContent));
     await page.waitForFunction(() => !!BDBV.server.lastSync()); // first full sync finished
   };
+  const signInAs = async (u, pw) => {
+    if (!(await page.$('#loginform'))) { await page.click('[data-mode="signin"]').catch(() => {}); }
+    await page.waitForSelector('#loginform');
+    await page.fill('#login-user', u); await page.fill('#login-pass', pw); await page.click('#loginform button[type=submit]');
+    await page.waitForFunction(() => /Se déconnecter|Sign out/.test(document.querySelector('#authbtn').textContent));
+    await page.waitForFunction(() => !!BDBV.server.lastSync());
+  };
   const signOut = async () => { await page.click('#authbtn'); const yes = await page.$('#askyes'); if (yes) await yes.click(); await page.waitForSelector('#loginform'); };
 
   await page.goto(BASE + '/');
@@ -104,6 +111,56 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
   }
   ok('Excel and PDF export work under the server content-security policy');
   await signOut();
+
+  // Accounts: request on the sign-in screen -> administrator approves -> sign in; forgotten password -> temporary password -> change
+  const NEWU = 'n' + TAG.toLowerCase(), NEWPW = 'Field-pass-2026', NEWPW2 = 'Changed-pass-2027';
+  await page.click('[data-mode="request"]');
+  await page.fill('#rq-name', 'Test Nurse ' + TAG); await page.fill('#rq-contact', '+243 81 000 0000');
+  await page.selectOption('#rq-role', 'soignant'); await page.fill('#rq-work', 'CS Aru 1');
+  await page.fill('#rq-user', NEWU); await page.fill('#rq-pass', NEWPW); await page.fill('#rq-pass2', NEWPW);
+  await page.click('#reqform button[type=submit]');
+  await page.waitForSelector('#authmsg .card.ok');
+  await page.click('[data-mode="signin"]');
+  await page.fill('#login-user', NEWU); await page.fill('#login-pass', NEWPW); await page.click('#loginform button[type=submit]');
+  await page.waitForSelector('#authmsg .flag');
+  assert.ok(/waiting for the administrator|attend l'approbation/.test(await page.textContent('#authmsg')), 'pending account explained');
+  await signIn('sysadmin');
+  await page.click('[data-tab="admin"]');
+  const row = '#useradmin tr[data-u="' + NEWU + '"]';
+  await page.waitForSelector(row);
+  await page.selectOption(row + ' [data-f=role]', 'soignant');
+  await page.selectOption(row + ' [data-f=facility]', 'Z-aru-A1-F');
+  await page.click(row + ' [data-act=approve]');
+  await page.waitForFunction((r) => !document.querySelector(r + ' [data-act=approve]'), row);
+  await signOut();
+  await signInAs(NEWU, NEWPW);
+  assert.ok(/Health worker|Agent de santé/.test(await page.textContent('#who')), 'approved account signs in with its role');
+  await signOut();
+  ok('account requested on the sign-in screen, approved by the system administrator, then used');
+
+  await page.click('[data-mode="forgot"]');
+  await page.fill('#fg-user', NEWU); await page.fill('#fg-contact', '+243 81 000 0000');
+  await page.click('#fgform button[type=submit]');
+  await page.waitForSelector('#authmsg .card.ok');
+  await page.click('[data-mode="signin"]');
+  await signIn('sysadmin');
+  await page.click('[data-tab="admin"]');
+  await page.waitForSelector('#useradmin tr[data-u="' + NEWU + '"] [data-act=reset]');
+  await page.click('#useradmin tr[data-u="' + NEWU + '"] [data-act=reset]');
+  await page.waitForSelector('#useradmin .temppw');
+  const temp = (await page.textContent('#useradmin .temppw')).trim();
+  await signOut();
+  await page.fill('#login-user', NEWU); await page.fill('#login-pass', temp); await page.click('#loginform button[type=submit]');
+  await page.waitForSelector('#cpform');
+  assert.ok(await page.isHidden('#nav'), 'nothing else reachable before the password is changed');
+  await page.fill('#cp-cur', temp); await page.fill('#cp-new', NEWPW2); await page.fill('#cp-new2', NEWPW2);
+  await page.click('#cpform button[type=submit]');
+  await page.waitForSelector('#nav:not([hidden])');
+  await page.waitForFunction(() => !!BDBV.server.lastSync());
+  await signOut();
+  await signInAs(NEWU, NEWPW2);
+  await signOut();
+  ok('forgotten password: request, temporary password from the administrator, forced change, new password works');
 
   assert.deepStrictEqual(errors, [], errors.join(' | '));
   ok('no JavaScript or Content-Security-Policy errors');

@@ -5,6 +5,10 @@
  *   GET  /api/v1/health                     liveness + data mode (no auth)
  *   POST /api/v1/auth/login                 {username, password} -> {token, user}
  *   GET  /api/v1/auth/me
+ *   POST /api/v1/auth/signup                account request (no auth): pending until a system administrator approves it
+ *   POST /api/v1/auth/forgot                password reset request (no auth): handled by a system administrator
+ *   POST /api/v1/auth/change-password       {current, password}
+ *   GET  /api/v1/admin/users · POST /api/v1/admin/users/:u/(approve|reject|active|reset-password)   system administrator
  *   POST /api/v1/sync                       offline-first sync: push changes, pull updates
  *   GET  /api/v1/records/:collection        list (scoped + redacted), ?since=ISO
  *   GET  /api/v1/records/:collection/:id
@@ -19,7 +23,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const P = require('./permissions');
-const { sign, requireAuth, verifyPassword } = require('./auth');
+const { sign, requireAuth, verifyPassword, hash, passwordProblem } = require('./auth');
 const { rescore } = require('./shared');
 
 const DATA_MODE = 'synthetic';
@@ -71,8 +75,94 @@ function createApp(pool, opts = {}) {
   api.post('/auth/login', rateLimiter(+(process.env.LOGIN_RATE_LIMIT || 20), 60000), wrap(async (req, res) => {
     const u = await verifyPassword(pool, req.body.username, req.body.password);
     if (!u) { await audit({ ip: req.ip }, 'login_failed', 'user', String(req.body.username || '').slice(0, 64)); return res.status(401).json({ error: 'invalid_credentials' }); }
+    // Correct password but the account is not usable: say why (the person already proved who they are).
+    if (!u.active) { await audit({ ip: req.ip }, 'login_refused', 'user', u.username, u.status); return res.status(403).json({ error: u.status === 'pending' ? 'account_pending' : (u.status === 'rejected' ? 'account_rejected' : 'account_disabled') }); }
     req.user = u; await audit(req, 'login', 'user', u.username);
-    res.json({ token: sign(u), user: { username: u.username, role: u.role, name: u.display_name, facility: u.facility, zone: u.zone }, data_mode: DATA_MODE });
+    res.json({ token: sign(u), user: { username: u.username, role: u.role, name: u.display_name, facility: u.facility, zone: u.zone, must_change_password: !!u.must_change_password }, data_mode: DATA_MODE });
+  }));
+
+  // ---- Account requests and passwords (no e-mail or SMS service yet: an administrator handles them) ----
+  const REQUESTABLE = P.ROLES.filter((r) => r !== 'sysadmin');
+  const txt = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
+  const publicLimit = rateLimiter(+(process.env.ACCOUNT_RATE_LIMIT || 10), 3600000);
+  api.post('/auth/signup', publicLimit, wrap(async (req, res) => {
+    const b = req.body || {};
+    const username = txt(b.username, 32).toLowerCase(), name = txt(b.name, 80), contact = txt(b.contact, 120), note = txt(b.workplace, 300), role = txt(b.role, 32);
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) return res.status(400).json({ error: 'invalid_username' });
+    if (name.length < 2) return res.status(400).json({ error: 'name_required' });
+    if (contact.length < 5) return res.status(400).json({ error: 'contact_required' });
+    if (!REQUESTABLE.includes(role)) return res.status(400).json({ error: 'invalid_role' });
+    const pp = passwordProblem(b.password, username); if (pp) return res.status(400).json({ error: pp });
+    const r = await pool.query("INSERT INTO users (username, password_hash, role, display_name, active, status, contact, request_note) VALUES ($1,$2,$3,$4,false,'pending',$5,$6) ON CONFLICT (username) DO NOTHING RETURNING id",
+      [username, await hash(String(b.password)), role, name, contact, note]);
+    if (!r.rows.length) return res.status(409).json({ error: 'username_taken' });
+    await audit({ ip: req.ip }, 'account_request', 'user', username, role + (note ? ' · ' + note : ''));
+    res.status(201).json({ status: 'pending' });
+  }));
+  api.post('/auth/forgot', publicLimit, wrap(async (req, res) => {
+    const username = txt(req.body && req.body.username, 32).toLowerCase(), contact = txt(req.body && req.body.contact, 120);
+    const u = username ? (await pool.query('SELECT username FROM users WHERE username = $1', [username])).rows[0] : null;
+    if (u) await pool.query('INSERT INTO password_reset_requests (username, contact, ip) VALUES ($1,$2,$3)', [u.username, contact, req.ip]);
+    await audit({ ip: req.ip }, 'password_reset_request', 'user', username || '-', u ? 'recorded' : 'unknown username');
+    res.status(202).json({ status: 'received' }); // same answer whether or not the account exists
+  }));
+  api.post('/auth/change-password', auth, wrap(async (req, res) => {
+    const cur = await verifyPassword(pool, req.user.username, req.body && req.body.current);
+    if (!cur) return res.status(401).json({ error: 'invalid_credentials' });
+    const pw = String((req.body && req.body.password) || '');
+    const pp = passwordProblem(pw, req.user.username); if (pp) return res.status(400).json({ error: pp });
+    if (pw === String(req.body.current)) return res.status(400).json({ error: 'password_unchanged' });
+    await pool.query('UPDATE users SET password_hash = $2, must_change_password = false, password_changed_at = now() WHERE username = $1', [req.user.username, await hash(pw)]);
+    await audit(req, 'password_change', 'user', req.user.username);
+    res.json({ status: 'changed' });
+  }));
+
+  // ---- User administration (system administrator) ----
+  const adminOnly = (req, res, next) => (req.user.role === 'sysadmin' ? next() : res.status(403).json({ error: 'forbidden' }));
+  api.get('/admin/users', auth, adminOnly, wrap(async (req, res) => {
+    const users = (await pool.query('SELECT username, role, display_name, facility, zone, active, status, contact, request_note, must_change_password, created_at FROM users ORDER BY (status = \'pending\') DESC, created_at DESC')).rows;
+    const resets = (await pool.query('SELECT id, username, contact, requested_at FROM password_reset_requests WHERE handled_at IS NULL ORDER BY requested_at DESC LIMIT 200')).rows;
+    res.json({ users, resets, roles: P.ROLES });
+  }));
+  const target = async (req, res) => {
+    const u = (await pool.query('SELECT * FROM users WHERE username = $1', [txt(req.params.u, 32)])).rows[0];
+    if (!u) { res.status(404).json({ error: 'not_found' }); return null; }
+    return u;
+  };
+  api.post('/admin/users/:u/approve', auth, adminOnly, wrap(async (req, res) => {
+    const u = await target(req, res); if (!u) return;
+    const b = req.body || {}, role = txt(b.role || u.role, 32);
+    if (!P.ROLES.includes(role)) return res.status(400).json({ error: 'invalid_role' });
+    const facility = txt(b.facility, 64) || null, zone = txt(b.zone, 64) || null;
+    if (['soignant', 'clinician', 'facility_head'].includes(role) && !facility) return res.status(400).json({ error: 'facility_required' });
+    if (['zone_officer', 'reco'].includes(role) && !zone) return res.status(400).json({ error: 'zone_required' });
+    await pool.query("UPDATE users SET role = $2, facility = $3, zone = $4, active = true, status = 'active' WHERE username = $1", [u.username, role, facility, zone]);
+    await audit(req, 'account_approve', 'user', u.username, role + ' ' + (facility || zone || ''));
+    res.json({ status: 'active' });
+  }));
+  api.post('/admin/users/:u/reject', auth, adminOnly, wrap(async (req, res) => {
+    const u = await target(req, res); if (!u) return;
+    if (u.status !== 'pending') return res.status(400).json({ error: 'not_pending' });
+    await pool.query("UPDATE users SET active = false, status = 'rejected' WHERE username = $1", [u.username]);
+    await audit(req, 'account_reject', 'user', u.username);
+    res.json({ status: 'rejected' });
+  }));
+  api.post('/admin/users/:u/active', auth, adminOnly, wrap(async (req, res) => {
+    const u = await target(req, res); if (!u) return;
+    const on = !!(req.body && req.body.active);
+    if (u.username === req.user.username && !on) return res.status(400).json({ error: 'cannot_disable_self' });
+    if (u.status === 'pending' || u.status === 'rejected') return res.status(400).json({ error: 'use_approve' });
+    await pool.query('UPDATE users SET active = $2, status = $3 WHERE username = $1', [u.username, on, on ? 'active' : 'disabled']);
+    await audit(req, on ? 'account_enable' : 'account_disable', 'user', u.username);
+    res.json({ status: on ? 'active' : 'disabled' });
+  }));
+  api.post('/admin/users/:u/reset-password', auth, adminOnly, wrap(async (req, res) => {
+    const u = await target(req, res); if (!u) return;
+    const temp = crypto.randomBytes(6).toString('base64url') + '-' + crypto.randomInt(10, 99);
+    await pool.query('UPDATE users SET password_hash = $2, must_change_password = true WHERE username = $1', [u.username, await hash(temp)]);
+    await pool.query('UPDATE password_reset_requests SET handled_at = now(), handled_by = $2 WHERE username = $1 AND handled_at IS NULL', [u.username, req.user.username]);
+    await audit(req, 'password_reset', 'user', u.username, 'temporary password issued');
+    res.json({ temporary_password: temp }); // shown once to the administrator, never stored in clear
   }));
   api.get('/auth/me', auth, (req, res) => res.json({ username: req.user.username, role: req.user.role, name: req.user.display_name, facility: req.user.facility, zone: req.user.zone }));
 

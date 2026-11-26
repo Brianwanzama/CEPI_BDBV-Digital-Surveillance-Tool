@@ -82,3 +82,19 @@ CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- Accounts v0.4: requests, approval, password change and reset requests.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';       -- active | pending | rejected | disabled
+ALTER TABLE users ADD COLUMN IF NOT EXISTS contact TEXT;                                 -- phone or e-mail given at request
+ALTER TABLE users ADD COLUMN IF NOT EXISTS request_note TEXT;                            -- workplace stated at request
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+  id           SERIAL PRIMARY KEY,
+  username     TEXT NOT NULL,
+  contact      TEXT,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip           TEXT,
+  handled_at   TIMESTAMPTZ,
+  handled_by   TEXT
+);

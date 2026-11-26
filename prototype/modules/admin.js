@@ -13,11 +13,77 @@
   var LINK = { boundary: ['Selon le fichier de limites officiel (à confirmer)', 'From the official boundary file (to confirm)'], proposed: ['Proposé (à confirmer)', 'Proposed (to confirm)'], unassigned: ['Non attribué', 'Unassigned'], set_by_admin: ['Défini par l\'administrateur (à confirmer)', 'Set by administrator (to confirm)'], confirmed: ['Confirmé', 'Confirmed'] };
   var slug = function (s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
 
+  /* ---------- User accounts (deployed system only) ---------- */
+  var ROLE_SCOPE = { soignant: 'facility', clinician: 'facility', facility_head: 'facility', zone_officer: 'zone', reco: 'zone' };
+  var STATUS = { pending: ['En attente', 'Pending'], active: ['Actif', 'Active'], disabled: ['Désactivé', 'Disabled'], rejected: ['Refusé', 'Rejected'] };
+  function userAdmin(box, after) {
+    if (!box) return;
+    var head = '<h3>' + L('Comptes utilisateurs', 'User accounts') + '</h3>';
+    if (!(B.st.auth && B.st.auth.mode === 'server' && B.apiCall)) {
+      box.innerHTML = head + '<p class="note">' + L('Mode démonstration : la gestion des comptes (demandes, approbation, mots de passe temporaires) fonctionne sur le système déployé, connecté au serveur.', 'Demonstration mode: account management (requests, approval, temporary passwords) works on the deployed system, connected to the server.') + '</p>';
+      return;
+    }
+    box.innerHTML = head + '<p class="muted">' + L('Chargement…', 'Loading…') + '</p>';
+    B.apiCall('/admin/users').then(function (d) {
+      var G = B.G, pend = d.users.filter(function (u) { return u.status === 'pending'; }), others = d.users.filter(function (u) { return u.status !== 'pending'; });
+      var facOpts = G.facilities.map(function (f) { return '<option value="' + f.id + '">' + esc(f.name) + '</option>'; }).join('');
+      var zoneOpts = G.zones.filter(function (z) { return z.supplied; }).map(function (z) { return '<option value="' + z.id + '">' + esc(z.name) + '</option>'; }).join('');
+      var roleOpts = function (sel) { return d.roles.map(function (r) { return '<option value="' + r + '"' + (r === sel ? ' selected' : '') + '>' + esc(B.t('role_' + r)) + '</option>'; }).join(''); };
+      var html = head + '<p class="muted small">' + L('Les demandes de compte et de réinitialisation arrivent ici. Vérifiez l\'identité de la personne (téléphone, responsable) avant d\'approuver ou de remettre un mot de passe temporaire. Toutes les actions sont journalisées.', 'Account and password-reset requests arrive here. Check who the person is (phone, supervisor) before approving or giving a temporary password. Every action is logged.') + '</p>';
+      html += '<h4>' + L('Demandes de compte', 'Account requests') + ' (' + pend.length + ')</h4>';
+      html += pend.length ? '<div class="scroll"><table class="tbl small"><tr><th>' + L('Personne', 'Person') + '</th><th>' + L('Contact', 'Contact') + '</th><th>' + L('Structure indiquée', 'Workplace stated') + '</th><th>' + L('Fonction', 'Role') + '</th><th>' + L('FOSA / zone', 'Facility / zone') + '</th><th></th></tr>' +
+        pend.map(function (u) {
+          return '<tr data-u="' + esc(u.username) + '"><td><b>' + esc(u.display_name) + '</b><br><code>' + esc(u.username) + '</code><br><span class="muted">' + B.fmtDT(u.created_at) + '</span></td><td>' + esc(u.contact || '') + '</td><td>' + esc(u.request_note || '') + '</td><td><select data-f="role">' + roleOpts(u.role) + '</select></td>' +
+            '<td><select data-f="facility"><option value="">' + L('- FOSA -', '- facility -') + '</option>' + facOpts + '</select><br><select data-f="zone"><option value="">' + L('- zone -', '- zone -') + '</option>' + zoneOpts + '</select></td>' +
+            '<td><button class="sm primary" data-act="approve">' + L('Approuver', 'Approve') + '</button> <button class="sm ghost" data-act="reject">' + L('Refuser', 'Reject') + '</button></td></tr>';
+        }).join('') + '</table></div>' : '<p class="muted">' + L('Aucune demande en attente.', 'No pending requests.') + '</p>';
+      html += '<h4>' + L('Mots de passe oubliés', 'Forgotten passwords') + ' (' + d.resets.length + ')</h4>';
+      html += d.resets.length ? '<div class="scroll"><table class="tbl small"><tr><th>' + L('Identifiant', 'Username') + '</th><th>' + L('Contact donné', 'Contact given') + '</th><th>' + L('Demandé le', 'Requested') + '</th><th></th></tr>' +
+        d.resets.map(function (r) { return '<tr data-u="' + esc(r.username) + '"><td><code>' + esc(r.username) + '</code></td><td>' + esc(r.contact || '') + '</td><td>' + B.fmtDT(r.requested_at) + '</td><td><button class="sm" data-act="reset">' + L('Créer un mot de passe temporaire', 'Create temporary password') + '</button></td></tr>'; }).join('') + '</table></div>' : '<p class="muted">' + L('Aucune demande.', 'No requests.') + '</p>';
+      html += '<div id="tempbox"></div>';
+      html += '<details><summary>' + L('Tous les comptes', 'All accounts') + ' (' + others.length + ')</summary><div class="scroll"><table class="tbl small"><tr><th>' + L('Personne', 'Person') + '</th><th>' + L('Fonction', 'Role') + '</th><th>' + L('FOSA / zone', 'Facility / zone') + '</th><th>' + L('Statut', 'Status') + '</th><th></th></tr>' +
+        others.map(function (u) {
+          return '<tr data-u="' + esc(u.username) + '"><td><b>' + esc(u.display_name) + '</b><br><code>' + esc(u.username) + '</code></td><td>' + esc(B.t('role_' + u.role)) + '</td><td>' + esc(u.facility ? B.nm(G.facilities, u.facility) : (u.zone ? B.nm(G.zones, u.zone) : '-')) + '</td><td>' + esc(B.L.apply(null, STATUS[u.status] || [u.status, u.status])) + (u.must_change_password ? '<br><span class="muted">' + L('mot de passe temporaire', 'temporary password') + '</span>' : '') + '</td>' +
+            '<td>' + (u.status === 'active' ? '<button class="sm ghost" data-act="disable">' + L('Désactiver', 'Disable') + '</button>' : (u.status === 'disabled' ? '<button class="sm" data-act="enable">' + L('Réactiver', 'Enable') + '</button>' : '')) + ' <button class="sm ghost" data-act="reset">' + L('Mot de passe temporaire', 'Temporary password') + '</button></td></tr>';
+        }).join('') + '</table></div></details>';
+      box.innerHTML = html;
+      B.$$('[data-act]', box).forEach(function (btn) {
+        btn.onclick = function () {
+          var tr = btn.closest('tr'), u = tr.getAttribute('data-u'), act = btn.getAttribute('data-act'), path = '/admin/users/' + encodeURIComponent(u) + '/', body = {};
+          if (act === 'approve') {
+            body.role = tr.querySelector('[data-f=role]').value;
+            body.facility = tr.querySelector('[data-f=facility]').value || null;
+            body.zone = tr.querySelector('[data-f=zone]').value || null;
+            if (body.facility && !body.zone) { var fc = B.byId(G.facilities, body.facility), ar = fc && B.byId(G.areas, fc.area); if (ar) body.zone = ar.zone; }
+            var need = ROLE_SCOPE[body.role];
+            if (need === 'facility' && !body.facility) { B.notify(L('Choisissez la FOSA de cette fonction.', 'Choose the facility for this role.'), 'err'); return; }
+            if (need === 'zone' && !body.zone) { B.notify(L('Choisissez la zone de santé de cette fonction.', 'Choose the health zone for this role.'), 'err'); return; }
+            path += 'approve';
+          } else if (act === 'reject') path += 'reject';
+          else if (act === 'disable' || act === 'enable') { path += 'active'; body.active = act === 'enable'; }
+          else path += 'reset-password';
+          btn.disabled = true;
+          B.apiCall(path, { method: 'POST', body: body }).then(function (r) {
+            if (r.temporary_password) {
+              var shown = function () {
+                var tb = B.$('#tempbox', box); if (!tb) return;
+                tb.innerHTML = '<div class="card warn"><b>' + L('Mot de passe temporaire pour ', 'Temporary password for ') + esc(u) + ' :</b> <code class="temppw">' + esc(r.temporary_password) + '</code><p class="small">' + L('Transmettez-le à la personne par un canal sûr (en personne ou par téléphone). Il n\'est affiché qu\'une fois ; la personne devra le changer à la connexion.', 'Give it to the person through a safe channel (in person or by phone). It is shown only once; the person must change it when signing in.') + '</p></div>';
+              };
+              userAdmin(box, shown);
+            } else { B.notify(L('Enregistré.', 'Saved.'), 'ok'); userAdmin(box); }
+          }).catch(function (e) { btn.disabled = false; B.notify(B.authError ? B.authError(e) : String(e), 'err'); });
+        };
+      });
+      if (after) after();
+    }).catch(function (e) { box.innerHTML = head + '<p class="flag">' + esc(B.authError ? B.authError(e) : String(e)) + '</p>'; });
+  }
+
   B.VIEWS.admin = function (v) {
     if (!B.can('config')) { v.innerHTML = '<section class="card"><p>' + L('Accès réservé à l\'administrateur système.', 'System administrator only.') + '</p></section>'; return; }
     var c = cfg(), tat = B.queue.targets(), G = B.G;
     var provOpts = function (sel) { return G.provinces.map(function (p) { return '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join(''); };
     v.innerHTML = '<section class="card"><h2>' + L('Configuration du système', 'System configuration') + '</h2><p class="muted small">' + L('Chaque modification est enregistrée dans le journal d\'audit. En production, elles passent par un circuit d\'approbation (MSP / DSNIS).', 'Every change is written to the audit log. In production, changes go through an approval workflow (MoH / DSNIS).') + '</p></section>' +
+      '<section class="card" id="useradmin"></section>' +
 
       '<section class="card"><h3>1. ' + L('Hiérarchie géographique : zones de santé → provinces', 'Geographical hierarchy: health zones → provinces') + '</h3>' +
       '<p class="small">' + L('Liste 1 fournie (26 noms) chargée comme PROVINCES ; liste 2 fournie chargée comme ZONES DE SANTÉ. Les rattachements zone→province viennent du fichier de limites fourni et restent à confirmer avec la DSNIS. Point de référence : ville homonyme dans GeoNames, sinon chef-lieu de province, sinon aucun.', 'Supplied list 1 (26 names) loaded as PROVINCES; supplied list 2 loaded as HEALTH ZONES. Zone→province links come from the supplied boundary file and are still to be confirmed with DSNIS. Reference point: same-name town in GeoNames, otherwise provincial capital, otherwise none.') + '</p>' +
@@ -57,6 +123,7 @@
       B.$('#ufac', v).disabled = k !== 'facility';
     };
     B.$('#ukind', v).onchange = parentSel; parentSel();
+    userAdmin(B.$('#useradmin', v));
     var done = function (what, detail) { B.audit('config_' + what, 'config', what, detail || ''); B.save(); G.applyConfig(cfg().geo); B.notify(L('Configuration enregistrée.', 'Configuration saved.')); B.VIEWS.admin(v); };
     B.$('#gsave', v).onclick = function () {
       var g = cfg().geo; g.zone_province = g.zone_province || {}; g.confirmed = g.confirmed || {}; var n = 0;

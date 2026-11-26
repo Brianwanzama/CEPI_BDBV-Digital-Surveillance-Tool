@@ -36,7 +36,7 @@
 
   // Push unsynced local records + device audit entries, pull changes since last sync.
   function sync(full) {
-    if (!session) return Promise.resolve();
+    if (!session || (session.user && session.user.must_change_password)) return Promise.resolve();
     var d = B.db(), changes = {}, n = 0;
     COLS.forEach(function (c) { changes[c] = (d[c] || []).filter(function (x) { return !x.synced && !x.sync_error; }); n += changes[c].length; });
     var aud = (d.audit || []).filter(function (a) { return !a.up; }).slice(0, 2000);
@@ -100,11 +100,22 @@
       B.serverMode = true; applyIdentity();
       var d = B.db();
       COLS.forEach(function (c) { d[c] = (d[c] || []).filter(function (x) { return !x.demo && !x.synced; }); });
-      B.st.tab = B.ROLES[r.user.role][0];
+      // A temporary password must be replaced first; nothing is synchronised until then.
+      B.st.tab = r.user.must_change_password ? 'changepw' : B.ROLES[r.user.role][0];
       B.render();
+      return r.user.must_change_password ? null : sync(true);
+    });
+  };
+  B.serverSignup = function (req) { return api('/auth/signup', { method: 'POST', body: req }); };
+  B.serverForgot = function (req) { return api('/auth/forgot', { method: 'POST', body: req }); };
+  B.serverChangePassword = function (current, password) {
+    return api('/auth/change-password', { method: 'POST', body: { current: current, password: password } }).then(function () {
+      session.user.must_change_password = false; saveSession(); applyIdentity();
+      B.st.tab = B.ROLES[session.user.role][0]; B.render();
       return sync(true);
     });
   };
+  B.apiCall = api; // for the user-administration screen (modules/admin.js)
   B.serverLogout = function (silent) { logout(silent); };
 
   function logout(silent) {

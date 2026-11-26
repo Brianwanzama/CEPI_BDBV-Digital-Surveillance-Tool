@@ -15,7 +15,7 @@ At first launch, **synthetic demonstration data** are generated: 5 health zones,
 The app opens on a sign-in screen. Only the public can use it without an account: *Make a report* opens the public event form. Everyone else signs in.
 
 - **Without a server** (the file opened directly, or the published page) the screen lists one demonstration account per role. Click one to sign in as that role. These accounts have no password because there is nothing to protect in a browser holding only synthetic data.
-- **With the pilot server** (document 11) the screen asks for a username and password, the demonstration accounts are not offered, and the role, facility and zone come from the account on the server.
+- **With the pilot server** (document 11) the screen asks for a username and password, the demonstration accounts are not offered, and the role, facility and zone come from the account on the server. New users use *Request an account*; the system administrator approves them. *Forgot password?* sends a request that the administrator answers with a temporary password (document 11 §11.5b).
 
 *Sign out* (top right) returns to the sign-in screen. The demonstration names (N. Kahindo, J. Mapendo and so on) are fictitious and tagged [DEMO].
 

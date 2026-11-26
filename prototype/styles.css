@@ -527,3 +527,16 @@ a:hover { text-decoration-color: currentColor; }
 .tbl code { white-space: nowrap; }
 .alert.open { background: var(--card); border: 1px solid #f3c2bf; box-shadow: inset 4px 0 0 var(--risk-high); padding: 10px 12px; margin: 8px 0; }
 .alert.done { border: 1px solid var(--line); padding: 10px 12px; margin: 8px 0; }
+
+/* Sign-in: tabs, forms, text links */
+.authtabs { display: inline-flex; gap: 4px; padding: 4px; margin: 2px 0 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; }
+.authtabs button { border: 0; background: transparent; border-radius: 999px; padding: 7px 16px; font-weight: 700; color: var(--muted); min-height: 0; }
+.authtabs button[aria-selected="true"] { background: var(--card); color: var(--hl); box-shadow: 0 1px 3px rgba(15, 35, 55, .12); }
+.authform { display: grid; gap: 10px; max-width: 380px; margin-top: 10px; }
+.authform h2 { margin: 0; }
+.authform .small { margin: 0; }
+.linkbtn { background: none; border: 0; padding: 4px 0; min-height: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); justify-self: start; cursor: pointer; }
+.linkbtn:hover { text-decoration-color: currentColor; }
+.signin.one { grid-template-columns: minmax(0, 520px); justify-content: center; }
+#authmsg .card.ok, #authmsg .flag { margin-top: 10px; max-width: 520px; }
+.temppw { font-size: 16px; padding: 2px 8px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; user-select: all; }

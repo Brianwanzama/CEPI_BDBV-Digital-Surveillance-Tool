@@ -238,7 +238,8 @@
     if (!st.auth && st.role !== 'public') st.role = 'public';
     var tabs = ROLES[st.role];
     if (st.auth && st.tab === 'login') st.tab = tabs[0];
-    if (tabs.indexOf(st.tab) < 0 && st.tab !== 'result' && st.tab !== 'login') st.tab = tabs[0];
+    if (st.auth && st.auth.must_change) st.tab = 'changepw';
+    if (tabs.indexOf(st.tab) < 0 && st.tab !== 'result' && st.tab !== 'login' && !(st.tab === 'changepw' && st.auth && st.auth.mode === 'server')) st.tab = tabs[0];
     if (st.tab === 'result' && !st.auth) st.tab = 'login';
     document.documentElement.lang = st.lang;
     applyGeoLang();
@@ -255,7 +256,7 @@
     $('#net').checked = st.online;
     $('#netdot').className = 'dot ' + (st.online ? 'on' : 'off');
     $('#syncbtn').textContent = t('sync') + ' (' + pendingCount() + ' ' + t('pending') + ')';
-    $('#nav').hidden = st.tab === 'login';
+    $('#nav').hidden = st.tab === 'login' || !!(st.auth && st.auth.must_change);
     $('#nav').innerHTML = tabs.map(function (k) {
       var badge = '';
       if (k === 'alerts') { var n = db.alerts.filter(function (a) { return !a.ack && visibleAlert(a); }).length; if (n) badge = ' <span class="badge">' + n + '</span>'; }
@@ -285,7 +286,7 @@
       sysadmin: [['admin', L('Configuration (géographie, délais, prise en charge)', 'Configuration (geography, timelines, care)')], ['rules', L('Règles de score', 'Scoring rules')]]
     }[st.role];
     v.innerHTML = '<section class="card"><h2>' + esc(t('role_' + st.role)) + '</h2>' +
-      '<p class="muted">' + L('Utilisateur :', 'User:') + ' ' + esc(USERS[st.role]) + '</p>' +
+      '<p class="muted">' + L('Utilisateur :', 'User:') + ' ' + esc(USERS[st.role]) + (st.auth && st.auth.mode === 'server' ? ' · <button type="button" class="linkbtn" data-go="changepw">' + L('Changer le mot de passe', 'Change password') + '</button>' : '') + '</p>' +
       '<div class="bigbtns">' + actions.map(function (a) { return '<button class="big" data-go="' + a[0] + '">' + esc(a[1]) + '</button>'; }).join('') + '</div></section>' +
       '<section class="card disclaimer"><h3>' + L('Principes', 'Principles') + '</h3><ul>' +
       '<li>' + L('Outil d\'alerte précoce et d\'aide à la décision : <b>il ne pose pas de diagnostic</b>. Seul le laboratoire confirme une infection BDBV.', 'Early-warning and decision-support tool: <b>it does not diagnose</b>. Only the laboratory confirms BDBV infection.') + '</li>' +

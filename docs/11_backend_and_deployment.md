@@ -116,6 +116,17 @@ The free tier sleeps when idle, and Render's free databases expire after a perio
 - **Usernames** are listed in §11.3 (for example `surveillance`, `nurse.aru`, `admin.ph`).
 - **Check the server itself:** `https://<your-service>.onrender.com/api/v1/health` should return `{"status":"ok","data_mode":"synthetic",...}`.
 
+## 11.5b Accounts: sign in, request an account, forgotten password
+
+The sign-in screen has two tabs, **Sign in** and **Request an account**, and a **Forgot password?** link.
+
+- **Request an account.** The person gives their name, phone or e-mail, the role they need, their workplace, a username and a password (10+ characters with letters and digits). The account is created as *pending* and cannot be used. The system administrator sees the request under *Configuration > User accounts*, checks who the person is, chooses the role and the facility or health zone, and approves or rejects it. Self-registration without approval is deliberately not offered: accounts give access to health data, so a person must check each one. Requests are rate-limited.
+- **Forgot password.** The person gives their username and a phone or e-mail. The answer is the same whether or not the account exists, so the form cannot be used to find usernames. The request appears under *User accounts*; the administrator confirms the person's identity (for example by phone), clicks *Create temporary password* and passes it on in person or by phone. It is shown once. At the next sign-in the person must choose a new password before anything else works (the server refuses every other request until then).
+- **Change password.** Any signed-in user can change their password from the Home screen.
+- **Disable an account.** The administrator can disable and re-enable accounts; a disabled account loses access at once.
+
+Every step is in the audit log. There is no e-mail or SMS service yet, so reset links cannot be sent automatically; adding one later (with a gateway contract) would replace the manual temporary password.
+
 ## 11.6 GitHub Actions
 
 | Workflow | When | What |
@@ -129,8 +140,8 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 
 | Test | Result |
 |---|---|
-| `backend`: `npm test` against PostgreSQL 16 (17 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset) | 17/17 pass |
-| `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; no CSP or JS errors | 7/7 pass |
+| `backend`: `npm test` against PostgreSQL 16 (18 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset, account requests, approval, rejection, forgotten password, forced password change) | 18/18 pass |
+| `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; account requested on the sign-in screen and approved by the administrator; forgotten password handled with a temporary password and a forced change; no CSP or JS errors | 9/9 pass |
 | Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |
 | Docker image build (dependencies verified at build time) and `docker compose up` | pass |
 
@@ -138,7 +149,7 @@ The GitHub Actions workflows were written and checked for valid YAML, but have *
 
 ## 11.8 Not done yet (needed before real data or scale)
 
-- User administration screens (create/deactivate accounts, reset passwords), password policy, two-factor authentication. Demo accounts are seeded.
+- Two-factor authentication, automatic password reset by SMS or e-mail (needs a gateway), password expiry. Account requests, approval and temporary passwords are in place (§11.5b).
 - Server-side SMS alerts and escalation (needs an SMS gateway contract), and attachment storage for rumour photos.
 - Backups and restore procedure, monitoring and alerting, log retention policy.
 - Field-level merge of concurrent edits. Currently the first writer wins and the second gets the server copy.

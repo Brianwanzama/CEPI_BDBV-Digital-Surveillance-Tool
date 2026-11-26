@@ -213,3 +213,52 @@
     'Demo lab technician': 'Fundi wa maabara wa majaribio', 'Demo facility head': 'Mkuu wa kituo wa majaribio', 'Demo HZ surveillance officer': 'Afisa wa ufuatiliaji wa eneo wa majaribio', 'Demo public health administrator': 'Msimamizi wa afya ya umma wa majaribio', 'Demo system administrator': 'Msimamizi wa mfumo wa majaribio', 'Classified as suspected case': 'Ameainishwa kama mgonjwa anayeshukiwa', 'Follow-up closed': 'Ufuatiliaji umefungwa'
   };
 })();
+
+// Accounts: sign-in tabs, account requests, forgotten and changed passwords (v0.4).
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, {
+    'Request an account': 'Omba akaunti',
+    'Demonstration mode: no server is connected, so this request is not sent. On the deployed system it goes to the system administrator.': 'Hali ya majaribio: hakuna seva iliyounganishwa, kwa hiyo ombi hili halitumwi. Katika mfumo halisi linamfikia msimamizi wa mfumo.',
+    'Your request is reviewed by the system administrator, who assigns your role and workplace. You can sign in once it is approved.': 'Ombi lako linakaguliwa na msimamizi wa mfumo, anayekupa jukumu na mahali pa kazi. Utaweza kuingia likishaidhinishwa.',
+    'Full name': 'Jina kamili',
+    'Phone or e-mail': 'Simu au barua pepe',
+    'Role requested': 'Jukumu unaloomba',
+    'Workplace / health zone': 'Mahali pa kazi / eneo la afya',
+    'e.g. HC Aru 1, HZ Aru': 'mf. KA Aru 1, EA Aru',
+    'Password (10+ characters, letters and digits)': 'Nenosiri (herufi 10 au zaidi, herufi na tarakimu)',
+    'Confirm password': 'Thibitisha nenosiri',
+    'Send request': 'Tuma ombi',
+    'Forgot password': 'Umesahau nenosiri',
+    'Enter your username and a way to reach you. The system administrator checks who you are and gives you a temporary password, which you change at your first sign-in.': 'Andika jina lako la mtumiaji na namna ya kukufikia. Msimamizi wa mfumo anathibitisha wewe ni nani na anakupa nenosiri la muda, ambalo utalibadilisha unapoingia mara ya kwanza.',
+    'Send': 'Tuma',
+    'Back': 'Rudi',
+    'Forgot password?': 'Umesahau nenosiri?',
+    'Demonstration mode: request not sent (no server).': 'Hali ya majaribio: ombi halikutumwa (hakuna seva).',
+    'Request sent. The system administrator will review it; you can sign in once it is approved.': 'Ombi limetumwa. Msimamizi wa mfumo atalikagua; utaweza kuingia likishaidhinishwa.',
+    'Request received. If this account exists, the system administrator will contact you with a temporary password.': 'Ombi limepokelewa. Ikiwa akaunti hii ipo, msimamizi wa mfumo atakuwasiliana nawe na nenosiri la muda.',
+    'Account': 'Akaunti',
+    'Change password': 'Badilisha nenosiri',
+    'You are using a temporary password. Choose your own password to continue.': 'Unatumia nenosiri la muda. Chagua nenosiri lako mwenyewe ili kuendelea.',
+    'Current password': 'Nenosiri la sasa',
+    'New password (10+ characters, letters and digits)': 'Nenosiri jipya (herufi 10 au zaidi, herufi na tarakimu)',
+    'Confirm new password': 'Thibitisha nenosiri jipya',
+    'Cancel': 'Ghairi',
+    'Password changed.': 'Nenosiri limebadilishwa.',
+    'Your account request is waiting for the administrator\'s approval.': 'Ombi lako la akaunti linasubiri idhini ya msimamizi.',
+    'This account request was refused. Contact the administrator.': 'Ombi hili la akaunti limekataliwa. Wasiliana na msimamizi.',
+    'This account is disabled. Contact the administrator.': 'Akaunti hii imezimwa. Wasiliana na msimamizi.',
+    'This username is already taken. Choose another one.': 'Jina hili la mtumiaji tayari linatumika. Chagua jingine.',
+    'Username: 3 to 32 characters, lower-case letters, digits, dot, dash.': 'Jina la mtumiaji: herufi 3 hadi 32, herufi ndogo, tarakimu, nukta, kistari.',
+    'Password: at least 10 characters.': 'Nenosiri: angalau herufi 10.',
+    'The password must contain letters and digits.': 'Nenosiri lazima liwe na herufi na tarakimu.',
+    'The password must not contain the username.': 'Nenosiri lisiwe na jina la mtumiaji.',
+    'Choose a password different from the current one.': 'Chagua nenosiri tofauti na la sasa.',
+    'Enter your name.': 'Andika jina lako.',
+    'Enter a phone number or e-mail.': 'Andika namba ya simu au barua pepe.',
+    'Choose a role.': 'Chagua jukumu.',
+    'Too many attempts. Try again later.': 'Majaribio mengi mno. Jaribu tena baadaye.',
+    'The two passwords do not match.': 'Manenosiri mawili hayalingani.',
+    'English': 'English', 'Français': 'Français', 'Kiswahili': 'Kiswahili'
+  });
+})();

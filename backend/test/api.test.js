@@ -238,3 +238,46 @@ test('demo passwords can be reset from the environment (lost first-start passwor
   assert.ok((await pool.query("SELECT 1 FROM audit_log WHERE action = 'reset_demo_passwords'")).rows.length);
   await resetDemoPasswords(pool, 'Test-Password-1', () => {});
 });
+
+test('accounts: request, approval, rejection, forgotten password, temporary password must be changed', async () => {
+  // request an account (no sign-in)
+  assert.strictEqual((await call('POST', '/auth/signup', { username: 'Bad Name', password: 'abcdefgh12', name: 'X', contact: '+243 000', role: 'lab' })).body.error, 'invalid_username');
+  assert.strictEqual((await call('POST', '/auth/signup', { username: 'new.nurse', password: 'short1', name: 'New Nurse', contact: '+243 81 000 0000', role: 'soignant' })).body.error, 'password_too_short');
+  assert.strictEqual((await call('POST', '/auth/signup', { username: 'new.nurse', password: 'Good-pass-123', name: 'New Nurse', contact: '+243 81 000 0000', role: 'sysadmin' })).body.error, 'invalid_role');
+  const s = await call('POST', '/auth/signup', { username: 'new.nurse', password: 'Good-pass-123', name: 'New Nurse', contact: '+243 81 000 0000', role: 'soignant', workplace: 'CS Aru 1' });
+  assert.strictEqual(s.status, 201);
+  assert.strictEqual((await call('POST', '/auth/signup', { username: 'new.nurse', password: 'Good-pass-123', name: 'Other', contact: '+243 81 000 0001', role: 'lab' })).status, 409);
+  // pending: correct password, refused with a clear reason; wrong password stays generic
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'new.nurse', password: 'Good-pass-123' })).body.error, 'account_pending');
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'new.nurse', password: 'wrong-pass-1' })).body.error, 'invalid_credentials');
+  // only the system administrator manages accounts
+  assert.strictEqual((await call('GET', '/admin/users', null, T['surveillance'])).status, 403);
+  const list = await call('GET', '/admin/users', null, T['sysadmin']);
+  assert.ok(list.body.users.find((u) => u.username === 'new.nurse' && u.status === 'pending' && !('password_hash' in u)));
+  assert.strictEqual((await call('POST', '/admin/users/new.nurse/approve', { role: 'soignant' }, T['sysadmin'])).body.error, 'facility_required');
+  assert.strictEqual((await call('POST', '/admin/users/new.nurse/approve', { role: 'soignant', facility: 'Z-aru-A1-F', zone: 'Z-aru' }, T['sysadmin'])).status, 200);
+  const login = await call('POST', '/auth/login', { username: 'new.nurse', password: 'Good-pass-123' });
+  assert.strictEqual(login.status, 200); assert.strictEqual(login.body.user.role, 'soignant');
+  // rejection
+  await call('POST', '/auth/signup', { username: 'spam.user', password: 'Good-pass-456', name: 'Spam', contact: 'x@example.org', role: 'decideur' });
+  assert.strictEqual((await call('POST', '/admin/users/spam.user/reject', {}, T['sysadmin'])).status, 200);
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'spam.user', password: 'Good-pass-456' })).body.error, 'account_rejected');
+  // forgotten password: same answer for unknown users; administrator issues a temporary password
+  assert.strictEqual((await call('POST', '/auth/forgot', { username: 'nobody.here', contact: '1' })).status, 202);
+  assert.strictEqual((await call('POST', '/auth/forgot', { username: 'new.nurse', contact: '+243 81 000 0000' })).status, 202);
+  assert.ok((await call('GET', '/admin/users', null, T['sysadmin'])).body.resets.some((r) => r.username === 'new.nurse'));
+  const temp = (await call('POST', '/admin/users/new.nurse/reset-password', {}, T['sysadmin'])).body.temporary_password;
+  assert.ok(temp && temp.length >= 8);
+  assert.ok(!(await call('GET', '/admin/users', null, T['sysadmin'])).body.resets.some((r) => r.username === 'new.nurse'), 'request marked handled');
+  const tl = await call('POST', '/auth/login', { username: 'new.nurse', password: temp });
+  assert.strictEqual(tl.body.user.must_change_password, true);
+  assert.strictEqual((await call('POST', '/sync', {}, tl.body.token)).body.error, 'password_change_required', 'nothing else until the password is changed');
+  assert.strictEqual((await call('POST', '/auth/change-password', { current: temp, password: 'short' }, tl.body.token)).body.error, 'password_too_short');
+  assert.strictEqual((await call('POST', '/auth/change-password', { current: temp, password: 'Brand-new-pass-77' }, tl.body.token)).status, 200);
+  assert.strictEqual((await call('POST', '/sync', {}, tl.body.token)).status, 200);
+  // disable / enable; the administrator cannot disable their own account
+  assert.strictEqual((await call('POST', '/admin/users/sysadmin/active', { active: false }, T['sysadmin'])).body.error, 'cannot_disable_self');
+  await call('POST', '/admin/users/new.nurse/active', { active: false }, T['sysadmin']);
+  assert.strictEqual((await call('POST', '/auth/login', { username: 'new.nurse', password: 'Brand-new-pass-77' })).body.error, 'account_disabled');
+  assert.ok((await pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action IN ('account_request','account_approve','account_reject','password_reset','password_change','account_disable')")).rows[0].n >= 6);
+});
