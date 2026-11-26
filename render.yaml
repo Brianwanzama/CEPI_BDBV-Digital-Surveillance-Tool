@@ -5,6 +5,7 @@ services:
   - type: web
     name: bdbv-api
     runtime: docker
+    plan: free          # change to a paid plan for an always-on pilot (the free plan sleeps when idle)
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/v1/health
     envVars:
