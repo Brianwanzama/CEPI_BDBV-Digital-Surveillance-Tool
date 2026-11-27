@@ -24,6 +24,7 @@ An integrated design and working prototype to strengthen early detection of **Bu
 | 9 | v2 gap analysis, architecture, schema, permissions, tab layout | [docs/09_v2_gap_analysis_and_design.md](docs/09_v2_gap_analysis_and_design.md) |
 | 10 | v2 implementation status, tests, outstanding issues | [docs/10_v2_implementation_status.md](docs/10_v2_implementation_status.md) |
 | 11 | Backend, hosting and GitHub workflow | [docs/11_backend_and_deployment.md](docs/11_backend_and_deployment.md) |
+| 12 | Information flow and where each role checks | [docs/12_information_flow_and_roles.md](docs/12_information_flow_and_roles.md) |
 | – | Assumptions register | [docs/00_assumptions_and_open_questions.md](docs/00_assumptions_and_open_questions.md) |
 | – | References | [docs/references.md](docs/references.md) |
 
