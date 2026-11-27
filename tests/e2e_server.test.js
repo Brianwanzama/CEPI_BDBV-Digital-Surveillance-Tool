@@ -40,7 +40,7 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
   await page.goto(BASE + '/');
   await page.waitForSelector('#loginform');
   assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 0, 'no demo accounts when a server is connected');
-  assert.strictEqual(await page.$$eval('[data-pick]', (b) => b.length), 9, 'role cards shown on the real system');
+  assert.strictEqual(await page.$$eval('[data-pick]', (b) => b.length), 10, 'role cards shown on the real system');
   await page.click('[data-pick="sysadmin"]');
   assert.strictEqual(await page.inputValue('#login-user'), 'sysadmin', 'clicking a role fills in the username');
   assert.ok(await page.evaluate(() => document.activeElement.id === 'login-pass'), 'cursor moves to the password');

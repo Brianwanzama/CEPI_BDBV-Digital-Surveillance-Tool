@@ -8,7 +8,8 @@
  *  - redact(): fields removed before data leave the server
  */
 
-const ROLES = ['reco', 'soignant', 'clinician', 'surveillant', 'lab', 'facility_head', 'zone_officer', 'decideur', 'sysadmin'];
+const ROLES = ['reco', 'soignant', 'clinician', 'surveillant', 'lab', 'lab_manager', 'facility_head', 'zone_officer', 'decideur', 'sysadmin'];
+const LAB = ['lab', 'lab_manager'];
 const COLLECTIONS = ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours', 'history'];
 const HISTORY = ['surveillant', 'zone_officer', 'decideur'];
 const VERIFY = ['surveillant', 'zone_officer'];
@@ -17,22 +18,22 @@ const CONTACT_NAMES = ['surveillant', 'zone_officer'];
 const FACILITY_ROLES = ['soignant', 'clinician', 'facility_head'];
 
 const READ = {
-  assessments: ['soignant', 'clinician', 'surveillant', 'lab', 'facility_head', 'zone_officer', 'decideur'],
+  assessments: ['soignant', 'clinician', 'surveillant', 'lab', 'lab_manager', 'facility_head', 'zone_officer', 'decideur'],
   reports: ['reco', 'soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
   alerts: ['soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
   queue: ['reco', 'soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
   contacts: ['soignant', 'clinician', 'surveillant', 'facility_head', 'zone_officer', 'decideur'],
-  samples: ['soignant', 'clinician', 'surveillant', 'lab', 'facility_head', 'zone_officer', 'decideur'],
+  samples: ['soignant', 'clinician', 'surveillant', 'lab', 'lab_manager', 'facility_head', 'zone_officer', 'decideur'],
   rumours: ['reco', 'surveillant', 'zone_officer', 'decideur'],
   history: HISTORY
 };
 const WRITE = {
-  assessments: { create: ['soignant', 'clinician'], update: ['soignant', 'clinician', 'lab', 'surveillant', 'zone_officer'] },
+  assessments: { create: ['soignant', 'clinician'], update: ['soignant', 'clinician', 'lab', 'lab_manager', 'surveillant', 'zone_officer'] },
   reports: { create: ['reco'], update: ['reco', 'surveillant', 'zone_officer'] },
   alerts: { create: ['soignant', 'clinician'], update: ['soignant', 'clinician', 'surveillant', 'zone_officer'] },
   queue: { create: ['reco', 'soignant', 'clinician', 'surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer'] },
   contacts: { create: ['surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer', 'soignant', 'clinician'] },
-  samples: { create: ['soignant', 'clinician', 'lab'], update: ['soignant', 'clinician', 'lab'] },
+  samples: { create: ['soignant', 'clinician', 'lab', 'lab_manager'], update: ['soignant', 'clinician', 'lab', 'lab_manager'] },
   rumours: { create: ['reco', 'soignant', 'clinician', 'surveillant', 'zone_officer'], update: ['surveillant', 'zone_officer'] },
   history: { create: HISTORY, update: HISTORY }
 };
@@ -55,6 +56,9 @@ function scopeWhere(user, collection, params) {
 }
 
 const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+// For guarded fields an empty string, null and a missing field all mean "not filled in".
+const blank = (x) => x === undefined || x === null || x === '';
+const differs = (a, b) => !(blank(a) && blank(b)) && !same(a, b);
 const PROTECTED_CLASS = ['confirmed', 'lab_negative'];
 
 // Imported historical data must be counts only: [week, province, zone, P-code, 6 non-negative integers].
@@ -83,8 +87,8 @@ function guard(user, collection, incoming, stored) {
   if (collection === 'assessments') {
     const cNew = incoming.classification && incoming.classification.status;
     const cOld = old.classification && old.classification.status;
-    if (cNew !== cOld && (PROTECTED_CLASS.includes(cNew) || PROTECTED_CLASS.includes(cOld)) && user.role !== 'lab') return 'only_lab_can_set_lab_classification';
-    if (user.role === 'lab') {
+    if (cNew !== cOld && (PROTECTED_CLASS.includes(cNew) || PROTECTED_CLASS.includes(cOld)) && user.role !== 'lab_manager' && user.role !== 'lab') return 'only_lab_can_set_lab_classification';
+    if (LAB.includes(user.role)) {
       const allowed = ['lab', 'classification', 'synced'];
       const changed = Object.keys(Object.assign({}, incoming, old)).filter((k) => !allowed.includes(k) && !same(incoming[k], old[k]));
       if (changed.length) return 'lab_may_only_change_lab_fields:' + changed.join(',');
@@ -96,9 +100,12 @@ function guard(user, collection, incoming, stored) {
     }
   }
   if (collection === 'samples') {
-    const resultFields = ['result', 'released_at', 'released_by'];
-    if (user.role !== 'lab' && resultFields.some((f) => !same(incoming[f], old[f]))) return 'only_lab_can_release_results';
-    if (incoming.status === 'result_released' && old.status !== 'result_released' && user.role !== 'lab') return 'only_lab_can_release_results';
+    // Laboratory staff enter results; only the laboratory manager approves and releases them.
+    const resultFields = ['result', 'method', 'ct', 'tested_by', 'tested_at', 'result_note'];
+    const releaseFields = ['released_at', 'released_by', 'approved_at', 'approved_by'];
+    if (!LAB.includes(user.role) && resultFields.some((f) => differs(incoming[f], old[f]))) return 'only_lab_can_enter_results';
+    if (user.role !== 'lab_manager' && releaseFields.some((f) => differs(incoming[f], old[f]))) return 'only_lab_manager_can_release_results';
+    if (['result_released', 'repeat_required'].includes(incoming.status) && incoming.status !== old.status && user.role !== 'lab_manager') return 'only_lab_manager_can_release_results';
   }
   if (collection === 'queue' && stored) {
     const fields = ['stages', 'outcome', 'findings', 'duplicate_of', 'urgent', 'linked'];
@@ -143,4 +150,4 @@ function scopeOf(collection, data, lookup) {
   return { zone: g.zone || null, facility: g.facility || null };
 }
 
-module.exports = { ROLES, COLLECTIONS, VERIFY, SEE_NAMES, canRead, canWrite, scopeWhere, guard, redact, scopeOf };
+module.exports = { LAB, ROLES, COLLECTIONS, VERIFY, SEE_NAMES, canRead, canWrite, scopeWhere, guard, redact, scopeOf };

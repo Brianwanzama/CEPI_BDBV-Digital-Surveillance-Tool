@@ -16,7 +16,7 @@ const assert = require('assert');
   const role = async (r) => { assert.ok(await page.evaluate((x) => BDBVApp.signInDemoRole(x), r), 'sign in ' + r); };
   // Sign-in screen: only the public can use the app without an account.
   assert.ok(await page.isHidden('#nav'));
-  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 9);
+  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 10);
   await page.click('#go-public');
   assert.deepStrictEqual(await page.$$eval('#nav .tab', b => b.map(x => x.getAttribute('data-tab'))), ['rumour']);
   await page.click('#authbtn');
@@ -119,25 +119,38 @@ const assert = require('assert');
   assert.deepStrictEqual(ct2, { status: 'suspected', cat: 'RED', link: true });
   ok('contact registered → fever at follow-up → referred → triage pre-filled → RED → contact classified suspected');
 
-  // ---- Laboratory (§5) ----
+  // ---- Laboratory (§5): request -> sample details -> result by tester -> approval by manager ----
   const newCase = await db((id) => BDBV.db().contacts.find(x => x.id === id).referred_assessment, ct.id);
   await tab('lab');
-  assert.strictEqual(await page.$('#lresb'), null, 'health worker cannot release results');
-  await page.click('#lnew summary');
-  await page.fill('[name=scase]', newCase); await page.fill('[name=scoll]', new Date(Date.now() - 2 * 3600000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
-  await page.click('#lform button[type=submit]'); await page.waitForSelector('#ldetail h3');
-  assert.strictEqual(await db((id) => BDBV.db().assessments.find(a => a.id === id).classification.status, newCase), 'suspected', 'sample collection does not confirm');
-  await role('lab'); await tab('lab');
+  assert.strictEqual(await page.$('#lres'), null, 'health worker cannot enter results');
+  await page.fill('[name=rcase]', newCase); await page.selectOption('[name=rprio]', 'urgent');
+  await page.click('#lreq button[type=submit]'); await page.waitForSelector('#ldetail:not([hidden]) h3');
   const sid = await db((id) => BDBV.labApi.latest(id).id, newCase);
-  await page.click('[data-sopen="' + sid + '"]');
-  await page.selectOption('#lns', 'in_transit'); await page.fill('#lfrom', 'FOSA Aru 1'); await page.fill('#lto', 'Transporteur'); await page.click('#lnsb');
-  await page.click('[data-sopen="' + sid + '"]');
-  await page.selectOption('#lns', 'received'); await page.click('#lnsb');
-  await page.click('[data-sopen="' + sid + '"]');
-  await page.selectOption('#lres', 'positive'); await page.click('#lresb'); await page.click('#askyes');
-  const lab = await db((id) => { const s = BDBV.labApi.latest(id); const a = BDBV.db().assessments.find(x => x.id === id); return { st: s.status, custody: s.custody.length, cls: a.classification.status, by: s.released_by }; }, newCase);
-  assert.strictEqual(lab.st, 'result_released'); assert.ok(lab.custody >= 4); assert.strictEqual(lab.cls, 'confirmed'); assert.ok(/Ndjoli/.test(lab.by), 'released by the signed-in lab user: ' + lab.by);
-  ok('sample registered → custody chain → result released by lab only → case confirmed only then');
+  assert.strictEqual(await db((id) => BDBV.labApi.latest(id).status, newCase), 'requested');
+  await role('lab'); await tab('lab');
+  await page.click('[data-lgrp="req"]');
+  await page.click('tr[data-sopen="' + sid + '"]');
+  assert.ok(new RegExp(newCase).test(await page.textContent('#ldetail')), 'request linked to the case automatically');
+  await page.fill('[name=lid]', 'BUN-2026-0153'); await page.selectOption('[name=ltype]', 'whole_blood');
+  await page.check('[name=lkind][value=external]'); await page.selectOption('[name=lref]', { index: 2 });
+  await page.click('#lcoll button[type=submit]');
+  assert.strictEqual(await db((id) => BDBV.labApi.latest(id).status, newCase), 'in_transit');
+  await page.click('#lrecv'); // the sample's details stay open after each step
+  await page.selectOption('[name=rres]', 'positive'); await page.fill('[name=rct]', '24.5');
+  await page.click('#lres button[type=submit]'); await page.click('#askyes');
+  const entered = await db((id) => { const s = BDBV.labApi.latest(id); const a = BDBV.db().assessments.find(x => x.id === id); return { st: s.status, tester: s.tested_by, cls: a.classification.status }; }, newCase);
+  assert.deepStrictEqual([entered.st, entered.cls], ['result_entered', 'suspected'], 'entered result does not confirm before approval');
+  assert.ok(/Ndjoli/.test(entered.tester), 'tester = signed-in account');
+  assert.strictEqual(await page.$('#lappr'), null, 'tester cannot approve');
+  await role('lab_manager'); await tab('lab');
+  await page.click('[data-lgrp="appr"]'); await page.click('tr[data-sopen="' + sid + '"]');
+  await page.click('#lappr'); await page.click('#askyes');
+  const lab = await db((id) => { const s = BDBV.labApi.latest(id); const a = BDBV.db().assessments.find(x => x.id === id); return { st: s.status, custody: s.custody.length, cls: a.classification.status, by: s.approved_by, labId: s.lab_id, ref: s.testing_site.name }; }, newCase);
+  assert.strictEqual(lab.st, 'result_released'); assert.ok(lab.custody >= 6); assert.strictEqual(lab.cls, 'confirmed'); assert.ok(/Kasongo/.test(lab.by), 'approved by the lab manager: ' + lab.by);
+  assert.strictEqual(lab.labId, 'BUN-2026-0153'); assert.ok(lab.ref);
+  const [labRep] = await Promise.all([page.waitForEvent('download'), page.click('#lpdf')]);
+  assert.ok(/rapport_labo_BUN-2026-0153\.pdf$/.test(labRep.suggestedFilename()), 'individual report');
+  ok('laboratory: clinician request → lab ID, sample type, collection time, referral lab → result by tester → approved by lab manager → case confirmed only then; individual PDF report');
 
   // ---- Case management (§6) ----
   await role('clinician'); await tab('casemgmt');

@@ -21,6 +21,7 @@
     ['clinician.aru', 'clinician', 'Dr K. Lusamba', 'Z-aru-A1-F', 'Z-aru'],
     ['surveillance', 'surveillant', 'J. Mapendo', null, null],
     ['lab', 'lab', 'P. Ndjoli', null, null],
+    ['labmgr', 'lab_manager', 'B. Kasongo', null, null],
     ['head.aru', 'facility_head', 'M. Furaha', 'Z-aru-A1-F', 'Z-aru'],
     ['zone.aru', 'zone_officer', 'R. Kambale', null, 'Z-aru'],
     ['admin.ph', 'decideur', 'A. Baraka', null, null],
@@ -86,7 +87,38 @@
     return err && err.status ? L('Erreur du serveur (' + code + ').', 'Server error (' + code + ').') : L('Serveur injoignable. Réessayez.', 'Server unreachable. Try again.');
   };
   var mode = 'signin'; // signin | request | forgot
-  var REQ_ROLES = ['soignant', 'clinician', 'reco', 'surveillant', 'zone_officer', 'lab', 'facility_head', 'decideur'];
+
+  // Slowly drifting virus particles behind the sign-in panels (decorative; still when motion is reduced).
+  var particleRun = 0;
+  function particles(cv) {
+    if (!cv || !cv.getContext) return;
+    var run = ++particleRun, ctx = cv.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var col = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#0f3d5e';
+    var P = [], n = window.innerWidth < 700 ? 8 : 16, w = 0, h = 0, last = 0;
+    function size() { w = cv.clientWidth; h = cv.clientHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    size();
+    for (var i = 0; i < n; i++) P.push({ x: Math.random() * w, y: Math.random() * h, r: 7 + Math.random() * 15, vx: (Math.random() - .5) * 0.18, vy: (Math.random() - .5) * 0.18, a: Math.random() * 6.28, va: (Math.random() - .5) * 0.004, o: 0.09 + Math.random() * 0.1 });
+    function draw(p) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.globalAlpha = p.o; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(1, p.r / 9);
+      ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 6.2832); ctx.stroke();
+      for (var k = 0; k < 10; k++) { var t = k * 0.6283, x1 = Math.cos(t) * p.r, y1 = Math.sin(t) * p.r, x2 = Math.cos(t) * p.r * 1.45, y2 = Math.sin(t) * p.r * 1.45; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.beginPath(); ctx.arc(x2, y2, p.r / 8, 0, 6.2832); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(p.r * .25, -p.r * .2, p.r / 6, 0, 6.2832); ctx.arc(-p.r * .3, p.r * .25, p.r / 7, 0, 6.2832); ctx.fill();
+      ctx.restore();
+    }
+    function frame(ts) {
+      if (run !== particleRun || !document.body.contains(cv)) return; // stops when the sign-in screen is left
+      if (cv.clientWidth !== w || cv.clientHeight !== h) size();
+      if (!document.hidden && ts - last > 33) {
+        last = ts; ctx.clearRect(0, 0, w, h);
+        P.forEach(function (p) { p.x += p.vx; p.y += p.vy; p.a += p.va; if (p.x < -40) p.x = w + 40; if (p.x > w + 40) p.x = -40; if (p.y < -40) p.y = h + 40; if (p.y > h + 40) p.y = -40; draw(p); });
+      }
+      requestAnimationFrame(frame);
+    }
+    if (still) { P.forEach(draw); return; }
+    requestAnimationFrame(frame);
+  }
+  var REQ_ROLES = ['soignant', 'clinician', 'reco', 'surveillant', 'zone_officer', 'lab', 'lab_manager', 'facility_head', 'decideur'];
 
   B.VIEWS.login = function (v) {
     var srv = B.server || {}, checking = srv.checking, server = srv.available, deployed = !!srv.deployed;
@@ -138,7 +170,8 @@
     html += '<div id="authmsg" aria-live="polite"></div></section><section class="panel signin-public"><p class="eyebrow">' + L('Pas de compte nécessaire', 'No account needed') + '</p><h2>' + L('Signaler un évènement de santé', 'Report a health event') + '</h2>' +
       '<p>' + L('Un décès inexpliqué, plusieurs malades dans une famille, une inhumation à risque ? Tout le monde peut le signaler, de façon anonyme si vous le souhaitez.', 'An unexplained death, several sick people in one family, a risky burial? Anyone can report it, anonymously if you wish.') + '</p>' +
       '<button class="big" id="go-public">' + L('Faire un signalement', 'Make a report') + '</button></section></div>';
-    v.innerHTML = html;
+    v.innerHTML = '<canvas class="particles" aria-hidden="true"></canvas>' + html;
+    particles(B.$('canvas.particles', v));
     var msg = function (text, kind) { B.$('#authmsg', v).innerHTML = '<p class="' + (kind === 'ok' ? 'card ok' : 'flag') + '">' + esc(text) + '</p>'; };
     B.$('#login-lang', v).onchange = function () { B.st.lang = this.value; try { localStorage.setItem('bdbv_proto_lang', this.value); } catch (e) { /* ignore */ } B.render(); };
     B.$('#go-public', v).onclick = B.reportAsPublic;

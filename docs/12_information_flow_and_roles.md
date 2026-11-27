@@ -36,8 +36,10 @@ flowchart LR
 
 | Step | Who | Tab |
 |---|---|---|
-| Register the sample and follow collection and transport | Health worker / Clinician / Laboratory | Laboratory |
-| Receive, test and release the result (only the laboratory can release) | Laboratory personnel | Laboratory |
+| Request a test for the case (or tick "sample requested" on the alert) | Health worker / Clinician | Laboratory, Alerts |
+| Assign the lab ID, record sample type, collection date and time, and on-site testing or the referral laboratory | Laboratory personnel | Laboratory |
+| Enter the result (the signed-in account is recorded as the tester) | Laboratory personnel | Laboratory |
+| Approve and release the result (only the manager can) | Laboratory manager | Laboratory |
 | Case classified from the result; clinician sees it | Clinician | Case management, Assessments |
 | Confirmed case visible without the name | Surveillance officer, public health administrator | Map, Reports |
 
@@ -76,7 +78,8 @@ flowchart LR
 | Clinician (`clinician.aru`) | Triage, Assessments, Case management, Alerts, Laboratory | Several times a day | Medium-risk patients to review; lab results; care status and transfers |
 | Surveillance officer (`surveillance`) | Verification, Contacts, Map, Dashboard, Rumours, Analysis, Historical data, Reports, Assessments, Alerts, Scoring rules | Queue continuously; contacts daily | New and overdue alerts; contacts due for a visit; unusual increases on the map |
 | HZ surveillance officer (`zone.aru`) | Verification, Contacts, Map, Dashboard, Facility dashboard, Rumours, Analysis, Historical data, Reports, Audit log | Daily, for the zone | The zone's queue and contacts; facilities with delays |
-| Laboratory personnel (`lab`) | Laboratory, Reports | When samples arrive; daily | Samples in transit or waiting; results to release |
+| Laboratory personnel (`lab`) | Laboratory, Reports | When requests and samples arrive; daily | New requests; samples in transit; results to enter |
+| Laboratory manager (`labmgr`) | Laboratory, Reports | Several times a day | Results awaiting approval; repeat tests |
 | Facility head (`head.aru`) | Facility dashboard, Reports | Daily | Unacknowledged alerts, patients not reviewed, samples not sent |
 | Public health administrator (`admin.ph`) | Map, Dashboard, Rumours, Analysis, Historical data, Reports | Daily or weekly | Where high-risk patients and cases are; trends against earlier waves (aggregate only) |
 | System administrator (`sysadmin`) | Configuration, Scoring rules, Audit log | Daily | Account requests and forgotten passwords; settings; audit log |
@@ -88,4 +91,4 @@ flowchart LR
 - Facility heads and administrators see counts and indicators, not people.
 - A RECO sees only its own reports. Public reporters can stay anonymous.
 
-The system supports decisions; it does not diagnose. Only the laboratory confirms a BDBV infection, and the clinician's judgement always prevails.
+The system supports decisions; it does not diagnose. Only a laboratory result approved by the laboratory manager confirms a BDBV infection, and the clinician's judgement always prevails.

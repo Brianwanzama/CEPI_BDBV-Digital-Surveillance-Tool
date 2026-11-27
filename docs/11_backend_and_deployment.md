@@ -46,7 +46,8 @@ The API container also serves the web app, so **one deployment is enough**. GitH
 | `nurse.aru` | Health worker | CS Aru 1 (demo) |
 | `clinician.aru` | Clinician | CS Aru 1 (demo) |
 | `surveillance` | Surveillance officer | all, pseudonymised |
-| `lab` | Laboratory | samples; cases pseudonymised |
+| `lab` | Laboratory | samples, enters results; cases pseudonymised |
+| `labmgr` | Laboratory manager | approves and releases results; cases pseudonymised |
 | `head.aru` | Facility head | CS Aru 1, no names |
 | `zone.aru` | HZ surveillance officer | health zone Aru |
 | `admin.ph` | Prov./national administrator | aggregate views |
@@ -101,7 +102,8 @@ The free tier sleeps when idle, and Render's free databases expire after a perio
 | `DATABASE_URL` | yes | PostgreSQL connection string (add `?sslmode=require` for managed databases that need TLS) |
 | `JWT_SECRET` | yes | Token signing secret, 32+ characters. Keep it secret; changing it signs everyone out |
 | `DATA_MODE` | no | Must be `synthetic` (the only supported value) |
-| `SEED_DEMO` | no | `true`: create demo accounts and synthetic data on first start |
+| `SEED_DEMO` | no | `true`: create the demo accounts on first start |
+| `SEED_DEMO_DATA` | no | `true`: add synthetic records. Anything else (the Render setting is `false`): the system starts empty, and records marked as demonstration are removed at each start. Records entered by people are never removed |
 | `SEED_USER_PASSWORD` | no | Password for all demo accounts (otherwise random, printed once) |
 | `ALLOWED_ORIGINS` | no | Comma-separated origins allowed to call the API from a browser (e.g. GitHub Pages) |
 | `TRUST_PROXY` | no | `true` behind a reverse proxy / platform load balancer |
@@ -127,6 +129,12 @@ The sign-in screen has two tabs, **Sign in** and **Request an account**, and a *
 
 Every step is in the audit log. There is no e-mail or SMS service yet, so reset links cannot be sent automatically; adding one later (with a gateway contract) would replace the manual temporary password.
 
+## 11.5c Live data flow
+
+Each save is sent to the server within about a second, and every signed-in screen asks the server for new information every 30 seconds (every 2 minutes in a hidden tab, and at once when the tab is shown again or the connection returns). Nobody needs to press Sync or reload. The header shows a "Live" pill with the time of the last exchange; a notice tells each person what has arrived for them. Offline, records stay on the device and go at the next connection, as before.
+
+`tests/e2e_flow.test.js` checks this on a running server with accounts created through *Request an account* and approved by the administrator: seven people keep their screens open and the test waits for each item to arrive (nurse → clinician's alerts and the surveillance and zone queues; clinician's test request → laboratory; laboratory result → laboratory manager; approval → clinician, case confirmed; RECO report → surveillance; acknowledgement → zone officer).
+
 ## 11.6 GitHub Actions
 
 | Workflow | When | What |
@@ -140,8 +148,10 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 
 | Test | Result |
 |---|---|
-| `backend`: `npm test` against PostgreSQL 16 (18 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, lab-only results, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset, account requests, approval, rejection, forgotten password, forced password change) | 18/18 pass |
+| `backend`: `npm test` against PostgreSQL 16 (18 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, results entered by the laboratory and released only by the laboratory manager, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset, account requests, approval, rejection, forgotten password, forced password change) | 18/18 pass |
 | `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; account requested on the sign-in screen and approved by the administrator; forgotten password handled with a temporary password and a forced change; a deployment never falls back to demonstration accounts (retries the server instead); no CSP or JS errors | 10/10 pass |
+| `tests/e2e_flow.test.js` against an empty server (`SEED_DEMO_DATA=false`): seven new accounts, information passed from person to person without Sync or reload (see §11.5c) | 10/10 pass |
+| Start-up with `SEED_DEMO_DATA=false` after a start with synthetic data: 1,267 demonstration records removed, a record entered by hand kept | pass |
 | Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |
 | Docker image build (dependencies verified at build time) and `docker compose up` | pass |
 

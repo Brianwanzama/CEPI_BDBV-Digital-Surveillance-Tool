@@ -77,7 +77,7 @@
         var stopped = false;
         chain.forEach(function (c2) { if (stopped) return; var t = t0 + c2[0] * HOUR; if (t > now) { stopped = true; return; } B.labApi.setStatus(s, c2[1], c2[1] === 'in_transit' ? 'FOSA' : '', c2[1] === 'received' ? 'Laboratoire provincial (démo)' : '', 'P. Ndjoli [DEMO]', iso(t)); });
         var rel = t0 + (site.kind === 'onsite' ? 8 : 30) * HOUR;
-        if (!stopped && rel < now) B.labApi.release(s, labRes === 'pos' ? 'positive' : 'negative', 'RT-PCR (GeneXpert)', '', 'P. Ndjoli [DEMO]', iso(rel));
+        if (!stopped && rel < now) B.labApi.release(s, labRes === 'pos' ? 'positive' : 'negative', 'RT-PCR (GeneXpert)', '', 'P. Ndjoli [DEMO]', iso(rel), 'B. Kasongo [DEMO]');
         s.synced = true;
         if (a.classification.status === 'confirmed') {
           step(rel - t0 + 2 * HOUR, 'isolation_care', ETC, 'key:to_etc') && (ageD > 9 && step((r() < 0.36 ? 6 : 16) * DAY, r() < 0.36 ? 'deceased' : 'discharged', ETC));

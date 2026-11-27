@@ -19,6 +19,9 @@ services:
         value: synthetic
       - key: SEED_DEMO
         value: "true"
+      # The deployment starts empty: people enter the data. "true" adds synthetic records.
+      - key: SEED_DEMO_DATA
+        value: "false"
       - key: SEED_USER_PASSWORD
         sync: false
       - key: TRUST_PROXY

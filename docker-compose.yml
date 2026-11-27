@@ -28,6 +28,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (32+ characters)}
       DATA_MODE: synthetic
       SEED_DEMO: ${SEED_DEMO:-true}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}

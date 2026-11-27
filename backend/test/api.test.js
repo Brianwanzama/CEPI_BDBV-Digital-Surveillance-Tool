@@ -35,7 +35,7 @@ test.before(async () => {
   await seedData(pool, () => {});
   server = createApp(pool, { serveApp: false }).listen(0);
   base = 'http://127.0.0.1:' + server.address().port + '/api/v1';
-  for (const u of ['reco.aru', 'nurse.aru', 'clinician.aru', 'surveillance', 'lab', 'head.aru', 'zone.aru', 'admin.ph', 'sysadmin']) T[u] = await login(u);
+  for (const u of ['reco.aru', 'nurse.aru', 'clinician.aru', 'surveillance', 'lab', 'labmgr', 'head.aru', 'zone.aru', 'admin.ph', 'sysadmin']) T[u] = await login(u);
 });
 test.after(async () => { server.close(); await pool.end(); });
 
@@ -114,20 +114,35 @@ test('permissions on writes: wrong role, wrong owner, protected fields', async (
   assert.strictEqual(r3.rejected[0].reason, 'only_lab_can_set_lab_classification');
 });
 
-test('laboratory: only lab staff release results; confirmation follows release', async () => {
-  const s = { id: 'SMP-TEST-0001', case_id: 'BDB-TEST-0001', type: 'whole_blood', collected_at: new Date().toISOString(), collection_place: 'CS Aru 1', collector: 'nurse', testing_site: { kind: 'external', name: 'Lab' }, status: 'collected', result: null, released_at: null, released_by: null, custody: [] };
+test('laboratory: request by clinician, result entered by lab, released only by the lab manager', async () => {
+  const s = { id: 'SMP-TEST-0001', lab_id: '', case_id: 'BDB-TEST-0001', status: 'requested', request: { by: 'nurse', at: new Date().toISOString(), note: '', priority: 'urgent' }, type: '', collected_at: null, collection_place: 'CS Aru 1', collector: '', testing_site: { kind: '', name: '' }, received_at: null, method: '', ct: '', result: null, result_note: '', tested_by: null, tested_at: null, approved_by: null, approved_at: null, released_at: null, released_by: null, custody: [] };
   assert.deepStrictEqual((await push(T['nurse.aru'], { samples: [s] })).accepted.samples, ['SMP-TEST-0001']);
   const pulled = (await pull(T['nurse.aru'])).records.samples.find((x) => x.id === 'SMP-TEST-0001');
-  const bad = await push(T['nurse.aru'], { samples: [Object.assign({}, pulled, { status: 'result_released', result: 'positive', released_at: new Date().toISOString(), released_by: 'nurse' })] });
-  assert.strictEqual(bad.rejected[0].reason, 'only_lab_can_release_results');
+  const bad = await push(T['nurse.aru'], { samples: [Object.assign({}, pulled, { status: 'result_entered', result: 'positive', tested_by: 'nurse' })] });
+  assert.strictEqual(bad.rejected[0].reason, 'only_lab_can_enter_results');
+  // the lab sees the request (no names), records the sample and enters the result
   const forLab = (await pull(T.lab)).records;
   const ls = forLab.samples.find((x) => x.id === 'SMP-TEST-0001'), la = forLab.assessments.find((x) => x.id === 'BDB-TEST-0001');
+  assert.ok(ls && ls.status === 'requested', 'request reaches the laboratory');
   assert.ok(la.person.redacted, 'lab sees no names');
-  const ok = await push(T.lab, { samples: [Object.assign({}, ls, { status: 'result_released', result: 'positive', released_at: new Date().toISOString(), released_by: 'lab' })], assessments: [Object.assign({}, la, { classification: { status: 'confirmed', by: 'lab' }, lab: { status: 'pos' } })] });
+  const entered = Object.assign({}, ls, { lab_id: 'BUN-2026-0001', type: 'whole_blood', collected_at: new Date().toISOString(), testing_site: { kind: 'external', name: 'INRB Goma' }, status: 'result_entered', result: 'positive', method: 'RT-PCR (GeneXpert)', tested_by: 'P. Ndjoli', tested_at: new Date().toISOString() });
+  assert.deepStrictEqual((await push(T.lab, { samples: [entered] })).rejected, []);
+  // the tester cannot release it
+  const ls2 = (await pull(T.lab)).records.samples.find((x) => x.id === 'SMP-TEST-0001');
+  const selfRelease = await push(T.lab, { samples: [Object.assign({}, ls2, { status: 'result_released', released_at: new Date().toISOString(), released_by: 'lab', approved_by: 'lab', approved_at: new Date().toISOString() })] });
+  assert.strictEqual(selfRelease.rejected[0].reason, 'only_lab_manager_can_release_results');
+  // the laboratory manager approves: released, case confirmed
+  const forMgr = (await pull(T.labmgr)).records;
+  const ms = forMgr.samples.find((x) => x.id === 'SMP-TEST-0001'), ma = forMgr.assessments.find((x) => x.id === 'BDB-TEST-0001');
+  assert.strictEqual(ms.status, 'result_entered');
+  const now = new Date().toISOString();
+  const ok = await push(T.labmgr, { samples: [Object.assign({}, ms, { status: 'result_released', approved_by: 'B. Kasongo', approved_at: now, released_by: 'B. Kasongo', released_at: now })], assessments: [Object.assign({}, ma, { classification: { status: 'confirmed', by: 'labmgr' }, lab: { status: 'pos' } })] });
   assert.deepStrictEqual(ok.rejected, []);
   const row = (await pool.query("SELECT data FROM records WHERE id = 'BDB-TEST-0001'")).rows[0].data;
   assert.strictEqual(row.classification.status, 'confirmed');
-  assert.strictEqual(row.person.first, 'Score', 'redacted copy from lab did not erase the name');
+  assert.strictEqual(row.person.first, 'Score', 'redacted copy from the lab did not erase the name');
+  // the clinician gets the released result
+  assert.strictEqual((await pull(T['clinician.aru'])).records.samples.find((x) => x.id === 'SMP-TEST-0001').status, 'result_released');
   const lab2 = (await pull(T.lab)).records.assessments.find((x) => x.id === 'BDB-TEST-0001');
   const sneaky = await push(T.lab, { assessments: [Object.assign({}, lab2, { care: { status: 'discharged' } })] });
   assert.match(sneaky.rejected[0].reason, /^lab_may_only_change_lab_fields/);
@@ -232,7 +247,7 @@ test('historical data: counts only, surveillance and administrators import, batc
 
 test('demo passwords can be reset from the environment (lost first-start passwords)', async () => {
   await assert.rejects(resetDemoPasswords(pool, 'short', () => {}));
-  assert.strictEqual(await resetDemoPasswords(pool, 'New-Demo-Pass-9', () => {}), 9);
+  assert.strictEqual(await resetDemoPasswords(pool, 'New-Demo-Pass-9', () => {}), 10);
   assert.strictEqual((await call('POST', '/auth/login', { username: 'lab', password: 'Test-Password-1' })).status, 401);
   assert.strictEqual((await call('POST', '/auth/login', { username: 'lab', password: 'New-Demo-Pass-9' })).status, 200);
   assert.ok((await pool.query("SELECT 1 FROM audit_log WHERE action = 'reset_demo_passwords'")).rows.length);

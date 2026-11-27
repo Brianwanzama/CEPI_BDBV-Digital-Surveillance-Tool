@@ -170,6 +170,7 @@
   var BREAKS = [1, 3, 6, 11, 21];
   var BREAK_LBL = ['1–2', '3–5', '6–10', '11–20', '21+'];
   // Colour index of a unit: risk level for the risk view, count class otherwise.
+  function pulseNote() { return '<div class="mscale-row pnote"><span class="pring" aria-hidden="true"></span><span>' + L('Nouveaux patients à risque élevé (48 h)', 'New high-risk patients (48 h)') + '</span></div>'; }
   function shadeIndex(ind, k, vals) { if (ind === 'risk') { var l = vals.riskLvl[k]; return l ? l - 1 : -1; } return klass(vals[ind][k]); }
   // What a table cell shows for one indicator and unit.
   function cellHTML(ind, k, vals) {
@@ -381,12 +382,27 @@
       return '<label class="check"><input type="checkbox" data-layer="' + l + '"' + (mf.layers[l] ? ' checked' : '') + '><svg width="22" height="22" viewBox="0 0 22 22">' + glyph(Lr.shape === 'ring' ? 'ring' : Lr.shape, 11, 11, Lr.shape === 'ring' ? -2 : 6, Lr.color) + '</svg> <b>' + Lr.group + '</b> ' + esc(L(Lr.fr, Lr.en)) + '</label>';
     }).join('') + '<div class="small">' + L('Couleur des cas : ', 'Case colour: ') + '<span style="color:' + CLS_COLOR.suspected + '">● ' + L('suspect', 'suspected') + '</span> <span style="color:' + CLS_COLOR.probable + '">● ' + L('probable', 'probable') + '</span> <span style="color:' + CLS_COLOR.confirmed + '">● ' + L('confirmé', 'confirmed') + '</span></div></div>';
   }
+  // Pulsing ring where new high-risk patients were assessed in the last 48 hours of the period.
+  function pulseLayer() {
+    if (!cur || !cur.all) return '';
+    var end = cur.range[1].getTime(), since = end - 2 * DAY, keys = {}, s = 1 / zoomScale();
+    cur.all.forEach(function (it) {
+      if (it.layer !== 'triage' || it.cat !== 'RED') return;
+      var t = new Date(it.date).getTime(); if (!(t >= since && t <= end)) return;
+      var k = unitKey(it.geo, mf.level); if (k) keys[k] = (keys[k] || 0) + 1;
+    });
+    return Object.keys(keys).map(function (k) {
+      var u = UNITS[k], c = u && u.feature.properties.c, a = !c ? anchor({ zone: k.slice(2) }, mf.level) : null;
+      var p = c ? proj(c[0], c[1]) : (a ? proj(a.lon, a.lat) : null); if (!p) return '';
+      return '<g class="pulse"><circle cx="' + p[0].toFixed(2) + '" cy="' + p[1].toFixed(2) + '" r="' + (7 * s).toFixed(2) + '" vector-effect="non-scaling-stroke"/><title>' + esc((u ? unitName(u) : k) + ' : ' + keys[k] + ' ' + L('nouveau(x) patient(s) à risque élevé (48 h)', 'new high-risk patient(s) (48 h)')) + '</title></g>';
+    }).join('');
+  }
   function scaleLegend() {
     var r = IND[mf.ind].ramp;
     if (IND[mf.ind].risk) return '<div class="mscale"><b>' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + '</b><div class="mscale-row"><span class="sw sw0"></span><span>' + L('aucune évaluation', 'no assessment') + '</span>' +
-      RISK_ORDER.map(function (c) { return '<span class="sw" style="background:' + RISK[c] + '"></span><span>' + esc(B.t(c)) + '</span>'; }).join('') + '</div></div>';
+      RISK_ORDER.map(function (c) { return '<span class="sw" style="background:' + RISK[c] + '"></span><span>' + esc(B.t(c)) + '</span>'; }).join('') + '</div>' + pulseNote() + '</div>';
     return '<div class="mscale"><b>' + esc(L(IND[mf.ind].fr, IND[mf.ind].en)) + '</b><div class="mscale-row"><span class="sw sw0"></span><span>0</span>' +
-      r.map(function (c, i) { return '<span class="sw" style="background:' + c + '"></span><span>' + BREAK_LBL[i] + '</span>'; }).join('') + '</div></div>';
+      r.map(function (c, i) { return '<span class="sw" style="background:' + c + '"></span><span>' + BREAK_LBL[i] + '</span>'; }).join('') + '</div>' + pulseNote() + '</div>';
   }
 
   // Weekly series of the current indicator for one unit (12 weeks ending at the end of the period).
@@ -428,7 +444,7 @@
       '<details class="mfilter"><summary>' + L('Filtrer par zone géographique et classification', 'Filter by area and classification') + '</summary><div data-geoholder="m_">' + B.geoFields('m_', mf.geo, false, B.t('all')) + '</div>' +
       '<div class="vbar small">' + L('Classification : ', 'Classification: ') + ['suspected', 'probable', 'confirmed'].map(function (c) { return '<label class="check"><input type="checkbox" data-cls="' + c + '"' + (mf.cls[c] ? ' checked' : '') + '> ' + esc(B.L.apply(null, B.CLASS[c])) + '</label>'; }).join('') + '</div></details>' +
       '<div class="mapwrap"><div class="mapbox" id="mapbox">' +
-      '<svg class="dmap zm lvl-' + mf.level + '" id="msvg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + L('Carte de la RDC', 'Map of the DRC') + '">' + baseLayers() + '<g id="msel"></g><g id="mglyph"></g><g id="mlabels"></g></svg>' +
+      '<svg class="dmap zm lvl-' + mf.level + '" id="msvg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + L('Carte de la RDC', 'Map of the DRC') + '">' + baseLayers() + '<g id="msel"></g><g id="mpulse"></g><g id="mglyph"></g><g id="mlabels"></g></svg>' +
       '<div class="mzoom" role="group" aria-label="' + L('Zoom', 'Zoom') + '"><button type="button" data-z="in" title="' + L('Zoom avant', 'Zoom in') + '">+</button><button type="button" data-z="out" title="' + L('Zoom arrière', 'Zoom out') + '">−</button><button type="button" data-z="reset" title="' + L('Vue entière', 'Whole country') + '"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>' +
       (document.fullscreenEnabled ? '<button type="button" data-z="full" title="' + L('Plein écran', 'Full screen') + '"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1 5V1h4M15 5V1h-4M1 11v4h4M15 11v4h-4M5 5h6v6H5z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>' : '') + '</div>' +
       '<div class="mtip" id="mtip" hidden></div><div id="mscale"></div></div>' +
@@ -485,7 +501,7 @@
     if (mf.days !== 'all') { var len = range[1] - range[0]; prevAll = collectAll([new Date(range[0] - len), range[0]]); }
     if (mf.compare && prevAll) prevAgg = aggregate(prevAll.filter(function (it) { return mf.layers[it.layer]; }));
     var vals = values(all, mf.level, range), prevVals = prevAll ? values(prevAll, mf.level, [new Date(range[0] - (range[1] - range[0])), range[0]]) : null;
-    Object.assign(cur, { range: range, items: items, agg: agg, prevAgg: prevAgg, vals: vals, prevVals: prevVals });
+    Object.assign(cur, { range: range, items: items, all: all, agg: agg, prevAgg: prevAgg, vals: vals, prevVals: prevVals });
 
     // shading
     var ramp = IND[mf.ind].ramp, iv = vals[mf.ind];
@@ -526,6 +542,7 @@
   function redrawOverlays() {
     var v = cur && cur.v; if (!v || !cur.agg) return;
     B.$('#mglyph', v).innerHTML = mf.symbols ? glyphLayer(cur.agg, cur.prevAgg, true) : '';
+    B.$('#mpulse', v).innerHTML = pulseLayer();
     B.$('#mlabels', v).innerHTML = labelLayer(cur.vals[mf.ind]);
     B.$('#msel', v).innerHTML = selOutline();
     B.$$('#mglyph [data-mk]', v).forEach(function (g) {

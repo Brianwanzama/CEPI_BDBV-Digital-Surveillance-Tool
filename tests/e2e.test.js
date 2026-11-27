@@ -18,7 +18,7 @@ const assert = require('assert');
   assert.strictEqual(await page.inputValue('#lang'), 'en', 'English by default');
   // Everyone except the public signs in first: the app opens on the sign-in screen.
   assert.ok(await page.isHidden('#nav'), 'no navigation before sign-in');
-  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 9, 'one demo account per role');
+  assert.strictEqual(await page.$$eval('[data-demo]', (b) => b.length), 10, 'one demo account per role');
   await page.selectOption('#lang', 'en');
   assert.ok(/Sign in/.test(await page.textContent('#view')) && /Health worker/.test(await page.textContent('#view')), 'sign-in screen in English');
   await page.click('[data-demo="nurse.aru"]');

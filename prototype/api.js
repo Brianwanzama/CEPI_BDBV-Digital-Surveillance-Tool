@@ -38,13 +38,21 @@
   }
 
   // Push unsynced local records + device audit entries, pull changes since last sync.
-  function sync(full) {
+  var syncing = null, again = false, lastOk = null;
+  function pendingLocal() { var d = B.db(); return COLS.reduce(function (s, c) { return s + (d[c] || []).filter(function (x) { return !x.synced && !x.sync_error; }).length; }, 0); }
+  function sync(full, quiet) {
     if (!session || (session.user && session.user.must_change_password)) return Promise.resolve();
+    if (syncing) { again = true; return syncing; }
+    syncing = doSync(full, quiet).then(function (r) { syncing = null; if (again) { again = false; return sync(false, true); } return r; }, function (e) { syncing = null; throw e; });
+    return syncing;
+  }
+  function doSync(full, quiet) {
     var d = B.db(), changes = {}, n = 0;
     COLS.forEach(function (c) { changes[c] = (d[c] || []).filter(function (x) { return !x.synced && !x.sync_error; }); n += changes[c].length; });
     var aud = (d.audit || []).filter(function (a) { return !a.up; }).slice(0, 2000);
     changes.audit = aud;
-    setStatus(L('Synchronisation…', 'Synchronising…'));
+    if (!quiet) setStatus(L('Synchronisation…', 'Synchronising…'));
+    var before = {}; COLS.forEach(function (c) { before[c] = {}; (d[c] || []).forEach(function (x) { before[c][x.id] = x._v || 0; }); });
     return api('/sync', { method: 'POST', body: { since: full ? null : session.lastSync, changes: changes } }).then(function (res) {
       aud.forEach(function (a) { a.up = true; });
       Object.keys(res.accepted || {}).forEach(function (c) { res.accepted[c].forEach(function (id) { var x = B.byId(d[c], id); if (x) x.synced = true; }); });
@@ -68,17 +76,23 @@
         mergeConfig(res.config);
         session.lastSync = res.server_time; saveSession(); B.save();
         var rej = (res.rejected || []).filter(function (r) { return r.reason !== 'conflict'; });
+        lastOk = new Date(); B.server.live = true;
+        // What is new for this person (records they did not have, or that changed)?
+        var fresh = {}, nFresh = 0;
+        COLS.forEach(function (c) { fresh[c] = (res.records[c] || []).filter(function (r) { return !(r.id in before[c]) || before[c][r.id] !== (r._v || 0); }); nFresh += fresh[c].length; });
+        if (!full && nFresh) B.newsFrom(fresh);
         setStatus('');
-        B.render();
+        if (full || n || nFresh || conflicts.length || rej.length) B.refresh(); else B.render({ chromeOnly: true });
         var msg = n + L(' envoyé(s)', ' sent') + ' · ' + COLS.reduce(function (s, c) { return s + (res.records[c] || []).length; }, 0) + L(' reçu(s)', ' received');
         if (conflicts.length) msg += ' · ' + conflicts.length + L(' conflit(s) : version du serveur conservée', ' conflict(s): server version kept');
         if (rej.length) msg += ' · ' + rej.length + L(' refusé(s) par le serveur : ', ' refused by the server: ') + rej.slice(0, 3).map(function (r) { return r.id + ' (' + r.reason + ')'; }).join(', ');
-        B.notify(msg, rej.length ? 'err' : '');
+        if (!quiet || rej.length || conflicts.length) B.notify(msg, rej.length ? 'err' : '');
+        else if (n) B.notify(n + L(' envoyé(s) au serveur', ' sent to the server'), 'ok');
       });
     }).catch(function (e) {
-      setStatus('');
+      setStatus(''); B.server.live = false; B.render({ chromeOnly: true });
       if (e.status === 401) { B.notify(L('Session expirée : reconnectez-vous.', 'Session expired: sign in again.'), 'err'); logout(true); return; }
-      B.notify(L('Synchronisation impossible (réseau ou serveur). Les données restent sur l\'appareil.', 'Sync failed (network or server). Data stay on the device.'), 'err');
+      if (!quiet) B.notify(L('Synchronisation impossible (réseau ou serveur). Les données restent sur l\'appareil.', 'Sync failed (network or server). Data stay on the device.'), 'err');
     });
   }
   B.serverSync = function () { if (!session) return false; if (!B.st.online) { B.notify(L('Hors ligne : la synchronisation se fera au retour du réseau.', 'Offline: sync will run when the network returns.'), 'err'); return true; } sync(false); return true; };
@@ -119,6 +133,41 @@
     });
   };
   B.apiCall = api; // for the user-administration screen (modules/admin.js)
+
+  // Send new records straight after they are saved (no need to press Sync).
+  var pushTimer = null;
+  B.afterSave = function () {
+    if (!session || !B.st.online || syncing) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () { if (pendingLocal()) sync(false, true); }, 800);
+  };
+  B.server.lastOk = function () { return lastOk; };
+  // "Live" indicator in the header (deployed system, signed in).
+  B.renderLive = function () {
+    var el = document.getElementById('liveind'); if (!el) return;
+    if (!session || !B.st.auth || B.st.auth.mode !== 'server') { el.hidden = true; return; }
+    el.hidden = false;
+    var waiting = pendingLocal();
+    var on = B.st.online && B.server.live !== false && lastOk;
+    el.className = 'liveind ' + (on ? 'on' : 'off');
+    el.title = lastOk ? L('Dernière mise à jour ', 'Last update ') + lastOk.toLocaleTimeString() : '';
+    el.innerHTML = '<span class="pulse" aria-hidden="true"></span>' + (on ? L('En direct', 'Live') + ' · ' + lastOk.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : L('Hors ligne', 'Offline')) + (waiting ? ' · ' + waiting + L(' en attente', ' waiting') : '');
+  };
+
+  // Tell the person what arrived that concerns them.
+  B.newsFrom = function (fresh) {
+    var role = B.st.role, parts = [];
+    var count = function (c, f) { return (fresh[c] || []).filter(f || function () { return true; }).length; };
+    var add = function (n, fr, en) { if (n) parts.push(n + ' ' + L(fr, en)); };
+    if (['soignant', 'clinician', 'facility_head'].indexOf(role) >= 0) add(count('alerts', function (a) { return !a.ack; }), 'alerte(s) à risque élevé', 'high-risk alert(s)');
+    if (['surveillant', 'zone_officer'].indexOf(role) >= 0) add(count('queue', function (q) { return !q.stages || !q.stages.acknowledged; }), 'nouvelle(s) alerte(s) à vérifier', 'new alert(s) to verify');
+    if (['lab', 'lab_manager'].indexOf(role) >= 0) add(count('samples', function (s) { return s.status === 'requested'; }), 'demande(s) de test', 'test request(s)');
+    if (role === 'lab_manager') add(count('samples', function (s) { return s.status === 'result_entered'; }), 'résultat(s) à approuver', 'result(s) to approve');
+    if (['soignant', 'clinician'].indexOf(role) >= 0) add(count('samples', function (s) { return s.status === 'result_released'; }), 'résultat(s) de laboratoire', 'laboratory result(s)');
+    if (['soignant', 'clinician'].indexOf(role) >= 0) add(count('contacts', function (c) { return c.status === 'referred'; }), 'contact(s) référé(s)', 'referred contact(s)');
+    if (role === 'reco') add(count('queue', function (q) { return q.stages && q.stages.completed; }), 'rapport(s) vérifié(s)', 'report(s) verified');
+    if (parts.length) B.notify(L('Nouveau : ', 'New: ') + parts.join(' · '), 'ok');
+  };
   B.serverLogout = function (silent) { logout(silent); };
 
   function logout(silent) {
@@ -155,7 +204,10 @@
   document.addEventListener('DOMContentLoaded', function () {
     if (!base) { B.server.checking = false; return; }
     checkServer();
-    // Background sync every 2 minutes while signed in and online.
-    setInterval(function () { if (session && B.st.online) sync(false); }, 120000);
+    // Live: check the server every 30 s while the page is visible (every 2 min when hidden).
+    var tick = 0;
+    setInterval(function () { tick++; if (!session || !B.st.online || !B.server.available) return; if (document.hidden && tick % 4) return; sync(false, true); }, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && session && B.st.online) sync(false, true); });
+    window.addEventListener('online', function () { if (session) sync(false, true); });
   });
 })();

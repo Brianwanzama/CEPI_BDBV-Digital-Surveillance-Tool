@@ -17,6 +17,7 @@ const USERS = [
   ['clinician.aru', 'clinician', 'Dr K. Lusamba [DEMO]', 'Z-aru-A1-F', 'Z-aru'],
   ['surveillance', 'surveillant', 'J. Mapendo [DEMO]', null, null],
   ['lab', 'lab', 'P. Ndjoli [DEMO]', null, null],
+  ['labmgr', 'lab_manager', 'B. Kasongo [DEMO]', null, null],
   ['head.aru', 'facility_head', 'M. Furaha [DEMO]', 'Z-aru-A1-F', 'Z-aru'],
   ['zone.aru', 'zone_officer', 'R. Kambale [DEMO]', null, 'Z-aru'],
   ['admin.ph', 'decideur', 'A. Baraka [DEMO]', null, null],
@@ -85,7 +86,18 @@ async function resetDemoPasswords(pool, pw, log = console.log) {
   return r.rowCount;
 }
 
-module.exports = { seedUsers, seedData, resetDemoPasswords, USERS };
+// Remove the generated demonstration records (marked demo: true). Records entered by people stay.
+async function removeDemoRecords(pool, log = console.log) {
+  const r = await pool.query("DELETE FROM records WHERE data->>'demo' = 'true' RETURNING collection, id");
+  if (r.rowCount) {
+    await pool.query("DELETE FROM record_history h WHERE NOT EXISTS (SELECT 1 FROM records x WHERE x.collection = h.collection AND x.id = h.id) AND h.data->>'demo' = 'true'");
+    await pool.query("INSERT INTO audit_log (username, role, action, entity, detail) VALUES ('system', 'system', 'remove_demo_records', 'records', $1)", [r.rowCount + ' demonstration record(s)']);
+    log('Demonstration records removed: ' + r.rowCount + ' (SEED_DEMO_DATA is not "true").');
+  }
+  return r.rowCount;
+}
+
+module.exports = { seedUsers, seedData, resetDemoPasswords, removeDemoRecords, USERS };
 
 if (require.main === module) {
   const { createPool, migrate, waitForDb } = require('./db');

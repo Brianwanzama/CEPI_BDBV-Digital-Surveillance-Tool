@@ -307,7 +307,7 @@ function createApp(pool, opts = {}) {
   api.get('/config', auth, wrap(async (req, res) => res.json(await loadConfig())));
   api.put('/config', auth, wrap(async (req, res) => {
     if (req.user.role !== 'sysadmin') return res.status(403).json({ error: 'forbidden' });
-    const v = req.body || {}, allowed = ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override'];
+    const v = req.body || {}, allowed = ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs'];
     const clean = {}; allowed.forEach((k) => { if (v[k] !== undefined) clean[k] = v[k]; });
     if (clean.home_care_permitted && String(clean.home_care_ref || '').trim().length < 3) return res.status(400).json({ error: 'protocol_reference_required' });
     await pool.query("INSERT INTO config (key, value, updated_by) VALUES ('app', $1, $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now(), updated_by = $2", [clean, req.user.username]);

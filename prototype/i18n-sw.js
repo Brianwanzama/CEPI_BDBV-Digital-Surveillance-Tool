@@ -21,7 +21,7 @@
     app_sub: 'Mfano wa majaribio - husaidia kufanya uamuzi, haubadilishi uamuzi wa mhudumu wa afya',
     proto_banner: 'MFANO WA MAJARIBIO - kanuni za alama ni za MUDA, hazijathibitishwa. Usitumie kwa maamuzi halisi.',
     role: 'Wajibu', role_reco: 'RECO (mjumbe wa jamii)', role_soignant: 'Mhudumu wa afya (kituo)', role_surveillant: 'Afisa wa ufuatiliaji', role_decideur: 'Msimamizi wa afya ya umma (jimbo/taifa)',
-    role_public: 'Umma (kuripoti tukio)', role_clinician: 'Daktari / mhudumu wa matibabu', role_lab: 'Mfanyakazi wa maabara', role_facility_head: 'Mkuu wa kituo cha afya', role_zone_officer: 'Afisa wa ufuatiliaji wa eneo la afya', role_sysadmin: 'Msimamizi wa mfumo',
+    role_public: 'Umma (kuripoti tukio)', role_clinician: 'Daktari / mhudumu wa matibabu', role_lab: 'Mfanyakazi wa maabara', role_lab_manager: 'Msimamizi wa maabara', role_facility_head: 'Mkuu wa kituo cha afya', role_zone_officer: 'Afisa wa ufuatiliaji wa eneo la afya', role_sysadmin: 'Msimamizi wa mfumo',
     online: 'Mtandaoni', offline: 'Nje ya mtandao', sync: 'Tuma data', pending: 'zinasubiri',
     tab_home: 'Mwanzo', tab_triage: 'Uchunguzi', tab_patients: 'Tathmini', tab_alerts: 'Tahadhari', tab_reco: 'Ripoti ya RECO', tab_myreports: 'Ripoti zangu', tab_verify: 'Uthibitisho', tab_dashboard: 'Dashibodi', tab_rules: 'Kanuni za alama', tab_audit: 'Kumbukumbu za ukaguzi', tab_result: 'Matokeo',
     tab_rumour: 'Ripoti', tab_lab: 'Maabara', tab_casemgmt: 'Huduma kwa wagonjwa', tab_contacts: 'Waliogusana', tab_map: 'Ramani', tab_rumours: 'Uvumi', tab_analysis: 'Uchambuzi', tab_history: 'Takwimu za zamani', tab_reports: 'Ripoti', tab_facility: 'Dashibodi ya kituo', tab_admin: 'Mipangilio',
@@ -275,7 +275,7 @@
   Object.assign(window.BDBV_SW, {
     'This is a demonstration copy with no server.': 'Hii ni nakala ya majaribio isiyo na seva.',
     'The real system, with real accounts, is here:': 'Mfumo halisi, wenye akaunti halisi, uko hapa:',
-    'Connected to the server': 'Imeunganishwa na seva',
+    'Connected to the server': 'Imeunganishwa na seva', 'It is being sent to the server now.': 'Inatumwa kwa seva sasa hivi.', 'Live': 'Moja kwa moja', 'Offline': 'Nje ya mtandao', ' waiting': ' zinasubiri', 'New: ': 'Mpya: ',
     'Open the real system': 'Fungua mfumo halisi'
   });
 })();
@@ -286,4 +286,15 @@
     'The server is not answering yet.': 'Seva bado haijibu.',
     'Or choose your role: the username is filled in, then enter your password.': 'Au chagua jukumu lako: jina la mtumiaji linajazwa, kisha andika nenosiri lako.'
   });
+})();
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, {
+    'Results to approve': 'Matokeo ya kuidhinisha',
+    'Requested from alert ': 'Imeombwa kutoka tahadhari '
+  });
+})();
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, { 'New high-risk patients (48 h)': 'Wagonjwa wapya wa hatari kubwa (saa 48)' });
 })();

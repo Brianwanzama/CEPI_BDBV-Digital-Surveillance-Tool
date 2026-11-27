@@ -548,3 +548,21 @@ a:hover { text-decoration-color: currentColor; }
 .account.on { border-color: var(--hl); background: var(--hl-bg); box-shadow: 0 0 0 2px var(--hl-line); }
 .rolehint { margin: 14px 0 0; color: var(--muted); }
 .connected .dot.off { background: #d64541; } .connected .dot:not(.on):not(.off) { background: #f0a531; }
+
+/* Live indicator (deployed system) */
+.liveind { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: #fff; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; padding: 4px 11px; white-space: nowrap; }
+.liveind .pulse { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, .7); animation: livepulse 2s infinite; }
+.liveind.off .pulse { background: #f0a531; animation: none; }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, .6); } 70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+@media (prefers-reduced-motion: reduce) { .liveind .pulse { animation: none; } }
+
+/* Map: pulsing ring for new high-risk patients (48 h) */
+.dmap .pulse circle { fill: none; stroke: var(--risk-high); stroke-width: 2.2; transform-box: fill-box; transform-origin: center; animation: mpulse 2.2s ease-out infinite; pointer-events: none; }
+@keyframes mpulse { 0% { transform: scale(.6); opacity: 1; } 80% { transform: scale(2.4); opacity: 0; } 100% { transform: scale(2.4); opacity: 0; } }
+.pring { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--risk-high); display: inline-block; }
+.pnote { margin-top: 4px; }
+/* Sign-in: slowly drifting particles behind the panels */
+#view { position: relative; }
+canvas.particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.signin { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) { .dmap .pulse circle { animation: none; transform: scale(1.4); } }

@@ -71,6 +71,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/bdbv_e2e
           SEED_DEMO: "true"
+          SEED_DEMO_DATA: "true"
           SEED_USER_PASSWORD: ci-demo-password
         run: |
           psql postgres://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE bdbv_e2e"
@@ -81,7 +82,9 @@ jobs:
         env:
           BASE_URL: http://localhost:8080
           DEMO_PASSWORD: ci-demo-password
-        run: node tests/e2e_server.test.js
+        run: |
+          node tests/e2e_server.test.js
+          node tests/e2e_flow.test.js
 
       - name: Server log
         if: always()

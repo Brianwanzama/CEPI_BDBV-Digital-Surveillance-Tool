@@ -25,6 +25,7 @@
     clinician: ['home', 'triage', 'patients', 'casemgmt', 'alerts', 'lab'],
     surveillant: ['home', 'verify', 'contacts', 'map', 'dashboard', 'rumours', 'analysis', 'history', 'reports', 'patients', 'alerts', 'rules'],
     lab: ['home', 'lab', 'reports'],
+    lab_manager: ['home', 'lab', 'reports'],
     facility_head: ['home', 'facility', 'reports'],
     zone_officer: ['home', 'verify', 'contacts', 'map', 'dashboard', 'facility', 'rumours', 'analysis', 'history', 'reports', 'audit'],
     decideur: ['home', 'map', 'dashboard', 'rumours', 'analysis', 'history', 'reports'],
@@ -38,11 +39,12 @@
     verify: ['surveillant', 'zone_officer'],
     contacts_edit: ['surveillant', 'zone_officer'],
     contacts_names: ['surveillant', 'zone_officer'],
-    sample_register: ['soignant', 'clinician', 'lab'],
-    lab_results: ['lab'],
-    lab_custody: ['lab', 'soignant', 'clinician'],
+    sample_register: ['soignant', 'clinician', 'lab', 'lab_manager'],
+    lab_results: ['lab', 'lab_manager'],
+    lab_approve: ['lab_manager'],
+    lab_custody: ['lab', 'lab_manager', 'soignant', 'clinician'],
     export_identifiable: ['surveillant', 'zone_officer'],
-    reports: ['surveillant', 'zone_officer', 'decideur', 'lab', 'facility_head'],
+    reports: ['surveillant', 'zone_officer', 'decideur', 'lab', 'lab_manager', 'facility_head'],
     edit_rules: ['sysadmin'],
     config: ['sysadmin'],
     facility_any: ['zone_officer', 'decideur'],
@@ -54,7 +56,7 @@
   var USER_CTX = { soignant: { facility: 'Z-aru-A1-F' }, clinician: { facility: 'Z-aru-A1-F' }, facility_head: { facility: 'Z-aru-A1-F' }, zone_officer: { zone: 'Z-aru' }, lab: { lab: 'Laboratoire provincial (démo)' } };
   // Display names of the signed-in user (replaced at sign-in by the account's name).
   // Demonstration users (person names are fictitious and tagged [DEMO]).
-  var DEMO_PEOPLE = { reco: 'RECO ARU1-001', soignant: 'N. Kahindo', clinician: 'Dr K. Lusamba', surveillant: 'J. Mapendo', lab: 'P. Ndjoli', facility_head: 'M. Furaha', zone_officer: 'R. Kambale', decideur: 'A. Baraka', sysadmin: 'T. Ilunga' };
+  var DEMO_PEOPLE = { reco: 'RECO ARU1-001', soignant: 'N. Kahindo', clinician: 'Dr K. Lusamba', surveillant: 'J. Mapendo', lab: 'P. Ndjoli', lab_manager: 'B. Kasongo', facility_head: 'M. Furaha', zone_officer: 'R. Kambale', decideur: 'A. Baraka', sysadmin: 'T. Ilunga' };
   var USER_NAMES = { public: ['Public (anonyme)', 'Public (anonymous)'] };
   Object.keys(DEMO_PEOPLE).forEach(function (k) { var n = DEMO_PEOPLE[k] + ' [DEMO]'; USER_NAMES[k] = [n, n]; });
   var USERS = new Proxy({}, { get: function (o, k) { var n = USER_NAMES[k]; return n ? L(n[0], n[1]) : k; } });
@@ -112,7 +114,7 @@
   }
   function load() { try { var s = localStorage.getItem(DB_KEY); if (s) return JSON.parse(s); } catch (e) {} return fresh(); }
   var db = load();
-  function save() { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} }
+  function save() { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} if (window.BDBV && window.BDBV.afterSave) window.BDBV.afterSave(); }
   function rules() {
     if (!db.override) return BASE_RULES;
     var r = JSON.parse(JSON.stringify(BASE_RULES));
@@ -233,7 +235,8 @@
   }
 
   /* ---------- layout ---------- */
-  function render() {
+  function render(opts) {
+    opts = opts || {};
     // Everyone except the public must be signed in (auth.js / api.js set st.auth).
     if (!st.auth && st.role !== 'public') st.role = 'public';
     var tabs = ROLES[st.role];
@@ -263,10 +266,22 @@
       if (k === 'verify') { var m = allEvents().filter(function (e) { return e.ev.verification === 'reported'; }).length; if (m) badge = ' <span class="badge">' + m + '</span>'; }
       return '<button class="tab' + (k === st.tab ? ' on' : '') + '" data-tab="' + k + '">' + esc(t('tab_' + k)) + badge + '</button>';
     }).join('');
-    var view = $('#view');
+    if (window.BDBV.renderLive) window.BDBV.renderLive();
+    if (opts.chromeOnly) return; // header, tabs and badges only: the open screen is left as it is
+    var view = $('#view'), y = window.scrollY;
     (VIEWS[st.tab] || VIEWS.home)(view);
     if (window.BDBV.afterRender) window.BDBV.afterRender();
-    window.scrollTo(0, 0);
+    window.scrollTo(0, opts.keepScroll ? y : 0);
+  }
+  // Refresh after new data arrived from the server. Screens where someone may be typing are not
+  // redrawn (only the header, tabs and badges), so nothing being entered is lost.
+  var FORM_TABS = ['triage', 'reco', 'rumour', 'changepw', 'login'];
+  function refresh() {
+    var a = document.activeElement, view = $('#view');
+    var typing = a && view && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+    var openDetails = view && view.querySelector('form [name]:not([type=hidden])') && FORM_TABS.indexOf(st.tab) < 0 && typing;
+    if (FORM_TABS.indexOf(st.tab) >= 0 || st.editing || typing || openDetails) render({ chromeOnly: true });
+    else render({ keepScroll: true });
   }
   function go(tab) { st.tab = tab; render(); }
 
@@ -281,6 +296,7 @@
       public: [['rumour', L('Signaler un événement', 'Report an event')]],
       clinician: [['casemgmt', L('Prise en charge des patients', 'Patient case management')], ['triage', L('Nouvelle évaluation de triage', 'New triage assessment')], ['alerts', L('Alertes de ma FOSA', 'My facility alerts')]],
       lab: [['lab', L('Échantillons et résultats', 'Samples and results')], ['reports', L('Rapports de laboratoire', 'Laboratory reports')]],
+      lab_manager: [['lab', L('Résultats à approuver', 'Results to approve')], ['reports', L('Rapports de laboratoire', 'Laboratory reports')]],
       facility_head: [['facility', L('Tableau de bord de la FOSA', 'Facility dashboard')], ['reports', L('Rapport de performance', 'Performance report')]],
       zone_officer: [['verify', L('File de vérification des alertes', 'Alert verification queue')], ['map', L('Carte de surveillance', 'Surveillance map')], ['facility', L('Performance des FOSA', 'Facility performance')]],
       sysadmin: [['admin', L('Configuration (géographie, délais, prise en charge)', 'Configuration (geography, timelines, care)')], ['rules', L('Règles de score', 'Scoring rules')]]
@@ -293,12 +309,12 @@
       '<li>' + L('Risque clinique individuel, signaux communautaires et confirmation biologique sont trois notions <b>séparées</b>.', 'Individual clinical risk, community signals and laboratory confirmation are three <b>separate</b> concepts.') + '</li>' +
       '<li>' + L('Le jugement du clinicien prime toujours : il peut relever (ou, avec justification, abaisser) la catégorie.', 'Clinician judgement always prevails: they can raise (or, with justification, lower) the category.') + '</li>' +
       '<li>' + L('Saisie possible hors ligne ; les données sont envoyées à la synchronisation.', 'Works offline; data are sent at synchronisation.') + '</li></ul></section>' +
-      '<section class="card"><h3>' + L('Données de démonstration', 'Demonstration data') + '</h3>' +
+      (window.BDBV.server && window.BDBV.server.deployed ? '' : '<section class="card"><h3>' + L('Données de démonstration', 'Demonstration data') + '</h3>' +
       '<p class="muted">' + L('Évaluations : ', 'Assessments: ') + db.assessments.length + ' · ' + L('Rapports RECO : ', 'RECO reports: ') + db.reports.length + ' · ' + L('Alertes : ', 'Alerts: ') + db.alerts.length + '</p>' +
-      '<button id="seed">' + esc(t('demo_load')) + '</button> <button id="wipe" class="ghost">' + esc(t('demo_reset')) + '</button></section>';
+      '<button id="seed">' + esc(t('demo_load')) + '</button> <button id="wipe" class="ghost">' + esc(t('demo_reset')) + '</button></section>');
     $$('[data-go]', v).forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-go')); }; });
-    $('#seed', v).onclick = function () { seedDemo(); audit('seed_demo', 'system', '-'); render(); };
-    $('#wipe', v).onclick = function () { ask(L('Effacer toutes les données enregistrées sur cet appareil ?', 'Erase all data stored on this device?'), L('Effacer', 'Erase'), t('cancel'), function () { db = fresh(); save(); G.applyConfig(db.config.geo); render(); notify(L('Données effacées.', 'Data erased.')); }); };
+    if ($('#seed', v)) $('#seed', v).onclick = function () { seedDemo(); audit('seed_demo', 'system', '-'); render(); };
+    if ($('#wipe', v)) $('#wipe', v).onclick = function () { ask(L('Effacer toutes les données enregistrées sur cet appareil ?', 'Erase all data stored on this device?'), L('Effacer', 'Erase'), t('cancel'), function () { db = fresh(); save(); G.applyConfig(db.config.geo); render(); notify(L('Données effacées.', 'Data erased.')); }); };
   };
 
   /* ---------- TRIAGE FORM (Module A) ---------- */
@@ -842,7 +858,7 @@
         a.actions = $$('input[data-act="' + id + '"]:checked', v).map(function (x) { return x.value; });
         a.ack = { at: iso(new Date()), by: USERS[st.role], note: $('input[data-note="' + id + '"]', v).value, delay_min: Math.round((Date.now() - new Date(a.created_at)) / 60000) };
         a.synced = false;
-        if (a.actions.indexOf('specimen') >= 0) { var r = byId(db.assessments, a.assessment_id); if (r && r.lab.status === 'none') r.lab = { status: 'requested', at: iso(new Date()) }; }
+        if (a.actions.indexOf('specimen') >= 0) { var r = byId(db.assessments, a.assessment_id); if (r && window.BDBV.labApi && window.BDBV.labApi.request) window.BDBV.labApi.request(r.id, L('Demandé depuis l\'alerte ', 'Requested from alert ') + a.id, 'urgent'); else if (r && r.lab.status === 'none') r.lab = { status: 'requested', at: iso(new Date()) }; }
         audit('alert_ack', 'alert', id, a.actions.join(','));
         render();
       };
@@ -930,7 +946,7 @@
       if (window.BDBV.onReportCreated) window.BDBV.onReportCreated(rep, { name: rep.reco_id, phone: RECO_HOME.phone });
       audit('create', 'reco_report', rep.id, rep.events.length + ' évènement(s)');
       save();
-      v.innerHTML = '<section class="card ok"><h2>✓ ' + L('Rapport enregistré', 'Report saved') + '</h2><p><code>' + esc(rep.id) + '</code></p><p>' + (st.online ? L('Il sera envoyé à la synchronisation.', 'It will be sent at synchronisation.') : L('Vous êtes hors ligne : le rapport est gardé sur le téléphone et sera envoyé dès que le réseau revient.', 'You are offline: the report is kept on the phone and will be sent when the network returns.')) + '</p>' +
+      v.innerHTML = '<section class="card ok"><h2>✓ ' + L('Rapport enregistré', 'Report saved') + '</h2><p><code>' + esc(rep.id) + '</code></p><p>' + (st.online ? (window.BDBV.server && window.BDBV.server.available ? L('Il est envoyé au serveur maintenant.', 'It is being sent to the server now.') : L('Il sera envoyé à la synchronisation.', 'It will be sent at synchronisation.')) : L('Vous êtes hors ligne : le rapport est gardé sur le téléphone et sera envoyé dès que le réseau revient.', 'You are offline: the report is kept on the phone and will be sent when the network returns.')) + '</p>' +
         (dups.length ? '<p class="flag">' + L('Doublon possible avec un évènement déjà signalé : ', 'Possible duplicate of an already reported event: ') + esc(dups.join(', ')) + L(' - l\'équipe de surveillance va vérifier.', ' - the surveillance team will check.') + '</p>' : '') +
         '<p>' + L('Prochaine étape : l\'équipe de surveillance de l\'aire de santé va <b>vérifier</b> le signal.', 'Next step: the health-area surveillance team will <b>verify</b> the signal.') + '</p><button class="big" id="again">' + L('Nouveau rapport', 'New report') + '</button></section>';
       $('#again', v).onclick = function () { render(); };
@@ -1181,14 +1197,16 @@
     applyGeoLang();
     initVoiceCapabilities();
     // With a server session the data come from the server, never from the local demo generator.
-    if (!window.BDBV.serverMode && (upgraded || (!db.assessments.length && !db.reports.length))) seedDemo();
+    var deployed = window.BDBV.server && window.BDBV.server.deployed;
+    if (deployed) { ['assessments', 'reports', 'alerts', 'queue', 'contacts', 'samples', 'rumours', 'history'].forEach(function (k) { db[k] = (db[k] || []).filter(function (x) { return !x.demo; }); }); save(); }
+    else if (!window.BDBV.serverMode && (upgraded || (!db.assessments.length && !db.reports.length))) seedDemo();
     render();
   }
   window.BDBVApp = { state: st, db: function () { return db; }, seedDemo: seedDemo, render: render, go: go };
   // Shared API for modules/*.js (loaded after this file).
   window.BDBV = Object.assign(window.BDBV || {}, {
     VIEWS: VIEWS, ROLES: ROLES, PERMS: PERMS, can: can, st: st, G: G, S: S,
-    db: function () { return db; }, save: save, render: render, go: go, rules: rules, audit: audit, notify: notify, ask: ask,
+    db: function () { return db; }, save: save, render: render, refresh: refresh, go: go, rules: rules, audit: audit, notify: notify, ask: ask,
     L: L, t: t, pick: pick, esc: esc, $: $, $$: $$, byId: byId, nm: nm, lbl: lbl, itemById: itemById, itemsOf: itemsOf,
     iso: iso, ymd: ymd, fmtDT: fmtDT, fmtD: fmtD, chip: chip, newId: newId, user: function () { return USERS[st.role]; }, userCtx: function () { return USER_CTX[st.role] || {}; },
     geoFields: geoFields, bindGeo: bindGeo, readGeo: readGeo, geoOfVillage: geoOfVillage, inGeo: inGeo, inPeriod: inPeriod,

@@ -112,6 +112,8 @@
       '<section class="card"><h3>4. ' + L('Prise en charge à domicile', 'Home-based care') + '</h3><label class="check"><input type="checkbox" id="home"' + (c.home_care_permitted ? ' checked' : '') + '> ' + L('Autorisée par les protocoles nationaux cliniques et PCI approuvés', 'Permitted by approved national clinical and IPC protocols') + '</label>' +
       '<label>' + L('Référence du protocole (obligatoire pour activer)', 'Protocol reference (required to enable)') + '<input id="homeref" value="' + esc(c.home_care_ref || '') + '"></label><button class="primary" id="hsave">' + L('Enregistrer', 'Save') + '</button></section>' +
 
+      '<section class="card"><h3>' + L('Laboratoires de référence', 'Referral laboratories') + '</h3><p class="small muted">' + L('Liste proposée au laboratoire lors de l\'envoi d\'un échantillon. Un laboratoire par ligne.', 'List offered to the laboratory when a sample is sent. One laboratory per line.') + '</p><textarea id="reflabs" rows="4">' + esc(B.labApi ? B.labApi.labs().join('\n') : '') + '</textarea><button class="primary" id="refsave">' + L('Enregistrer', 'Save') + '</button></section>' +
+
       '<section class="card"><h3>5. ' + L('Zones avec transmission active (scénario de démonstration)', 'Zones with active transmission (demo scenario)') + '</h3><div class="checks">' +
       G.zones.map(function (z) { return '<label class="check"><input type="checkbox" data-aff="' + z.id + '"' + (G.affected_zones.indexOf(z.id) >= 0 ? ' checked' : '') + '> ' + esc(z.name) + '</label>'; }).join('') + '</div><button class="primary" id="asave">' + L('Enregistrer', 'Save') + '</button></section>' +
 
@@ -126,7 +128,20 @@
     };
     B.$('#ukind', v).onchange = parentSel; parentSel();
     userAdmin(B.$('#useradmin', v));
-    var done = function (what, detail) { B.audit('config_' + what, 'config', what, detail || ''); B.save(); G.applyConfig(cfg().geo); B.notify(L('Configuration enregistrée.', 'Configuration saved.')); B.VIEWS.admin(v); };
+    var done = function (what, detail) {
+      B.audit('config_' + what, 'config', what, detail || ''); B.save(); G.applyConfig(cfg().geo);
+      // On the deployed system the configuration is stored on the server, for every user.
+      if (B.st.auth && B.st.auth.mode === 'server' && B.apiCall) {
+        var c = cfg(), body = {}; ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs'].forEach(function (k) { if (c[k] !== undefined) body[k] = c[k]; });
+        B.apiCall('/config', { method: 'PUT', body: body }).then(function () { B.notify(L('Configuration enregistrée sur le serveur.', 'Configuration saved on the server.'), 'ok'); })
+          .catch(function (e) { B.notify(L('Configuration non enregistrée sur le serveur : ', 'Configuration not saved on the server: ') + (e.message || e), 'err'); });
+      } else B.notify(L('Configuration enregistrée.', 'Configuration saved.'));
+      B.VIEWS.admin(v);
+    };
+    if (B.$('#refsave', v)) B.$('#refsave', v).onclick = function () {
+      cfg().referral_labs = B.$('#reflabs', v).value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+      done('referral_labs', cfg().referral_labs.length + ' lab(s)');
+    };
     B.$('#gsave', v).onclick = function () {
       var g = cfg().geo; g.zone_province = g.zone_province || {}; g.confirmed = g.confirmed || {}; var n = 0;
       B.$$('[data-zprov]', v).forEach(function (s) { var z = B.byId(G.zones, s.getAttribute('data-zprov')); if (s.value !== z.province_default || g.zone_province[z.id]) { if (g.zone_province[z.id] !== s.value) n++; g.zone_province[z.id] = s.value; } });
