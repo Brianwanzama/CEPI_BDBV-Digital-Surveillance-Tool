@@ -20,7 +20,9 @@
     if (!box) return;
     var head = '<h3>' + L('Comptes utilisateurs', 'User accounts') + '</h3>';
     if (!(B.st.auth && B.st.auth.mode === 'server' && B.apiCall)) {
-      box.innerHTML = head + '<p class="note">' + L('Mode démonstration : la gestion des comptes (demandes, approbation, mots de passe temporaires) fonctionne sur le système déployé, connecté au serveur.', 'Demonstration mode: account management (requests, approval, temporary passwords) works on the deployed system, connected to the server.') + '</p>';
+      var CFG = window.BDBV_CONFIG || {};
+      box.innerHTML = head + '<p class="note">' + L('Mode démonstration : la gestion des comptes (demandes, approbation, mots de passe temporaires) fonctionne sur le système déployé, connecté au serveur.', 'Demonstration mode: account management (requests, approval, temporary passwords) works on the deployed system, connected to the server.') +
+        (CFG.liveUrl ? ' <a href="' + esc(CFG.liveUrl) + '" target="_blank" rel="noopener">' + L('Ouvrir le système réel', 'Open the real system') + '</a>' : '') + '</p>';
       return;
     }
     box.innerHTML = head + '<p class="muted">' + L('Chargement…', 'Loading…') + '</p>';

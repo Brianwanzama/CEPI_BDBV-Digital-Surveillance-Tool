@@ -12,6 +12,7 @@ Usage: python3 tools/build_single_file.py OUTPUT.html
 - The output has no <html>/<head>/<body> wrapper; browsers open it as-is.
 """
 import base64
+import json
 import os
 import re
 import sys
@@ -51,7 +52,10 @@ def embed_images(text):
     return re.sub(r'src="(assets/[^"]+\.(?:png|jpe?g))"', data_uri, text)
 
 
+LIVE_URL = os.environ.get('BDBV_LIVE_URL', 'https://bdbv-api.onrender.com')
 cdn_tags, js = '', ''
+# Demonstration copy: knows the address of the real (deployed) system and links to it.
+js += '\n/* ---- demo config ---- */\nwindow.BDBV_CONFIG = { demoCopy: true, liveUrl: %s };\n' % json.dumps(LIVE_URL)
 for src in srcs:
     if src in ('register-sw.js', 'config.js', 'api.js'):
         continue

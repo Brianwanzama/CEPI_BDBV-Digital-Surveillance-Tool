@@ -270,3 +270,12 @@
     'Try again': 'Jaribu tena'
   });
 })();
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, {
+    'This is a demonstration copy with no server.': 'Hii ni nakala ya majaribio isiyo na seva.',
+    'The real system, with real accounts, is here:': 'Mfumo halisi, wenye akaunti halisi, uko hapa:',
+    'Connected to the server': 'Imeunganishwa na seva',
+    'Open the real system': 'Fungua mfumo halisi'
+  });
+})();

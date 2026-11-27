@@ -91,7 +91,9 @@
   B.VIEWS.login = function (v) {
     var srv = B.server || {}, checking = srv.checking, server = srv.available;
     var langs = [['en', 'English'], ['fr', 'Français'], ['sw', 'Kiswahili']];
-    var html = '<div class="signin"><section class="panel signin-main"><img class="signin-logo" src="assets/logo.png" alt="IDΣMU, Mathematical Modelling Unit, Uganda" width="640" height="310">' +
+    var CFG = window.BDBV_CONFIG || {};
+    var live = CFG.demoCopy && CFG.liveUrl ? '<div class="livecard"><b>' + L('Ceci est une copie de démonstration, sans serveur.', 'This is a demonstration copy with no server.') + '</b> ' + L('Le système réel, avec les vrais comptes, est ici :', 'The real system, with real accounts, is here:') + ' <a href="' + esc(CFG.liveUrl) + '" target="_blank" rel="noopener">' + esc(CFG.liveUrl.replace(/^https?:\/\//, '')) + '</a></div>' : '';
+    var html = live + '<div class="signin"><section class="panel signin-main"><img class="signin-logo" src="assets/logo.png" alt="IDΣMU, Mathematical Modelling Unit, Uganda" width="640" height="310">' +
       '<p class="eyebrow">' + L('Accès réservé', 'Restricted access') + '</p>' +
       '<div class="authtabs" role="tablist"><button type="button" role="tab" data-mode="signin" aria-selected="' + (mode !== 'request') + '">' + L('Se connecter', 'Sign in') + '</button><button type="button" role="tab" data-mode="request" aria-selected="' + (mode === 'request') + '">' + L('Demander un compte', 'Request an account') + '</button></div>' +
       '<label class="inl">' + L('Langue', 'Language') + ' <select id="login-lang">' + langs.map(function (l) { return '<option value="' + l[0] + '"' + (B.st.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select></label>';
@@ -120,6 +122,7 @@
         '<label>' + L('Mot de passe', 'Password') + '<input id="login-pass" type="password" autocomplete="current-password" required></label>' +
         '<button class="primary" type="submit">' + L('Se connecter', 'Sign in') + '</button>' +
         '<button type="button" class="linkbtn" data-mode="forgot">' + L('Mot de passe oublié ?', 'Forgot password?') + '</button></form>' +
+        '<p class="connected"><span class="dot on"></span> ' + L('Connecté au serveur', 'Connected to the server') + ' · ' + esc(location.host) + '</p>' +
         '<p class="disclaimer small">' + L('Pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot: synthetic data only. Do not enter real patient data.') + '</p>';
     } else {
       html += '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté. Choisissez un compte de démonstration. Dans le système déployé, chaque personne se connecte avec son propre mot de passe.', 'Demonstration mode: no server is connected. Choose a demonstration account. In the deployed system each person signs in with their own password.') + '</p>' +
