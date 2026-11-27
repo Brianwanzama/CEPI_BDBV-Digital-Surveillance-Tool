@@ -247,7 +247,7 @@
     if ($('#foot')) $('#foot').textContent = t('footer');
     $('#title').textContent = t('app_title');
     $('#subtitle').textContent = t('app_sub');
-    $('#banner').textContent = st.auth && st.auth.mode === 'server' ? L('Serveur pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot server: synthetic data only. Do not enter real patient data.') : t('proto_banner');
+    $('#banner').textContent = (st.auth && st.auth.mode === 'server') || (window.BDBV.server && window.BDBV.server.deployed) ? L('Serveur pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot server: synthetic data only. Do not enter real patient data.') : t('proto_banner');
     $('#who').innerHTML = st.auth ? '<b>' + esc(st.auth.name) + '</b><span>' + esc(t('role_' + st.role)) + '</span>' : '<span>' + esc(t('role_public')) + '</span>';
     $('#authbtn').textContent = st.auth ? L('Se déconnecter', 'Sign out') : L('Se connecter', 'Sign in');
     $('#authbtn').hidden = !st.auth && st.tab === 'login';
