@@ -279,3 +279,11 @@
     'Open the real system': 'Fungua mfumo halisi'
   });
 })();
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, {
+    'Connecting to the server… (a server that was asleep can take up to a minute)': 'Inaunganisha na seva… (seva iliyokuwa imelala inaweza kuchukua hadi dakika moja)',
+    'The server is not answering yet.': 'Seva bado haijibu.',
+    'Or choose your role: the username is filled in, then enter your password.': 'Au chagua jukumu lako: jina la mtumiaji linajazwa, kisha andika nenosiri lako.'
+  });
+})();

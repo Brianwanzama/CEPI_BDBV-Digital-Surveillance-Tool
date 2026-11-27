@@ -89,7 +89,7 @@
   var REQ_ROLES = ['soignant', 'clinician', 'reco', 'surveillant', 'zone_officer', 'lab', 'facility_head', 'decideur'];
 
   B.VIEWS.login = function (v) {
-    var srv = B.server || {}, checking = srv.checking, server = srv.available;
+    var srv = B.server || {}, checking = srv.checking, server = srv.available, deployed = !!srv.deployed;
     var langs = [['en', 'English'], ['fr', 'Français'], ['sw', 'Kiswahili']];
     var CFG = window.BDBV_CONFIG || {};
     var live = CFG.demoCopy && CFG.liveUrl ? '<div class="livecard"><b>' + L('Ceci est une copie de démonstration, sans serveur.', 'This is a demonstration copy with no server.') + '</b> ' + L('Le système réel, avec les vrais comptes, est ici :', 'The real system, with real accounts, is here:') + ' <a href="' + esc(CFG.liveUrl) + '" target="_blank" rel="noopener">' + esc(CFG.liveUrl.replace(/^https?:\/\//, '')) + '</a></div>' : '';
@@ -97,12 +97,14 @@
       '<p class="eyebrow">' + L('Accès réservé', 'Restricted access') + '</p>' +
       '<div class="authtabs" role="tablist"><button type="button" role="tab" data-mode="signin" aria-selected="' + (mode !== 'request') + '">' + L('Se connecter', 'Sign in') + '</button><button type="button" role="tab" data-mode="request" aria-selected="' + (mode === 'request') + '">' + L('Demander un compte', 'Request an account') + '</button></div>' +
       '<label class="inl">' + L('Langue', 'Language') + ' <select id="login-lang">' + langs.map(function (l) { return '<option value="' + l[0] + '"' + (B.st.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select></label>';
-    var demoNote = !server && !checking ? '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté, la demande n\'est donc pas envoyée. Sur le système déployé, elle va à l\'administrateur du système.', 'Demonstration mode: no server is connected, so this request is not sent. On the deployed system it goes to the system administrator.') + '</p>' : '';
-    if (checking) {
-      html += '<p class="muted">' + L('Connexion au serveur… Un serveur en veille peut mettre jusqu\'à une minute à répondre.', 'Connecting to the server… A server that was asleep can take up to a minute to answer.') + '</p>';
-    } else if (srv.failed) {
-      html += '<p class="flag">' + L('Le serveur ne répond pas. Vérifiez la connexion internet puis réessayez.', 'The server is not answering. Check the internet connection and try again.') + '</p><button type="button" class="primary" id="srv-retry">' + L('Réessayer', 'Try again') + '</button>';
-    } else if (mode === 'request') {
+    var demoNote = !server && !checking && !deployed ? '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté, la demande n\'est donc pas envoyée. Sur le système déployé, elle va à l\'administrateur du système.', 'Demonstration mode: no server is connected, so this request is not sent. On the deployed system it goes to the system administrator.') + '</p>' : '';
+    var real = server || deployed; // the deployed system: always the password form, never the demonstration
+    var status = !deployed ? '' : (checking ? '<p class="connected"><span class="dot"></span> ' + L('Connexion au serveur… (un serveur en veille peut mettre jusqu\'à une minute)', 'Connecting to the server… (a server that was asleep can take up to a minute)') + '</p>'
+      : (server ? '<p class="connected"><span class="dot on"></span> ' + L('Connecté au serveur', 'Connected to the server') + ' · ' + esc(location.host) + '</p>'
+        : '<p class="connected"><span class="dot off"></span> ' + L('Le serveur ne répond pas pour l\'instant.', 'The server is not answering yet.') + ' <button type="button" class="linkbtn" id="srv-retry">' + L('Réessayer', 'Try again') + '</button></p>'));
+    if (mode === 'request' || mode === 'forgot') {
+      html += '';
+      if (mode === 'request') {
       html += '<form id="reqform" class="authform" autocomplete="on"><p class="small">' + L('Votre demande est examinée par l\'administrateur du système, qui attribue votre fonction et votre structure. Vous pourrez vous connecter après approbation.', 'Your request is reviewed by the system administrator, who assigns your role and workplace. You can sign in once it is approved.') + '</p>' +
         '<label>' + L('Nom complet', 'Full name') + '<input id="rq-name" autocomplete="name" required maxlength="80"></label>' +
         '<label>' + L('Téléphone ou e-mail', 'Phone or e-mail') + '<input id="rq-contact" autocomplete="tel" required maxlength="120"></label>' +
@@ -117,13 +119,17 @@
         '<label>' + L('Identifiant', 'Username') + '<input id="fg-user" autocomplete="username" autocapitalize="none" required maxlength="32"></label>' +
         '<label>' + L('Téléphone ou e-mail', 'Phone or e-mail') + '<input id="fg-contact" required maxlength="120"></label>' +
         '<button class="primary" type="submit">' + L('Envoyer', 'Send') + '</button> <button type="button" class="ghost" data-mode="signin">' + L('Retour', 'Back') + '</button></form>' + demoNote;
-    } else if (server) {
+      }
+    } else if (real) {
       html += '<form id="loginform" class="authform" autocomplete="on"><label>' + L('Identifiant', 'Username') + '<input id="login-user" autocomplete="username" autocapitalize="none" required></label>' +
         '<label>' + L('Mot de passe', 'Password') + '<input id="login-pass" type="password" autocomplete="current-password" required></label>' +
         '<button class="primary" type="submit">' + L('Se connecter', 'Sign in') + '</button>' +
-        '<button type="button" class="linkbtn" data-mode="forgot">' + L('Mot de passe oublié ?', 'Forgot password?') + '</button></form>' +
-        '<p class="connected"><span class="dot on"></span> ' + L('Connecté au serveur', 'Connected to the server') + ' · ' + esc(location.host) + '</p>' +
+        '<button type="button" class="linkbtn" data-mode="forgot">' + L('Mot de passe oublié ?', 'Forgot password?') + '</button></form>' + status +
+        '<p class="small rolehint">' + L('Ou choisissez votre fonction : l\'identifiant est rempli, il reste à saisir le mot de passe.', 'Or choose your role: the username is filled in, then enter your password.') + '</p>' +
+        '<div class="accounts">' + DEMO.map(function (a) { return '<button type="button" class="account" data-pick="' + a[0] + '"><span class="acc-role">' + esc(B.t('role_' + a[1])) + '</span><span class="acc-user">' + esc(a[0]) + '</span></button>'; }).join('') + '</div>' +
         '<p class="disclaimer small">' + L('Pilote : données synthétiques uniquement. Ne saisissez pas de données réelles de patients.', 'Pilot: synthetic data only. Do not enter real patient data.') + '</p>';
+    } else if (checking) {
+      html += '<p class="muted">' + L('Recherche du serveur…', 'Looking for the server…') + '</p>';
     } else {
       html += '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté. Choisissez un compte de démonstration. Dans le système déployé, chaque personne se connecte avec son propre mot de passe.', 'Demonstration mode: no server is connected. Choose a demonstration account. In the deployed system each person signs in with their own password.') + '</p>' +
         '<div class="accounts">' + DEMO.map(function (a) { return '<button class="account" data-demo="' + a[0] + '"><span class="acc-role">' + esc(B.t('role_' + a[1])) + '</span><span class="acc-user">' + esc(a[0]) + '</span></button>'; }).join('') + '</div>' +
@@ -138,6 +144,13 @@
     B.$('#go-public', v).onclick = B.reportAsPublic;
     B.$$('[data-mode]', v).forEach(function (b) { b.onclick = function () { mode = b.getAttribute('data-mode'); B.VIEWS.login(v); }; });
     B.$$('[data-demo]', v).forEach(function (b) { b.onclick = function () { B.signInDemo(b.getAttribute('data-demo')); }; });
+    B.$$('[data-pick]', v).forEach(function (b) {
+      b.onclick = function () {
+        B.$$('[data-pick]', v).forEach(function (x) { x.classList.toggle('on', x === b); });
+        B.$('#login-user', v).value = b.getAttribute('data-pick');
+        B.$('#login-pass', v).value = ''; B.$('#login-pass', v).focus();
+      };
+    });
     if (B.$('#srv-retry', v)) B.$('#srv-retry', v).onclick = function () { B.retryServer(); };
     var f = B.$('#loginform', v);
     if (f) {
@@ -152,7 +165,7 @@
     if (rf) rf.onsubmit = function (e) {
       e.preventDefault();
       if (B.$('#rq-pass', v).value !== B.$('#rq-pass2', v).value) return msg(B.authError('mismatch'));
-      if (!server) return msg(L('Mode démonstration : demande non envoyée (aucun serveur).', 'Demonstration mode: request not sent (no server).'));
+      if (!server && !deployed) return msg(L('Mode démonstration : demande non envoyée (aucun serveur).', 'Demonstration mode: request not sent (no server).'));
       var btn = rf.querySelector('button[type=submit]'); btn.disabled = true;
       B.serverSignup({ name: B.$('#rq-name', v).value, contact: B.$('#rq-contact', v).value, role: B.$('#rq-role', v).value, workplace: B.$('#rq-work', v).value, username: B.$('#rq-user', v).value.trim().toLowerCase(), password: B.$('#rq-pass', v).value })
         .then(function () { rf.reset(); btn.disabled = false; msg(L('Demande envoyée. L\'administrateur du système va l\'examiner ; vous pourrez vous connecter après approbation.', 'Request sent. The system administrator will review it; you can sign in once it is approved.'), 'ok'); })
@@ -161,7 +174,7 @@
     var ff = B.$('#fgform', v);
     if (ff) ff.onsubmit = function (e) {
       e.preventDefault();
-      if (!server) return msg(L('Mode démonstration : demande non envoyée (aucun serveur).', 'Demonstration mode: request not sent (no server).'));
+      if (!server && !deployed) return msg(L('Mode démonstration : demande non envoyée (aucun serveur).', 'Demonstration mode: request not sent (no server).'));
       var btn = ff.querySelector('button[type=submit]'); btn.disabled = true;
       B.serverForgot({ username: B.$('#fg-user', v).value.trim().toLowerCase(), contact: B.$('#fg-contact', v).value })
         .then(function () { ff.reset(); btn.disabled = false; msg(L('Demande reçue. Si ce compte existe, l\'administrateur du système vous contactera avec un mot de passe temporaire.', 'Request received. If this account exists, the system administrator will contact you with a temporary password.'), 'ok'); })
