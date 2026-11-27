@@ -162,6 +162,23 @@ const TAG = 'SRV' + Date.now().toString(36).toUpperCase(); // unique per run (th
   await signOut();
   ok('forgotten password: request, temporary password from the administrator, forced change, new password works');
 
+  // Deployed app, server check failing (e.g. free-tier server waking up): no demonstration accounts, retry instead
+  {
+    const c2 = await browser.newContext(); const p2 = await c2.newPage();
+    await p2.addInitScript(() => { try { localStorage.setItem('bdbv_demo_session', JSON.stringify({ username: 'sysadmin', role: 'sysadmin', name: 'old demo' })); } catch (e) {} });
+    let block = true;
+    await p2.route('**/api/v1/health', (route) => (block ? route.abort() : route.continue()));
+    await p2.goto(BASE + '/');
+    await p2.waitForSelector('#srv-retry', { timeout: 60000 });
+    assert.strictEqual(await p2.$$eval('[data-demo]', (e) => e.length), 0, 'no demonstration accounts on a deployment');
+    assert.ok(await p2.evaluate(() => !BDBVApp.state.auth), 'an old demonstration session is not restored on a deployment');
+    block = false;
+    await p2.click('#srv-retry');
+    await p2.waitForSelector('#loginform');
+    await c2.close();
+  }
+  ok('deployed app never falls back to demonstration accounts; it retries the server and offers "Try again"');
+
   assert.deepStrictEqual(errors, [], errors.join(' | '));
   ok('no JavaScript or Content-Security-Policy errors');
   await browser.close();

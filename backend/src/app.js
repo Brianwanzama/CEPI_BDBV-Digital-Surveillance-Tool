@@ -329,6 +329,12 @@ function createApp(pool, opts = {}) {
   }));
 
   app.use('/api/v1', api);
+  // config.js for the app served by this API: marks it as a deployment, so the app never falls back
+  // to demonstration accounts (it waits for the server instead).
+  app.get('/config.js', (req, res) => {
+    res.set('Content-Type', 'application/javascript; charset=utf-8').set('Cache-Control', 'no-cache');
+    res.send('window.BDBV_CONFIG = ' + JSON.stringify({ apiUrl: '', server: true }) + ';\n');
+  });
   if (opts.serveApp !== false && process.env.SERVE_APP !== 'false') {
     // The service worker and the page must never be cached by the browser, so updates reach users at once.
     app.use(express.static(path.join(__dirname, '..', '..', 'prototype'), { index: 'index.html', maxAge: '5m',

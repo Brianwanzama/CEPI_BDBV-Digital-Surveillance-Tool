@@ -37,6 +37,7 @@
   function store(v) { try { if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); } catch (e) { /* private mode */ } }
 
   B.signInDemo = function (username) {
+    if (B.server && B.server.deployed) return false; // never on a deployment
     var a = DEMO.filter(function (x) { return x[0] === username; })[0];
     if (!a) return false;
     var u = { username: a[0], role: a[1], name: a[2] + ' [DEMO]', facility: a[3], zone: a[4] };
@@ -56,7 +57,7 @@
   B.reportAsPublic = function () { B.st.role = 'public'; B.st.tab = 'rumour'; B.render(); };
 
   // Restore a demonstration session (not when a server session exists: api.js handles that).
-  if (!B.serverMode) {
+  if (!B.serverMode && !(B.server && B.server.deployed)) {
     try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && saved.role) B.applyAuth(saved, 'demo'); } catch (e) { /* ignore */ }
   }
   if (!B.st.auth) { B.st.role = 'public'; B.st.tab = 'login'; }
@@ -96,7 +97,9 @@
       '<label class="inl">' + L('Langue', 'Language') + ' <select id="login-lang">' + langs.map(function (l) { return '<option value="' + l[0] + '"' + (B.st.lang === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select></label>';
     var demoNote = !server && !checking ? '<p class="note">' + L('Mode démonstration : aucun serveur n\'est connecté, la demande n\'est donc pas envoyée. Sur le système déployé, elle va à l\'administrateur du système.', 'Demonstration mode: no server is connected, so this request is not sent. On the deployed system it goes to the system administrator.') + '</p>' : '';
     if (checking) {
-      html += '<p class="muted">' + L('Recherche du serveur…', 'Looking for the server…') + '</p>';
+      html += '<p class="muted">' + L('Connexion au serveur… Un serveur en veille peut mettre jusqu\'à une minute à répondre.', 'Connecting to the server… A server that was asleep can take up to a minute to answer.') + '</p>';
+    } else if (srv.failed) {
+      html += '<p class="flag">' + L('Le serveur ne répond pas. Vérifiez la connexion internet puis réessayez.', 'The server is not answering. Check the internet connection and try again.') + '</p><button type="button" class="primary" id="srv-retry">' + L('Réessayer', 'Try again') + '</button>';
     } else if (mode === 'request') {
       html += '<form id="reqform" class="authform" autocomplete="on"><p class="small">' + L('Votre demande est examinée par l\'administrateur du système, qui attribue votre fonction et votre structure. Vous pourrez vous connecter après approbation.', 'Your request is reviewed by the system administrator, who assigns your role and workplace. You can sign in once it is approved.') + '</p>' +
         '<label>' + L('Nom complet', 'Full name') + '<input id="rq-name" autocomplete="name" required maxlength="80"></label>' +
@@ -132,6 +135,7 @@
     B.$('#go-public', v).onclick = B.reportAsPublic;
     B.$$('[data-mode]', v).forEach(function (b) { b.onclick = function () { mode = b.getAttribute('data-mode'); B.VIEWS.login(v); }; });
     B.$$('[data-demo]', v).forEach(function (b) { b.onclick = function () { B.signInDemo(b.getAttribute('data-demo')); }; });
+    if (B.$('#srv-retry', v)) B.$('#srv-retry', v).onclick = function () { B.retryServer(); };
     var f = B.$('#loginform', v);
     if (f) {
       B.$('#login-user', v).focus();
@@ -185,6 +189,7 @@
 
   // Test helper: sign in with the demonstration account of a role.
   window.BDBVApp.signInDemoRole = function (role) {
+    if (B.server && B.server.deployed) return false;
     if (role === 'public') { if (B.st.auth) B.signOut(); B.reportAsPublic(); return true; }
     var a = DEMO.filter(function (x) { return x[1] === role; })[0];
     return a ? B.signInDemo(a[0]) : false;

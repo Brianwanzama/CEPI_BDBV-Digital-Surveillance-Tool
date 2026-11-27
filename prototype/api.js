@@ -25,7 +25,10 @@
     });
   }
 
-  B.server = { available: false, base: base, user: function () { return session && session.user; }, lastSync: function () { return session && session.lastSync; } };
+  // A deployment (app served by the API, or hosted with an apiUrl) never offers demonstration accounts.
+  var deployed = !!(CFG.server || CFG.apiUrl);
+  B.server = { available: false, base: base, deployed: deployed, user: function () { return session && session.user; }, lastSync: function () { return session && session.lastSync; } };
+  if (deployed) { try { localStorage.removeItem('bdbv_demo_session'); } catch (e) { /* ignore */ } }
 
   function applyIdentity() { B.applyAuth(session.user, 'server'); }
 
@@ -129,8 +132,10 @@
   if (session && session.token) applyIdentity();
   B.server.checking = !!base;
 
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!base) { B.server.checking = false; return; }
+  // Check the server; on a deployment keep trying (a sleeping free-tier server can take a minute to wake).
+  var tries = 0;
+  function checkServer() {
+    B.server.checking = true; B.server.failed = false;
     api('/health').then(function (h) {
       B.server.available = h.status === 'ok';
       B.server.checking = false;
@@ -138,7 +143,18 @@
       if (B.server.available && B.st.auth && B.st.auth.mode === 'demo') { B.signOut(); return; }
       if (session) return api('/auth/me').then(function () { sync(false); }).catch(function (e) { if (e.status === 401) logout(true); });
       B.render();
-    }).catch(function () { B.server.available = false; B.server.checking = false; if (B.st.tab === 'login') B.render(); });
+    }).catch(function () {
+      B.server.available = false;
+      if (deployed && ++tries < 8) { setTimeout(checkServer, Math.min(2000 * tries, 10000)); if (B.st.tab === 'login') B.render(); return; }
+      B.server.checking = false; B.server.failed = deployed;
+      if (B.st.tab === 'login') B.render();
+    });
+  }
+  B.retryServer = function () { tries = 0; checkServer(); B.render(); };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!base) { B.server.checking = false; return; }
+    checkServer();
     // Background sync every 2 minutes while signed in and online.
     setInterval(function () { if (session && B.st.online) sync(false); }, 120000);
   });

@@ -262,3 +262,11 @@
     'English': 'English', 'Français': 'Français', 'Kiswahili': 'Kiswahili'
   });
 })();
+(function () {
+  'use strict';
+  Object.assign(window.BDBV_SW, {
+    'Connecting to the server… A server that was asleep can take up to a minute to answer.': 'Inaunganisha na seva… Seva iliyokuwa imelala inaweza kuchukua hadi dakika moja kujibu.',
+    'The server is not answering. Check the internet connection and try again.': 'Seva haijibu. Angalia muunganisho wa intaneti kisha ujaribu tena.',
+    'Try again': 'Jaribu tena'
+  });
+})();
