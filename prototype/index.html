@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f3d5e">
+<title>BDBV Triage and Surveillance</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="banner" class="banner" role="note"></div>
+<header class="top">
+  <div class="brand">
+    <img class="logo" src="assets/emblem.png" alt="IDΣMU" width="44" height="44">
+    <div><h1 id="title"></h1><p id="subtitle"></p></div>
+  </div>
+  <div class="ctrls">
+    <span id="who" class="who"></span>
+    <span id="liveind" class="liveind" hidden></span>
+    <label><span class="sr">Language / Langue</span><select id="lang" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option><option value="sw">Kiswahili</option></select></label>
+    <label class="net"><input type="checkbox" id="net" checked> <span id="netdot" class="dot on"></span> <span id="netlabel"></span></label>
+    <button id="syncbtn" class="ghost"></button>
+    <button id="authbtn" class="ghost"></button>
+  </div>
+</header>
+<nav id="nav" class="nav" aria-label="Navigation"></nav>
+<main id="view"></main>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="ask" class="ask" hidden></div>
+<footer class="foot disclaimer" id="foot"></footer>
+<script src="errors.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="rules.js"></script>
+<script src="geodata.js"></script>
+<script src="boundaries.js"></script>
+<script src="geo.js"></script>
+<script src="i18n.js"></script>
+<script src="i18n-sw.js"></script>
+<script src="scoring.js"></script>
+<script src="ai-prompts.js"></script>
+<script src="voice.js"></script>
+<script src="app.js"></script>
+<script src="modules/workflow.js"></script>
+<script src="modules/rumour.js"></script>
+<script src="modules/contacts.js"></script>
+<script src="modules/lab.js"></script>
+<script src="modules/casemgmt.js"></script>
+<script src="modules/map.js"></script>
+<script src="modules/facility.js"></script>
+<script src="modules/reports.js"></script>
+<script src="modules/casereport.js"></script>
+<script src="modules/drill.js"></script>
+<script src="modules/ai.js"></script>
+<script src="modules/analysis.js"></script>
+<script src="modules/history.js"></script>
+<script src="modules/admin.js"></script>
+<script src="modules/seed2.js"></script>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="auth.js"></script>
+<script src="resilience.js"></script>
+<script src="register-sw.js"></script>
+</body>
+</html>

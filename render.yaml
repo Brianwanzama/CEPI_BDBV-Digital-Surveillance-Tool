@@ -1,0 +1,37 @@
+# Render.com blueprint (optional one-click hosting of the Docker image + PostgreSQL).
+# Render dashboard > New > Blueprint > select this repository.
+# Synthetic data only (DATA_MODE is fixed to "synthetic" in this version).
+services:
+  - type: web
+    name: bdbv-api
+    runtime: docker
+    plan: free          # change to a paid plan for an always-on pilot (the free plan sleeps when idle)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bdbv-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_MODE
+        value: synthetic
+      - key: SEED_DEMO
+        value: "true"
+      # The deployment starts empty: people enter the data. "true" adds synthetic records.
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: SEED_USER_PASSWORD
+        sync: false
+      - key: TRUST_PROXY
+        value: "true"
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Set to "true" for one deploy to give all demo accounts the SEED_USER_PASSWORD
+      # (if the first-start passwords were lost), then set it back to "false".
+      - key: RESET_DEMO_PASSWORDS
+        value: "false"
+databases:
+  - name: bdbv-db
+    plan: free

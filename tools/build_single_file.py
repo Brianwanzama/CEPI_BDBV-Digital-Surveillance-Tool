@@ -1,0 +1,78 @@
+"""Bundle the prototype into one self-contained HTML file for hosting as a single
+web page (e.g. a claude.ai artifact).
+
+Usage: python3 tools/build_single_file.py OUTPUT.html
+
+- Scripts are taken from prototype/index.html in order. Project scripts and styles
+  are inlined; vendored libraries (prototype/vendor/) are replaced by the same exact
+  versions from the jsDelivr CDN, because hosts that add a document skeleton usually
+  only allow scripts from approved CDNs.
+- The service worker is dropped (not available in embedded viewers).
+- Vendored fonts are embedded as data URIs so the page needs no font host.
+- The output has no <html>/<head>/<body> wrapper; browsers open it as-is.
+"""
+import base64
+import json
+import os
+import re
+import sys
+
+root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'prototype')
+out = sys.argv[1] if len(sys.argv) > 1 else 'bdbv-prototype.html'
+CDN = {
+    'vendor/xlsx.full.min.js': 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'vendor/jspdf.umd.min.js': 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'vendor/jspdf.plugin.autotable.min.js': 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+}
+
+
+def read(name):
+    with open(os.path.join(root, name), encoding='utf-8') as f:
+        return f.read()
+
+
+html = read('index.html')
+body = html.split('<body>')[1].split('</body>')[0]
+srcs = re.findall(r'<script src="([^"]+)"></script>', body)
+body = re.sub(r'<script src="[^"]+"></script>\n?', '', body)
+body = re.sub(r"<script>\s*if \('serviceWorker'.*?</script>\n?", '', body, flags=re.S)
+
+def embed_fonts(css):
+    def data_uri(m):
+        with open(os.path.join(root, m.group(1)), 'rb') as f:
+            return 'url("data:font/woff2;base64,%s")' % base64.b64encode(f.read()).decode('ascii')
+    return re.sub(r'url\("(vendor/fonts/[^"]+\.woff2)"\)', data_uri, css)
+
+
+def embed_images(text):
+    def data_uri(m):
+        with open(os.path.join(root, m.group(1)), 'rb') as f:
+            mime = 'image/png' if m.group(1).endswith('.png') else 'image/jpeg'
+            return 'src="data:%s;base64,%s"' % (mime, base64.b64encode(f.read()).decode('ascii'))
+    return re.sub(r'src="(assets/[^"]+\.(?:png|jpe?g))"', data_uri, text)
+
+
+LIVE_URL = os.environ.get('BDBV_LIVE_URL', 'https://bdbv-api.onrender.com')
+cdn_tags, js = '', ''
+# Demonstration copy: knows the address of the real (deployed) system and links to it.
+js += '\n/* ---- demo config ---- */\nwindow.BDBV_CONFIG = { demoCopy: true, liveUrl: %s };\n' % json.dumps(LIVE_URL)
+for src in srcs:
+    if src in ('register-sw.js', 'config.js', 'api.js'):
+        continue
+    if src in CDN:
+        cdn_tags += '<script src="%s"></script>\n' % CDN[src]
+        continue
+    s = read(src)
+    if '</script' in s.lower():
+        sys.exit(src + ' contains </script>; cannot inline')
+    js += '\n/* ---- %s ---- */\n' % src + embed_images(s)
+
+title = re.search(r'<title>(.*?)</title>', html).group(1)
+theme = re.search(r'<meta name="theme-color" content="([^"]+)">', html).group(1)
+page = ('<title>%s</title>\n' % title +
+        '<meta name="theme-color" content="%s">\n' % theme +
+        '<style>\n' + embed_fonts(read('styles.css')) + '</style>\n' + embed_images(body) + cdn_tags +
+        '<script>\n' + js + '\n</script>\n')
+with open(out, 'w', encoding='utf-8') as f:
+    f.write(page)
+print('%s written (%d bytes, %d scripts inlined, %d from CDN)' % (out, len(page), len(srcs) - len(cdn_tags.splitlines()), len(cdn_tags.splitlines())))

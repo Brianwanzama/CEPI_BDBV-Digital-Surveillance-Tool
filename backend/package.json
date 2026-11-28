@@ -1,0 +1,23 @@
+{
+  "name": "bdbv-backend",
+  "version": "0.3.0",
+  "private": true,
+  "description": "API server for the BDBV triage and surveillance system (synthetic-data pilot).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "seed": "node src/seed.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
+    "bcryptjs": "2.4.3",
+    "express": "4.21.2",
+    "jsonwebtoken": "9.0.2",
+    "pg": "8.13.1"
+  }
+}
