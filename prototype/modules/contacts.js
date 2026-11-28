@@ -137,6 +137,7 @@
 
   function detail(v) {
     var c = B.byId(db().contacts, cf.open), box = B.$('#cdetail', v); if (!c || !box) return;
+    box.setAttribute('data-draft', 'c:' + c.id);
     var s = state(c), edit = B.can('contacts_edit'), names = B.can('contacts_names');
     var end = endDate(c);
     box.innerHTML = '<h3>' + esc(c.id) + (names ? ' · ' + esc(c.last + ' ' + c.first) : '') + '</h3>' +
@@ -149,7 +150,7 @@
         (['symptomatic', 'followup', 'located'].indexOf(c.status) >= 0 && !c.referred_assessment ? '<button class="sm primary" id="cref">' + L('Référer pour évaluation clinique', 'Refer for clinical assessment') + '</button>' : '') + '</div>' +
         '<details open><summary>' + L('Ajouter une visite de suivi', 'Add a follow-up visit') + '</summary><form id="fuf" novalidate><div class="grid">' +
         '<label>' + L('Date et heure', 'Date and time') + '<input type="datetime-local" name="fat" value="' + new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) + '"></label>' +
-        '<label>' + L('Température (°C)', 'Temperature (°C)') + '<input type="number" step="0.1" name="ftemp"></label>' +
+        '<label>' + L('Température (°C)', 'Temperature (°C)') + '<input type="number" step="0.1" min="30" max="44" name="ftemp" inputmode="decimal" placeholder="37.0" data-start="37.0"></label>' +
         '<label>' + L('Lieu de la visite', 'Location of contact') + '<select name="floc"><option value="home">' + L('Domicile', 'Home') + '</option><option value="phone">' + L('Par téléphone', 'By phone') + '</option><option value="other">' + L('Autre lieu', 'Other place') + '</option></select></label>' +
         '<label>' + L('Action', 'Action') + '<select name="fact">' + ACTIONS.map(function (x) { return '<option value="' + x[0] + '">' + esc(L(x[1], x[2])) + '</option>'; }).join('') + '</select></label>' +
         '<label>' + L('Prochaine visite', 'Next visit') + '<input type="date" name="fnext" value="' + B.ymd(new Date(Date.now() + DAY)) + '"></label>' +

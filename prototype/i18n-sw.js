@@ -298,3 +298,25 @@
   'use strict';
   Object.assign(window.BDBV_SW, { 'New high-risk patients (48 h)': 'Wagonjwa wapya wa hatari kubwa (saa 48)' });
 })();
+(function () {
+  'use strict';
+  // Phase 1: sessions kept on refresh, drafts, inactivity lock, storage warnings.
+  Object.assign(window.BDBV_SW, {
+    'Device storage is full: synchronise now so that nothing is lost.': 'Hifadhi ya kifaa imejaa: sawazisha sasa ili kisipotee chochote.',
+    'Unsaved entries restored on this device.': 'Maingizo ambayo hayajahifadhiwa yamerejeshwa kwenye kifaa hiki.',
+    'Screen locked': 'Skrini imefungwa',
+    'Unlock': 'Fungua',
+    'Sign in with another account': 'Ingia kwa akaunti nyingine',
+    'Your session has ended. Enter your password to continue. Data not yet sent are kept.': 'Muda wako wa kuingia umekwisha. Weka nenosiri lako ili kuendelea. Data ambazo bado hazijatumwa zimehifadhiwa.',
+    'Locked after ': 'Imefungwa baada ya ',
+    ' minutes without use. Nothing you entered has been lost.': ' dakika bila kutumika. Hakuna ulichoingiza kilichopotea.',
+    'Enter your password.': 'Weka nenosiri lako.',
+    'Connect to the internet to unlock.': 'Unganisha kwenye intaneti ili kufungua.',
+    'Wrong password.': 'Nenosiri si sahihi.',
+    'Unlocked offline. You will be asked for your password again when the network returns, to send your data.': 'Imefunguliwa bila mtandao. Utaombwa nenosiri tena mtandao ukirudi, ili kutuma data zako.',
+    ' record(s) not yet sent will stay on this device and be sent when you next sign in. Sign out?': ' rekodi ambazo bado hazijatumwa zitabaki kwenye kifaa hiki na zitatumwa utakapoingia tena. Utoke?',
+    ' record(s) kept on this device will now be sent.': ' rekodi zilizohifadhiwa kwenye kifaa hiki sasa zitatumwa.',
+    'Session ended': 'Muda wa kuingia umekwisha',
+    'new information: show': 'taarifa mpya: onyesha'
+  });
+})();

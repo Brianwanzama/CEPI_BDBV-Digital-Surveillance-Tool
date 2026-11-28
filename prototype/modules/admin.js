@@ -112,6 +112,14 @@
       '<section class="card"><h3>4. ' + L('Prise en charge à domicile', 'Home-based care') + '</h3><label class="check"><input type="checkbox" id="home"' + (c.home_care_permitted ? ' checked' : '') + '> ' + L('Autorisée par les protocoles nationaux cliniques et PCI approuvés', 'Permitted by approved national clinical and IPC protocols') + '</label>' +
       '<label>' + L('Référence du protocole (obligatoire pour activer)', 'Protocol reference (required to enable)') + '<input id="homeref" value="' + esc(c.home_care_ref || '') + '"></label><button class="primary" id="hsave">' + L('Enregistrer', 'Save') + '</button></section>' +
 
+      '<section class="card"><h3>' + L('Assistance par IA et sécurité', 'AI support and security') + '</h3>' +
+      '<p class="small muted">' + L('L\'IA propose un résumé, les lieux et dates, les doublons possibles, les informations manquantes et une priorité pour les rapports communautaires et les rumeurs. Elle ne décide rien. À activer seulement après l\'accord du Ministère de la Santé.', 'The AI suggests a summary, places and dates, possible duplicates, missing information and a priority for community reports and rumours. It decides nothing. Switch it on only after approval by the Ministry of Health.') + '</p>' +
+      '<p class="small" id="aistat"></p>' +
+      '<label class="check"><input type="checkbox" id="aion"' + (cfg().ai_enabled ? ' checked' : '') + '> ' + L('Activer les suggestions de l\'IA', 'Switch on AI suggestions') + '</label>' +
+      '<label class="inl">' + L('Langue des suggestions', 'Language of suggestions') + ' <select id="ailang">' + [['en', 'English'], ['fr', 'Français'], ['sw', 'Kiswahili']].map(function (o) { return '<option value="' + o[0] + '"' + ((cfg().ai_language || 'en') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="inl">' + L('Verrouillage après (minutes sans utilisation)', 'Lock after (minutes without use)') + ' <input type="number" id="lockmin" min="5" max="240" value="' + esc(String(cfg().lock_minutes || 30)) + '" style="max-width:90px"></label>' +
+      '<button class="primary" id="aisave">' + L('Enregistrer', 'Save') + '</button></section>' +
+
       '<section class="card"><h3>' + L('Laboratoires de référence', 'Referral laboratories') + '</h3><p class="small muted">' + L('Liste proposée au laboratoire lors de l\'envoi d\'un échantillon. Un laboratoire par ligne.', 'List offered to the laboratory when a sample is sent. One laboratory per line.') + '</p><textarea id="reflabs" rows="4">' + esc(B.labApi ? B.labApi.labs().join('\n') : '') + '</textarea><button class="primary" id="refsave">' + L('Enregistrer', 'Save') + '</button></section>' +
 
       '<section class="card"><h3>5. ' + L('Zones avec transmission active (scénario de démonstration)', 'Zones with active transmission (demo scenario)') + '</h3><div class="checks">' +
@@ -132,12 +140,22 @@
       B.audit('config_' + what, 'config', what, detail || ''); B.save(); G.applyConfig(cfg().geo);
       // On the deployed system the configuration is stored on the server, for every user.
       if (B.st.auth && B.st.auth.mode === 'server' && B.apiCall) {
-        var c = cfg(), body = {}; ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs'].forEach(function (k) { if (c[k] !== undefined) body[k] = c[k]; });
+        var c = cfg(), body = {}; ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs', 'ai_enabled', 'ai_language', 'lock_minutes'].forEach(function (k) { if (c[k] !== undefined) body[k] = c[k]; });
         B.apiCall('/config', { method: 'PUT', body: body }).then(function () { B.notify(L('Configuration enregistrée sur le serveur.', 'Configuration saved on the server.'), 'ok'); })
           .catch(function (e) { B.notify(L('Configuration non enregistrée sur le serveur : ', 'Configuration not saved on the server: ') + (e.message || e), 'err'); });
       } else B.notify(L('Configuration enregistrée.', 'Configuration saved.'));
       B.VIEWS.admin(v);
     };
+    if (B.$('#aisave', v)) B.$('#aisave', v).onclick = function () {
+      cfg().ai_enabled = B.$('#aion', v).checked; cfg().ai_language = B.$('#ailang', v).value;
+      cfg().lock_minutes = Math.min(Math.max(+B.$('#lockmin', v).value || 30, 5), 240);
+      done('ai_security', 'ai=' + cfg().ai_enabled + ' lock=' + cfg().lock_minutes);
+    };
+    if (B.$('#aistat', v) && B.apiCall && B.st.auth && B.st.auth.mode === 'server') B.apiCall('/ai/status').then(function (s) {
+      var el = B.$('#aistat', v); if (!el) return;
+      el.textContent = s.provider_configured ? L('Service d\'IA configuré sur le serveur (modèle ', 'AI service configured on the server (model ') + s.model + ')' + (s.enabled ? L(' : actif.', ': active.') : L(' : désactivé.', ': switched off.'))
+        : L('Aucun service d\'IA configuré sur le serveur : l\'interrupteur n\'a pas d\'effet tant que la clé n\'est pas ajoutée par l\'hébergeur.', 'No AI service configured on the server: the switch has no effect until the key is added by whoever runs the server.');
+    }).catch(function () {});
     if (B.$('#refsave', v)) B.$('#refsave', v).onclick = function () {
       cfg().referral_labs = B.$('#reflabs', v).value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
       done('referral_labs', cfg().referral_labs.length + ' lab(s)');

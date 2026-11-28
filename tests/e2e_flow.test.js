@@ -50,6 +50,9 @@ const WAIT = 75000; // live refresh is every 30 s
   ok('nurse saves a high-risk patient; it is sent to the server without pressing Sync');
   await clin.waitForFunction((id) => document.querySelector('#view').textContent.includes(id), caseId, { timeout: WAIT });
   ok('clinician\'s open Alerts screen shows the new high-risk alert');
+  // A refresh (or a phone reloading the tab) keeps the person signed in and still receiving.
+  await clin.reload(); await clin.waitForFunction(() => !!BDBV.st.auth && BDBV.st.tab === 'alerts' && BDBV.server.available === true, null, { timeout: 30000 });
+  ok('clinician refreshes the page: still signed in on the same screen; the next steps arrive on the refreshed page');
   await surv.waitForFunction((id) => BDBVApp.db().queue.some((q) => q.source_ref === id), caseId, { timeout: WAIT });
   await zone.waitForFunction((id) => BDBVApp.db().queue.some((q) => q.source_ref === id), caseId, { timeout: WAIT });
   ok('surveillance officer and zone officer receive it in the verification queue');

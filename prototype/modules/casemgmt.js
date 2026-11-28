@@ -57,6 +57,7 @@
 
   function detail(v, edit) {
     var a = B.byId(db().assessments, mf.open), box = B.$('#mdetail', v); if (!a || !box) return;
+    box.setAttribute('data-draft', 'm:' + a.id);
     var facs = B.G.facilities;
     box.innerHTML = '<h3>' + esc(a.id) + ' · ' + B.chip(a.result.category) + ' · ' + esc(B.classLabel(a.classification)) + '</h3>' +
       (edit ? '<div class="grid"><label>' + L('Statut', 'Status') + '<select id="mst">' + Object.keys(CARE).map(function (s) { return '<option value="' + s + '"' + (s === a.care.status ? ' selected' : '') + (s === 'home_care' && !homeOK() ? ' disabled' : '') + '>' + esc(lbl2(CARE[s])) + (s === 'home_care' && !homeOK() ? L(' (non autorisé)', ' (not permitted)') : '') + '</option>'; }).join('') + '</select></label>' +

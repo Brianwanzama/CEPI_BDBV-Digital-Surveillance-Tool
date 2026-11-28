@@ -296,3 +296,62 @@ test('accounts: request, approval, rejection, forgotten password, temporary pass
   assert.strictEqual((await call('POST', '/auth/login', { username: 'new.nurse', password: 'Brand-new-pass-77' })).body.error, 'account_disabled');
   assert.ok((await pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action IN ('account_request','account_approve','account_reject','password_reset','password_change','account_disable')")).rows[0].n >= 6);
 });
+
+test('assignment: surveillance staff receive the list of surveillance accounts; other roles do not', async () => {
+  const s = await pull(T.surveillance);
+  assert.ok(Array.isArray(s.officers) && s.officers.some((o) => o.username === 'zone.aru' && o.role === 'zone_officer' && o.zone === 'Z-aru'));
+  assert.ok(s.officers.every((o) => ['surveillant', 'zone_officer'].includes(o.role)));
+  assert.strictEqual((await pull(T['nurse.aru'])).officers, undefined);
+});
+
+test('errors seen on phones are recorded for the administrator, with or without a session', async () => {
+  const anon = await call('POST', '/client-errors', { errors: [{ msg: 'B.applyAuth is not a function', src: '/api.js', line: 181, tab: 'login', role: 'public', at: new Date().toISOString(), ua: 'test' }] });
+  assert.strictEqual(anon.body.recorded, 1);
+  await call('POST', '/client-errors', { errors: [{ msg: 'storage_full: QuotaExceededError', src: 'app.js', line: 0 }] }, T['nurse.aru']);
+  const rows = (await pool.query("SELECT username, detail, source FROM audit_log WHERE action = 'client_error' ORDER BY seq")).rows;
+  assert.strictEqual(rows.length, 2);
+  assert.deepStrictEqual([rows[0].username, rows[1].username, rows[0].source], ['public', 'nurse.aru', 'client']);
+  assert.match(rows[0].detail, /applyAuth/);
+});
+
+test('AI suggestions: off until switched on, for surveillance staff only, suggestions never change the alert', async () => {
+  process.env.AI_PROVIDER = 'mock';
+  const AI = require('../src/ai');
+  const now = new Date().toISOString(), day = now.slice(0, 10);
+  const mk = (n, desc, deaths) => ({
+    rum: { id: 'RUM-ARU-AI' + n, type: 'death_unexplained', geo: { zone: 'Z-aru', area: 'Z-aru-A1', village: 'Z-aru-A1-V1' }, place_text: 'near the market', date_occurred: day, submitted_at: now, description: desc, n_people: 3, n_deaths: deaths, anonymous: false, name: 'Secret Name', phone: '+243 999 888 777', relationship: 'family' },
+    alert: { id: 'ALT-ARU-AI' + n, source: 'rumour', source_ref: 'RUM-ARU-AI' + n, type: 'death_unexplained', geo: { zone: 'Z-aru', area: 'Z-aru-A1', village: 'Z-aru-A1-V1' }, submitted_at: now, description: 'Rumour', stages: {}, outcome: 'pending', findings: '', duplicate_of: '', history: [], linked: [] }
+  });
+  const one = mk(1, 'Two people died after fever and bleeding. Call me on +243 812 345 678', 2), two = mk(2, 'Deaths in the same family near the market', 1);
+  for (const x of [one, two]) await pool.query("INSERT INTO records (collection, id, data, zone, owner, updated_by) VALUES ('rumours',$1,$2,'Z-aru','public','public'), ('queue',$3,$4,'Z-aru','public','public')", [x.rum.id, x.rum, x.alert.id, x.alert]);
+  // nothing identifying the reporter is sent
+  const sent = JSON.stringify(AI.describe(one.alert, one.rum));
+  assert.ok(!/Secret Name|999 888|812 345/.test(sent), 'no name or phone number in what is sent: ' + sent);
+  // off until the system administrator switches it on
+  const st = (await call('GET', '/ai/status', null, T.surveillance)).body;
+  assert.deepStrictEqual([st.provider_configured, st.enabled], [true, false]);
+  assert.strictEqual((await call('GET', '/ai/status', null, T['nurse.aru'])).status, 403);
+  assert.strictEqual((await call('POST', '/ai/analyse', { queue_id: one.alert.id }, T.surveillance)).body.error, 'ai_disabled');
+  const cfg = (await call('GET', '/config', null, T.sysadmin)).body;
+  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: true }), T['zone.aru'])).status, 403);
+  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: true, lock_minutes: 1 }), T.sysadmin)).body.lock_minutes, 5, 'lock at least 5 minutes');
+  // analysed on request: priority, reasons, duplicates among recent reports of the zone
+  const s = (await call('POST', '/ai/analyse', { queue_id: one.alert.id, lang: 'en' }, T.surveillance)).body;
+  assert.strictEqual(s.status, 'ok'); assert.strictEqual(s.priority, 'high'); assert.ok(s.priority_reasons.length);
+  assert.ok(s.possible_duplicates.some((d) => d.id === two.alert.id), 'the other report from the same village is offered as a possible duplicate');
+  assert.strictEqual((await call('POST', '/ai/analyse', { queue_id: one.alert.id }, T['clinician.aru'])).status, 403);
+  // the alert itself is unchanged
+  const stored = (await pool.query("SELECT data FROM records WHERE collection = 'queue' AND id = $1", [one.alert.id])).rows[0].data;
+  assert.deepStrictEqual([stored.outcome, Object.keys(stored.stages).length], ['pending', 0]);
+  // suggestions reach surveillance staff by sync, with the officer's feedback
+  assert.ok((await pull(T.surveillance)).ai[one.alert.id]);
+  assert.ok((await pull(T['zone.aru'])).ai[one.alert.id], 'zone officer of the zone sees it');
+  assert.strictEqual((await pull(T['nurse.aru'])).ai, undefined);
+  assert.strictEqual((await call('POST', '/ai/feedback', { queue_id: one.alert.id, value: 'wrong' }, T['zone.aru'])).body.feedback, 'wrong');
+  // new reports are analysed in the background once switched on
+  AI.schedule(pool, Object.assign({}, cfg, { ai_enabled: true }), [two.alert]);
+  for (let i = 0; i < 50 && !(await pool.query("SELECT 1 FROM ai_suggestions WHERE queue_id = $1", [two.alert.id])).rowCount; i++) await new Promise((r) => setTimeout(r, 100));
+  assert.ok((await pool.query("SELECT 1 FROM ai_suggestions WHERE queue_id = $1 AND status = 'ok'", [two.alert.id])).rowCount, 'background analysis stored');
+  assert.ok((await pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action IN ('ai_analyse', 'ai_feedback')")).rows[0].n >= 2);
+  delete process.env.AI_PROVIDER;
+});

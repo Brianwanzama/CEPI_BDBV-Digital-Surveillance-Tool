@@ -29,7 +29,7 @@ flowchart LR
 | Triage the patient and save (voice capture optional, answers checked) | Health worker / Clinician | Triage | - |
 | High risk: alert created for the facility; isolate, infection control, call surveillance, request a sample, then acknowledge and tick the actions | Health worker / Clinician | Alerts | 30 min |
 | Medium risk: re-assess and mark as reviewed | Clinician | Assessments | 24 h |
-| Every assessment, low risk included, goes to the verification queue: receive, assign, verify, record the outcome, approve | Surveillance officer / HZ officer | Verification | receive 1 h, start 4 h, complete 1 day, approve 12 h |
+| Every assessment, low risk included, goes to the verification queue with a priority from the rules (and an AI suggestion for community reports and rumours, when switched on): receive, assign to a named officer, verify, record the outcome, approve | Surveillance officer / HZ officer | Verification | receive 1 h, start 4 h, complete 1 day, approve 12 h |
 | Verified and approved information appears on the dashboard and map | Public health administrator, facility head | Dashboard, Map | - |
 
 **2. A sample to the laboratory**
@@ -82,7 +82,7 @@ flowchart LR
 | Laboratory manager (`labmgr`) | Laboratory, Reports | Several times a day | Results awaiting approval; repeat tests |
 | Facility head (`head.aru`) | Facility dashboard, Reports | Daily | Unacknowledged alerts, patients not reviewed, samples not sent |
 | Public health administrator (`admin.ph`) | Map, Dashboard, Rumours, Analysis, Historical data, Reports | Daily or weekly | Where high-risk patients and cases are; trends against earlier waves (aggregate only) |
-| System administrator (`sysadmin`) | Configuration, Scoring rules, Audit log | Daily | Account requests and forgotten passwords; settings; audit log |
+| System administrator (`sysadmin`) | Configuration, Scoring rules, Audit log | Daily | Account requests and forgotten passwords; settings (AI switch, lock time); audit log, including errors reported from phones (`client_error`) |
 
 ## 12.4 Who sees names
 

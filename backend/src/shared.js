@@ -43,7 +43,7 @@ function rescore(a, override) {
 // Run the app's own synthetic-data generator in a sandbox and return its collections.
 function generateSynthetic() {
   const html = fs.readFileSync(path.join(ROOT, 'prototype', 'index.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]).filter((s) => !s.startsWith('vendor/'));
+  const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]).filter((s) => !s.startsWith('vendor/') && !['errors.js', 'resilience.js'].includes(s)); // browser-only helpers
   const noop = () => {};
   const docStub = { addEventListener: noop, querySelector: () => null, querySelectorAll: () => [], documentElement: {}, createElement: () => ({ style: {} }), body: { appendChild: noop } };
   const sandbox = { console, Date, Math, JSON, setTimeout, clearTimeout, URL, Blob: function () {}, crypto: crypto.webcrypto, navigator: {}, document: docStub, location: { protocol: 'file:' } };

@@ -25,6 +25,9 @@ const express = require('express');
 const P = require('./permissions');
 const { sign, requireAuth, verifyPassword, hash, passwordProblem } = require('./auth');
 const { rescore } = require('./shared');
+const AI = require('./ai');
+const jwt = require('jsonwebtoken');
+const { secret } = require('./auth');
 
 const DATA_MODE = 'synthetic';
 
@@ -239,6 +242,7 @@ function createApp(pool, opts = {}) {
         }
       }
     } finally { client.release(); }
+    if (accepted.queue && accepted.queue.length) AI.schedule(pool, cfg, (changes.queue || []).filter((q) => q && accepted.queue.includes(q.id)));
     // Audit entries recorded on the device (who viewed/changed what offline).
     const clientAudit = Array.isArray(changes.audit) ? changes.audit.slice(0, 2000) : [];
     for (const a of clientAudit) await audit(req, String(a.action || '').slice(0, 64), a.entity, a.id, (a.at ? 'device_time=' + a.at + ' ' : '') + (a.detail || ''), 'client');
@@ -250,7 +254,19 @@ function createApp(pool, opts = {}) {
     const nPull = Object.values(records).reduce((s, l) => s + l.length, 0);
     if (P.SEE_NAMES.includes(req.user.role) && records.assessments.length) await audit(req, 'read_identifiable', 'assessments', null, records.assessments.length + ' record(s) pulled');
     await audit(req, 'sync_pull', 'records', null, nPull + ' record(s)' + (since ? ' since ' + new Date(since).toISOString() : ' (full)'));
-    res.json({ accepted, rejected, records, config: cfg, server_time: serverTime, data_mode: DATA_MODE });
+    const extra = {};
+    if (P.VERIFY.includes(req.user.role)) {
+      // Officers who can be assigned alerts (active surveillance accounts).
+      extra.officers = (await pool.query("SELECT username, display_name AS name, role, zone FROM users WHERE active AND status = 'active' AND role = ANY($1) ORDER BY display_name", [P.VERIFY])).rows;
+      // AI suggestions for alerts in this person's scope.
+      const params = [];
+      let sql = "SELECT * FROM ai_suggestions WHERE status = 'ok'";
+      if (req.user.role === 'zone_officer') { params.push(req.user.zone); sql += ' AND zone = $' + params.length; }
+      if (since) { params.push(since); sql += ' AND created_at > $' + params.length; }
+      extra.ai = {};
+      (await pool.query(sql + ' ORDER BY created_at LIMIT 5000', params)).rows.forEach((r) => { extra.ai[r.queue_id] = AI.toClient(r); });
+    }
+    res.json(Object.assign({ accepted, rejected, records, config: cfg, server_time: serverTime, data_mode: DATA_MODE }, extra));
   }));
 
   api.get('/records/:collection', auth, wrap(async (req, res) => {
@@ -300,6 +316,7 @@ function createApp(pool, opts = {}) {
       geo, description: desc, info_source: 'public:' + rumour.relationship, supporting: rumour.attachment ? 'key:attachment ' + rumour.attachment.name : '', stages: {}, outcome: 'pending', findings: '', duplicate_of: '', linked: [],
       urgent: rumour.n_deaths > 1 || rumour.type === 'cluster', history: [{ at: rumour.submitted_at, by: 'public', action: 'submitted', note: '' }], place_text: rumour.place_text, synthetic: true };
     await pool.query('INSERT INTO records (collection, id, data, zone, owner, updated_by) VALUES ($1,$2,$3,$4,$5,$5), ($6,$7,$8,$4,$5,$5)', ['rumours', id, rumour, geo.zone || null, 'public', 'queue', alert.id, alert]);
+    loadConfig().then((cfg) => AI.schedule(pool, cfg, [alert])).catch(() => {});
     await audit({ ip: req.ip }, 'create', 'rumour', id, anonymous ? 'anonymous' : '');
     res.status(201).json({ id });
   }));
@@ -307,12 +324,60 @@ function createApp(pool, opts = {}) {
   api.get('/config', auth, wrap(async (req, res) => res.json(await loadConfig())));
   api.put('/config', auth, wrap(async (req, res) => {
     if (req.user.role !== 'sysadmin') return res.status(403).json({ error: 'forbidden' });
-    const v = req.body || {}, allowed = ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs'];
+    const v = req.body || {}, allowed = ['tat', 'followup_days', 'home_care_permitted', 'home_care_ref', 'geo', 'rules_override', 'referral_labs', 'ai_enabled', 'ai_language', 'lock_minutes'];
     const clean = {}; allowed.forEach((k) => { if (v[k] !== undefined) clean[k] = v[k]; });
     if (clean.home_care_permitted && String(clean.home_care_ref || '').trim().length < 3) return res.status(400).json({ error: 'protocol_reference_required' });
+    if (clean.ai_enabled !== undefined) clean.ai_enabled = clean.ai_enabled === true;
+    if (clean.lock_minutes !== undefined) clean.lock_minutes = Math.min(Math.max(+clean.lock_minutes || 30, 5), 240);
+    if (clean.ai_language !== undefined && !['en', 'fr', 'sw'].includes(clean.ai_language)) clean.ai_language = 'en';
     await pool.query("INSERT INTO config (key, value, updated_by) VALUES ('app', $1, $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now(), updated_by = $2", [clean, req.user.username]);
     await audit(req, 'config_update', 'config', 'app', JSON.stringify(clean).slice(0, 1500));
     res.json(clean);
+  }));
+
+  // ---- AI suggestions (verification support; off until switched on by the system administrator) ----
+  api.get('/ai/status', auth, wrap(async (req, res) => {
+    if (![...P.VERIFY, 'sysadmin'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+    const cfg = await loadConfig();
+    res.json({ provider_configured: !!AI.provider(), enabled: AI.enabled(cfg), switched_on: cfg.ai_enabled === true, model: AI.provider() === 'mock' ? 'mock' : AI.MODEL });
+  }));
+  api.post('/ai/analyse', auth, rateLimiter(+(process.env.AI_RATE_LIMIT || 120), 3600000), wrap(async (req, res) => {
+    if (!P.VERIFY.includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+    const cfg = await loadConfig();
+    if (!AI.enabled(cfg)) return res.status(409).json({ error: 'ai_disabled' });
+    const id = String((req.body || {}).queue_id || '');
+    const params = ['queue', id];
+    const ok = await pool.query('SELECT 1 FROM records WHERE collection = $1 AND id = $2 AND ' + P.scopeWhere(req.user, 'queue', params), params);
+    if (!ok.rowCount) return res.status(404).json({ error: 'not_found' });
+    const lang = ['en', 'fr', 'sw'].includes(req.body.lang) ? req.body.lang : (cfg.ai_language || 'en');
+    try {
+      const s = await AI.analyse(pool, id, lang);
+      await audit(req, 'ai_analyse', 'queue', id, s.status + (s.error ? ' ' + s.error : '') + ' ' + (s.model || ''));
+      res.json(s);
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+  }));
+  api.post('/ai/feedback', auth, wrap(async (req, res) => {
+    if (!P.VERIFY.includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+    const id = String((req.body || {}).queue_id || ''), v = (req.body || {}).value;
+    if (!['useful', 'wrong'].includes(v)) return res.status(400).json({ error: 'invalid_value' });
+    const r = await pool.query('UPDATE ai_suggestions SET feedback = $2, feedback_by = $3, feedback_at = now() WHERE queue_id = $1 RETURNING *', [id, v, req.user.username]);
+    if (!r.rowCount) return res.status(404).json({ error: 'not_found' });
+    await audit(req, 'ai_feedback', 'queue', id, v);
+    res.json(AI.toClient(r.rows[0]));
+  }));
+
+  // ---- Errors seen on phones and computers (no form content), for the system administrator ----
+  api.post('/client-errors', rateLimiter(+(process.env.CLIENT_ERROR_RATE_LIMIT || 60), 3600000), wrap(async (req, res) => {
+    let user = null;
+    const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
+    if (m) { try { const c = jwt.verify(m[1], secret(), { issuer: 'bdbv-api' }); user = { username: c.sub, role: c.role }; } catch (e) { /* expired or invalid: recorded as anonymous */ } }
+    const list = Array.isArray((req.body || {}).errors) ? req.body.errors.slice(0, 20) : [];
+    const s = (v, n) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').slice(0, n);
+    for (const e of list) {
+      await audit({ user, ip: req.ip }, 'client_error', 'app', s(e.src, 120) + ':' + (+e.line || 0),
+        s(e.msg, 300) + ' | screen=' + s(e.tab, 30) + ' role=' + s(e.role, 30) + ' at=' + s(e.at, 30) + ' | ' + s(e.ua, 160) + (e.stack ? ' | ' + s(e.stack, 600) : ''), 'client');
+    }
+    res.json({ recorded: list.length });
   }));
 
   api.get('/audit', auth, wrap(async (req, res) => {

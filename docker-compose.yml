@@ -29,6 +29,9 @@ services:
       DATA_MODE: synthetic
       SEED_DEMO: ${SEED_DEMO:-true}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      # AI suggestions: off unless a provider is set here AND switched on in Configuration
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}

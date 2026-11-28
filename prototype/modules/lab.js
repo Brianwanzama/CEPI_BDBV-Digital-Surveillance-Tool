@@ -204,6 +204,7 @@
 
   function detail(v) {
     var s = B.byId(db().samples, lf.open), box = B.$('#ldetail', v); if (!s || !box) return;
+    box.setAttribute('data-draft', 'l:' + s.id);
     box.hidden = false;
     var a = B.byId(db().assessments, s.case_id), now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     var html = '<div class="mhead"><div><p class="eyebrow">' + L('Échantillon', 'Sample') + '</p><h3>' + esc(s.lab_id || L('ID labo à attribuer', 'Lab ID to assign')) + ' <span class="muted small">' + esc(s.id) + '</span></h3></div>' +

@@ -9,9 +9,12 @@
     "seed": "node src/seed.js",
     "test": "node --test --test-concurrency=1 test/*.test.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT",
   "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
     "bcryptjs": "2.4.3",
     "express": "4.21.2",
     "jsonwebtoken": "9.0.2",

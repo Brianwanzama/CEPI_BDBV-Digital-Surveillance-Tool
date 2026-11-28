@@ -109,6 +109,9 @@ The free tier sleeps when idle, and Render's free databases expire after a perio
 | `TRUST_PROXY` | no | `true` behind a reverse proxy / platform load balancer |
 | `PORT` | no | Default 8080 |
 | `TOKEN_TTL` | no | Token lifetime, default `12h` |
+| `ANTHROPIC_API_KEY` | no | Key for the AI suggestions (Anthropic API). Without it AI is unavailable. Even with it, AI stays off until the system administrator switches it on in Configuration. Add it as a secret in the host's settings; never commit it |
+| `AI_MODEL` | no | Model for the AI suggestions, default `claude-opus-5-5` |
+| `AI_PROVIDER` | no | `mock` only for tests (predictable suggestions without calling any service) |
 | `RESET_DEMO_PASSWORDS` | no | `true` for one start: sets every demo account's password to `SEED_USER_PASSWORD` (8+ characters), logged in the audit log. Set it back to `false` afterwards |
 
 ### If the site does not open or sign-in fails (Render)
@@ -135,6 +138,16 @@ Each save is sent to the server within about a second, and every signed-in scree
 
 `tests/e2e_flow.test.js` checks this on a running server with accounts created through *Request an account* and approved by the administrator: seven people keep their screens open and the test waits for each item to arrive (nurse → clinician's alerts and the surveillance and zone queues; clinician's test request → laboratory; laboratory result → laboratory manager; approval → clinician, case confirmed; RECO report → surveillance; acknowledgement → zone officer).
 
+## 11.5d Sessions, drafts, lock and AI support (phase 1)
+
+- **Refresh.** The session (a token that expires after `TOKEN_TTL`, 12 hours by default) and the screen the person was on survive a refresh or a reload by the phone.
+- **Drafts.** What is typed in a form or a record panel is kept on the device as a draft (browser storage, per account, 7 days), restored after a reload or a redraw, and removed when the form is saved or the person signs out. Passwords are never kept.
+- **Lock.** After 30 minutes without use (Configuration > AI support and security, 5 to 240 minutes) the screen locks. The account password opens it: with the server when online (this also renews an expired session), otherwise against a salted PBKDF2 hash kept on the device.
+- **Expired session.** The screen locks; nothing is deleted. Unsent records are sent once the password is entered.
+- **Sign-out with unsent records.** They stay on the device for that account and are sent at its next sign-in.
+- **Errors.** `POST /api/v1/client-errors` (rate-limited, `CLIENT_ERROR_RATE_LIMIT` per hour) records errors from phones in the audit log as `client_error`.
+- **AI suggestions.** `GET /api/v1/ai/status`, `POST /api/v1/ai/analyse` and `POST /api/v1/ai/feedback` (surveillance roles); new community reports and rumours are analysed in the background when AI is on. Suggestions are stored in the `ai_suggestions` table and sent with the sync to surveillance staff of the zone. To switch on: add `ANTHROPIC_API_KEY` to the server's environment (Render > the service > Environment), redeploy, then tick "Switch on AI suggestions" in Configuration. To switch off: untick it; removing the key disables it completely.
+
 ## 11.6 GitHub Actions
 
 | Workflow | When | What |
@@ -150,6 +163,8 @@ The development branch is `claude/great-shannon-chjevm`. Merging it into `main` 
 |---|---|
 | `backend`: `npm test` against PostgreSQL 16 (18 tests: health/data mode, authentication, scoping, redaction, server rescoring, write permissions, results entered by the laboratory and released only by the laboratory manager, verification rights, version conflicts and history, incremental sync, public rumours and rate limit, identifier reveal with logged reason, configuration rights, append-only audit, input validation, historical data: counts only, import rights, batches locked, demo password reset, account requests, approval, rejection, forgotten password, forced password change) | 18/18 pass |
 | `tests/e2e_server.test.js` against the Docker Compose stack: app served by API, password sign-in shown and no demo accounts offered; public rumour to server without an account; nurse signs in (role from account, facility scope, names), triage synced and rescored to RED; surveillance without names; rumour acknowledged and synced; identifier export fetched from server with reason audited; Excel/PDF under the CSP; account requested on the sign-in screen and approved by the administrator; forgotten password handled with a temporary password and a forced change; a deployment never falls back to demonstration accounts (retries the server instead); no CSP or JS errors | 10/10 pass |
+| `backend`: new tests for the officer list, error reporting and AI suggestions (off until switched on, surveillance roles only, nothing identifying the reporter sent, duplicates, feedback, background analysis) | 21/21 pass |
+| `tests/e2e_phase1.test.js` on an emulated Pixel 7: refresh keeps session, screen and typed text, and updates continue; text in an open alert survives the 30-second update and a reload; rule priority and AI suggestion (mock) shown apart; assignment to accounts with instructions; lock, wrong password, unlock; expired session resumes; records saved offline kept after sign-out and sent at the next sign-in; a phone error reaches the audit log | 8/8 pass |
 | `tests/e2e_flow.test.js` against an empty server (`SEED_DEMO_DATA=false`): seven new accounts, information passed from person to person without Sync or reload (see §11.5c) | 10/10 pass |
 | Start-up with `SEED_DEMO_DATA=false` after a start with synthetic data: 1,267 demonstration records removed, a record entered by hand kept | pass |
 | Existing suites (scoring, voice, i18n, offline e2e v1 and v2, boundary import) | pass |

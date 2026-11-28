@@ -73,6 +73,7 @@ jobs:
           SEED_DEMO: "true"
           SEED_DEMO_DATA: "true"
           SEED_USER_PASSWORD: ci-demo-password
+          AI_PROVIDER: mock
         run: |
           psql postgres://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE bdbv_e2e"
           node backend/src/server.js > server.log 2>&1 &
@@ -85,6 +86,7 @@ jobs:
         run: |
           node tests/e2e_server.test.js
           node tests/e2e_flow.test.js
+          node tests/e2e_phase1.test.js
 
       - name: Server log
         if: always()

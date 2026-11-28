@@ -11,7 +11,7 @@ RUN --mount=type=secret,id=build_ca,required=false \
     cd backend && \
     if [ -f /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi && \
     npm ci --omit=dev && npm cache clean --force && \
-    node -e "['pg','express','jsonwebtoken','bcryptjs'].forEach(function (m) { require(m); }); console.log('dependencies OK')"
+    node -e "['pg','express','jsonwebtoken','bcryptjs','@anthropic-ai/sdk'].forEach(function (m) { require(m); }); console.log('dependencies OK')"
 COPY backend/src backend/src
 COPY prototype prototype
 COPY config config

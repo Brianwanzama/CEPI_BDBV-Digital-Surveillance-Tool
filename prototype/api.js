@@ -13,7 +13,7 @@
   var base = CFG.apiUrl ? CFG.apiUrl.replace(/\/$/, '') : (location.protocol.indexOf('http') === 0 ? location.origin : null);
   var session = null;
   try { session = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { session = null; }
-  if (session && session.token) B.serverMode = true; // tells app.js not to generate local demo data
+  if (session && (session.token || session.expired)) B.serverMode = true; // tells app.js not to generate local demo data
 
   function saveSession() { try { if (session) localStorage.setItem(KEY, JSON.stringify(session)); else localStorage.removeItem(KEY); } catch (e) { /* private mode */ } }
   function api(path, opt) {
@@ -27,7 +27,7 @@
 
   // A deployment (app served by the API, or hosted with an apiUrl) never offers demonstration accounts.
   var deployed = !!(CFG.server || CFG.apiUrl);
-  B.server = { available: false, base: base, deployed: deployed, user: function () { return session && session.user; }, lastSync: function () { return session && session.lastSync; } };
+  B.server = { available: false, base: base, deployed: deployed, user: function () { return session && session.user; }, lastSync: function () { return session && session.lastSync; }, expired: function () { return !!(session && session.expired); } };
   if (deployed) { try { localStorage.removeItem('bdbv_demo_session'); } catch (e) { /* ignore */ } }
 
   function applyIdentity() { B.applyAuth(session.user, 'server'); }
@@ -41,7 +41,7 @@
   var syncing = null, again = false, lastOk = null;
   function pendingLocal() { var d = B.db(); return COLS.reduce(function (s, c) { return s + (d[c] || []).filter(function (x) { return !x.synced && !x.sync_error; }).length; }, 0); }
   function sync(full, quiet) {
-    if (!session || (session.user && session.user.must_change_password)) return Promise.resolve();
+    if (!session || !session.token || (session.user && session.user.must_change_password)) return Promise.resolve();
     if (syncing) { again = true; return syncing; }
     syncing = doSync(full, quiet).then(function (r) { syncing = null; if (again) { again = false; return sync(false, true); } return r; }, function (e) { syncing = null; throw e; });
     return syncing;
@@ -74,6 +74,8 @@
         return api('/records/' + r.collection + '/' + encodeURIComponent(r.id)).then(function (rec) { rec.synced = true; var i = d[r.collection].findIndex(function (x) { return x.id === r.id; }); if (i >= 0) d[r.collection][i] = rec; }).catch(function () {});
       })).then(function () {
         mergeConfig(res.config);
+        if (res.officers) d.officers = res.officers;
+        if (res.ai) { d.ai = d.ai || {}; Object.keys(res.ai).forEach(function (k) { d.ai[k] = res.ai[k]; }); }
         session.lastSync = res.server_time; saveSession(); B.save();
         var rej = (res.rejected || []).filter(function (r) { return r.reason !== 'conflict'; });
         lastOk = new Date(); B.server.live = true;
@@ -91,7 +93,7 @@
       });
     }).catch(function (e) {
       setStatus(''); B.server.live = false; B.render({ chromeOnly: true });
-      if (e.status === 401) { B.notify(L('Session expirée : reconnectez-vous.', 'Session expired: sign in again.'), 'err'); logout(true); return; }
+      if (e.status === 401) { expire(); return; }
       if (!quiet) B.notify(L('Synchronisation impossible (réseau ou serveur). Les données restent sur l\'appareil.', 'Sync failed (network or server). Data stay on the device.'), 'err');
     });
   }
@@ -113,10 +115,15 @@
   // Called by the sign-in screen (auth.js).
   B.serverLogin = function (username, password) {
     return api('/auth/login', { method: 'POST', body: { username: username, password: password } }).then(function (r) {
+      var prevUser = session && session.user && session.user.username;
+      if (prevUser && prevUser !== r.user.username) park(prevUser);
       session = { token: r.token, user: r.user, lastSync: null }; saveSession();
+      makeVerifier(password).then(function (v) { if (v && session) { session.verifier = v; saveSession(); } });
       B.serverMode = true; applyIdentity();
       var d = B.db();
-      COLS.forEach(function (c) { d[c] = (d[c] || []).filter(function (x) { return !x.demo && !x.synced; }); });
+      COLS.forEach(function (c) { d[c] = (d[c] || []).filter(function (x) { return !x.demo && !x.synced && (!prevUser || prevUser === r.user.username); }); });
+      var back = unpark(r.user.username);
+      if (back) B.notify(back + L(' enregistrement(s) gardé(s) sur cet appareil vont être envoyés.', ' record(s) kept on this device will now be sent.'), 'ok');
       // A temporary password must be replaced first; nothing is synchronised until then.
       B.st.tab = r.user.must_change_password ? 'changepw' : B.ROLES[r.user.role][0];
       B.render();
@@ -137,7 +144,7 @@
   // Send new records straight after they are saved (no need to press Sync).
   var pushTimer = null;
   B.afterSave = function () {
-    if (!session || !B.st.online || syncing) return;
+    if (!session || !session.token || !B.st.online || syncing) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(function () { if (pendingLocal()) sync(false, true); }, 800);
   };
@@ -151,7 +158,8 @@
     var on = B.st.online && B.server.live !== false && lastOk;
     el.className = 'liveind ' + (on ? 'on' : 'off');
     el.title = lastOk ? L('Dernière mise à jour ', 'Last update ') + lastOk.toLocaleTimeString() : '';
-    el.innerHTML = '<span class="pulse" aria-hidden="true"></span>' + (on ? L('En direct', 'Live') + ' · ' + lastOk.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : L('Hors ligne', 'Offline')) + (waiting ? ' · ' + waiting + L(' en attente', ' waiting') : '');
+    el.innerHTML = '<span class="pulse" aria-hidden="true"></span>' + (on ? L('En direct', 'Live') + ' · ' + lastOk.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (session && session.expired ? L('Session expirée', 'Session ended') : L('Hors ligne', 'Offline'))) + (waiting ? ' · ' + waiting + L(' en attente', ' waiting') : '') + (B.st.pendingRedraw ? ' · <u>' + L('nouvelles informations : afficher', 'new information: show') + '</u>' : '');
+    el.style.cursor = B.st.pendingRedraw ? 'pointer' : '';
   };
 
   // Tell the person what arrived that concerns them.
@@ -170,15 +178,80 @@
   };
   B.serverLogout = function (silent) { logout(silent); };
 
+  function expire() {
+    if (!session) return;
+    session.token = null; session.expired = true; saveSession();
+    B.server.live = false; B.render({ chromeOnly: true });
+    if (B.lock) B.lock('expired'); else logout(true);
+  }
+
+  // Password check without a network: a salted PBKDF2 hash kept with the session (never the password).
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+  function derive(password, saltHex, iter) {
+    var salt = new Uint8Array(saltHex.match(/../g).map(function (h) { return parseInt(h, 16); }));
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+      .then(function (k) { return crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, k, 256); }).then(hex);
+  }
+  function makeVerifier(password) {
+    if (!window.crypto || !crypto.subtle) return Promise.resolve(null);
+    var salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    return derive(password, salt, 150000).then(function (h) { return { salt: salt, iter: 150000, hash: h }; }).catch(function () { return null; });
+  }
+  function checkVerifier(password, v) {
+    if (!v || !window.crypto || !crypto.subtle) return Promise.reject(new Error('offline_no_verifier'));
+    return derive(password, v.salt, v.iter).then(function (h) { if (h !== v.hash) throw new Error('invalid_credentials'); });
+  }
+  // Unlock after the inactivity lock or an expired session: with the server when it can be reached
+  // (this also renews the session), otherwise against the hash kept on the device.
+  B.serverUnlock = function (password) {
+    var u = session && session.user; if (!u) return Promise.reject(new Error('no_session'));
+    var local = function () { return checkVerifier(password, session.verifier).then(function () { return session.token ? 'local' : 'local-expired'; }); };
+    if (!B.st.online || !base) return local();
+    return api('/auth/login', { method: 'POST', body: { username: u.username, password: password } }).then(function (r) {
+      session.token = r.token; session.user = r.user; session.expired = false; saveSession(); applyIdentity();
+      return makeVerifier(password).then(function (v) { if (v) { session.verifier = v; saveSession(); } sync(false, true); return 'server'; });
+    }, function (e) { if (e.status) throw e; return local(); }); // no answer from the server: check on the device
+  };
+
+  // Records not yet sent are kept for their author when someone else signs in on this device.
+  var PARK = 'bdbv_parked:';
+  function park(username) {
+    var d = B.db(), out = {}, n = 0;
+    COLS.forEach(function (c) { var l = (d[c] || []).filter(function (x) { return !x.synced && !x.demo; }); if (l.length) { out[c] = l; n += l.length; } });
+    if (!n || !username) return 0;
+    try {
+      var prev = JSON.parse(localStorage.getItem(PARK + username) || '{}');
+      COLS.forEach(function (c) { if (out[c]) prev[c] = (prev[c] || []).filter(function (x) { return !out[c].some(function (y) { return y.id === x.id; }); }).concat(out[c]); });
+      localStorage.setItem(PARK + username, JSON.stringify(prev));
+    } catch (e) { return 0; }
+    return n;
+  }
+  function unpark(username) {
+    var p; try { p = JSON.parse(localStorage.getItem(PARK + username) || 'null'); } catch (e) { p = null; }
+    if (!p) return 0;
+    var d = B.db(), n = 0;
+    COLS.forEach(function (c) { (p[c] || []).forEach(function (x) { if (!B.byId(d[c] || [], x.id)) { (d[c] = d[c] || []).push(x); n++; } }); });
+    try { localStorage.removeItem(PARK + username); } catch (e) { /* ignore */ }
+    return n;
+  }
+
   function logout(silent) {
     var d = B.db();
     var pending = COLS.reduce(function (s, c) { return s + (d[c] || []).filter(function (x) { return !x.synced; }).length; }, 0);
-    var go = function () { session = null; saveSession(); try { localStorage.removeItem('bdbv_proto_db_v1'); localStorage.removeItem('bdbv_demo_session'); } catch (e) { /* ignore */ } location.reload(); };
-    if (pending && !silent) B.ask(pending + L(' enregistrement(s) non synchronisé(s) seront perdus. Se déconnecter quand même ?', ' unsynchronised record(s) will be lost. Sign out anyway?'), L('Se déconnecter', 'Sign out'), B.t('cancel'), go);
+    var user = session && session.user && session.user.username;
+    var go = function () {
+      park(user);
+      if (B.clearDrafts && user) B.clearDrafts(user);
+      session = null; saveSession();
+      try { localStorage.removeItem('bdbv_proto_db_v1'); localStorage.removeItem('bdbv_demo_session'); localStorage.removeItem('bdbv_last_activity'); sessionStorage.removeItem('bdbv_last_tab'); } catch (e) { /* ignore */ }
+      location.reload();
+    };
+    if (pending && !silent) B.ask(pending + L(' enregistrement(s) pas encore envoyé(s) resteront sur cet appareil et seront envoyés à votre prochaine connexion. Se déconnecter ?', ' record(s) not yet sent will stay on this device and be sent when you next sign in. Sign out?'), L('Se déconnecter', 'Sign out'), B.t('cancel'), go);
     else go();
   }
 
-  if (session && session.token) applyIdentity();
+  // Restore a saved session. auth.js calls this once B.applyAuth exists (api.js loads before it).
+  B.restoreServerSession = function () { if (session && session.user && (session.token || session.expired)) { applyIdentity(); return true; } return false; };
   B.server.checking = !!base;
 
   // Check the server; on a deployment keep trying (a sleeping free-tier server can take a minute to wake).
@@ -190,7 +263,8 @@
       B.server.checking = false;
       // A demonstration session is not valid on a real deployment.
       if (B.server.available && B.st.auth && B.st.auth.mode === 'demo') { B.signOut(); return; }
-      if (session) return api('/auth/me').then(function () { sync(false); }).catch(function (e) { if (e.status === 401) logout(true); });
+      if (session && session.token) return api('/auth/me').then(function () { sync(false); }).catch(function (e) { if (e.status === 401) expire(); });
+      if (session && session.expired && B.lock) { B.lock('expired'); return; }
       B.render();
     }).catch(function () {
       B.server.available = false;
@@ -208,6 +282,6 @@
     var tick = 0;
     setInterval(function () { tick++; if (!session || !B.st.online || !B.server.available) return; if (document.hidden && tick % 4) return; sync(false, true); }, 30000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden && session && B.st.online) sync(false, true); });
-    window.addEventListener('online', function () { if (session) sync(false, true); });
+    window.addEventListener('online', function () { if (session && session.expired && B.lock) B.lock('expired'); else if (session) sync(false, true); });
   });
 })();

@@ -61,6 +61,7 @@
   if (!B.serverMode && !(B.server && B.server.deployed)) {
     try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && saved.role) B.applyAuth(saved, 'demo'); } catch (e) { /* ignore */ }
   }
+  if (!B.st.auth && B.restoreServerSession) B.restoreServerSession(); // session kept after a refresh
   if (!B.st.auth) { B.st.role = 'public'; B.st.tab = 'login'; }
 
   // Messages for the account endpoints (api.js passes the server's error code).

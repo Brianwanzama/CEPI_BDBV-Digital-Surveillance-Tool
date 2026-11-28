@@ -98,3 +98,18 @@ CREATE TABLE IF NOT EXISTS password_reset_requests (
   handled_at   TIMESTAMPTZ,
   handled_by   TEXT
 );
+
+-- AI suggestions for the verification queue (suggestions only; never change a record).
+CREATE TABLE IF NOT EXISTS ai_suggestions (
+  queue_id     TEXT PRIMARY KEY,
+  zone         TEXT,
+  status       TEXT NOT NULL,              -- ok | error
+  model        TEXT,
+  result       JSONB,
+  error        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  feedback     TEXT,                       -- useful | wrong (the officer's view of the suggestion)
+  feedback_by  TEXT,
+  feedback_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS ai_suggestions_at_idx ON ai_suggestions (created_at);

@@ -114,7 +114,12 @@
   }
   function load() { try { var s = localStorage.getItem(DB_KEY); if (s) return JSON.parse(s); } catch (e) {} return fresh(); }
   var db = load();
-  function save() { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} if (window.BDBV && window.BDBV.afterSave) window.BDBV.afterSave(); }
+  var storageWarned = false;
+  function save() {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); storageWarned = false; }
+    catch (e) { if (!storageWarned) { storageWarned = true; notify(L('Mémoire de l\'appareil pleine : synchronisez maintenant pour ne rien perdre.', 'Device storage is full: synchronise now so that nothing is lost.'), 'err'); if (window.BDBVErrors) window.BDBVErrors.record('storage_full: ' + (e && e.name), 'app.js', 0, 0, ''); } }
+    if (window.BDBV && window.BDBV.afterSave) window.BDBV.afterSave();
+  }
   function rules() {
     if (!db.override) return BASE_RULES;
     var r = JSON.parse(JSON.stringify(BASE_RULES));
@@ -269,6 +274,7 @@
     if (window.BDBV.renderLive) window.BDBV.renderLive();
     if (opts.chromeOnly) return; // header, tabs and badges only: the open screen is left as it is
     var view = $('#view'), y = window.scrollY;
+    st.viewDirty = false; st.pendingRedraw = false;
     (VIEWS[st.tab] || VIEWS.home)(view);
     if (window.BDBV.afterRender) window.BDBV.afterRender();
     window.scrollTo(0, opts.keepScroll ? y : 0);
@@ -280,7 +286,9 @@
     var a = document.activeElement, view = $('#view');
     var typing = a && view && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
     var openDetails = view && view.querySelector('form [name]:not([type=hidden])') && FORM_TABS.indexOf(st.tab) < 0 && typing;
-    if (FORM_TABS.indexOf(st.tab) >= 0 || st.editing || typing || openDetails) render({ chromeOnly: true });
+    // Something typed and not yet saved on this screen (st.viewDirty, set by resilience.js): keep the
+    // screen as it is and offer the new information in the header instead.
+    if (FORM_TABS.indexOf(st.tab) >= 0 || st.editing || typing || openDetails || st.viewDirty) { if (FORM_TABS.indexOf(st.tab) < 0) st.pendingRedraw = true; render({ chromeOnly: true }); }
     else render({ keepScroll: true });
   }
   function go(tab) { st.tab = tab; render(); }
@@ -378,7 +386,7 @@
       '<details open><summary>A.2 ' + L('Informations cliniques', 'Clinical information') + '</summary><div class="grid">' +
       '<label>' + L('Date de début de la maladie', 'Illness onset date') + ' *<input type="date" name="onset" value="' + esc(c.onset_date) + '"></label>' +
       '<label class="check"><input type="checkbox" name="onset_unk"' + (c.onset_unknown ? ' checked' : '') + '> ' + L('Date de début inconnue', 'Onset date unknown') + '</label>' +
-      '<label>' + L('Température mesurée (°C)', 'Measured temperature (°C)') + '<input type="number" step="0.1" min="30" max="44" name="temp" value="' + esc(c.temp) + '"></label>' +
+      '<label>' + L('Température mesurée (°C)', 'Measured temperature (°C)') + '<input type="number" step="0.1" min="30" max="44" name="temp" inputmode="decimal" placeholder="37.0" data-start="37.0" value="' + esc(c.temp) + '"></label>' +
       '<label class="check"><input type="checkbox" name="deceased"' + (c.deceased ? ' checked' : '') + '> ' + L('Personne décédée (évaluation post-mortem)', 'Person deceased (post-mortem assessment)') + '</label></div>' +
       itemsOf('symptom').map(function (it) { return symptomRow(it, rec); }).join('') + '</details>' +
 
