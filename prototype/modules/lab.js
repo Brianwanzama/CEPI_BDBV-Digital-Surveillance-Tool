@@ -55,6 +55,7 @@
     return esc(lbl2(STATUS[s.status])) + (s.result && s.status === 'result_released' ? ' · <b>' + esc(lbl2(RESULTS[s.result])) + '</b>' : '');
   };
   B.labApi = {
+    open: function (id) { openSample(id); },
     STATUS: STATUS, RESULTS: RESULTS, TYPES: TYPES, samplesOf: samplesOf, latest: latest, requestedNoSample: requestedNoSample, labs: labs,
     caseLab: function (caseId) {
       var l = samplesOf(caseId), rel = l.filter(function (s) { return s.status === 'result_released'; });
@@ -142,9 +143,12 @@
 
   /* ---------- screens ---------- */
   var lf = { group: '', open: null, q: '' };
+  // Open one sample from anywhere (dashboard lists, My work).
+  function openSample(id) { lf.group = ''; lf.q = ''; lf.open = id; B.go('lab'); }
   function inGroup(s) { if (!lf.group) return true; var g = GROUPS.filter(function (x) { return x[0] === lf.group; })[0]; return g && g[2].indexOf(s.status) >= 0; }
 
   B.VIEWS.lab = function (v) {
+    if (B.ai) B.ai.loadStatus(function () { if (B.st.tab === 'lab' && lf.open) detail(v); });
     var d = db(), clinical = B.can('sample_register') && !isLab();
     var all = d.samples.slice().sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
     var legacy = requestedNoSample();
@@ -192,7 +196,7 @@
 
   function requestCard() {
     var d = db(), cases = d.assessments.filter(function (a) { return !samplesOf(a.id).some(function (s) { return s.status !== 'result_released'; }); }).slice(0, 400);
-    return '<section class="card"><details id="lnew"' + (isLab() ? '' : ' open') + '><summary>' + L('Demander un test de laboratoire', 'Request a laboratory test') + '</summary>' +
+    return '<section class="card"><details id="lnew" open><summary>' + L('Demander un test de laboratoire', 'Request a laboratory test') + '</summary>' +
       '<form id="lreq" class="grid" novalidate><label>' + L('Cas (ID)', 'Case (ID)') + ' *<input name="rcase" list="lcases" placeholder="BDB-…" autocomplete="off"><datalist id="lcases">' +
       cases.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(patientOf(a) + ' · ' + B.t(a.result.category)) + '</option>'; }).join('') + '</datalist></label>' +
       '<label>' + L('Priorité', 'Priority') + '<select name="rprio"><option value="urgent">' + L('Urgente', 'Urgent') + '</option><option value="routine">' + L('Routine', 'Routine') + '</option></select></label>' +
@@ -255,7 +259,9 @@
     if (!isLab() && !isManager() && s.status !== 'result_released') html += '<p class="muted small">' + L('Le laboratoire enregistre l\'échantillon et le résultat ; le responsable du laboratoire l\'approuve avant publication.', 'The laboratory records the sample and the result; the laboratory manager approves it before release.') + '</p>';
     html += '<h4>' + L('Chaîne de traçabilité', 'Chain of custody') + '</h4><div class="scroll"><table class="tbl small"><tr><th>' + L('Quand', 'When') + '</th><th>' + L('Étape', 'Step') + '</th><th>' + L('De', 'From') + '</th><th>' + L('À', 'To') + '</th><th>' + L('Par', 'By') + '</th></tr>' +
       (s.custody || []).map(function (c) { return '<tr><td>' + B.fmtDT(c.at) + '</td><td>' + esc(lbl2(STATUS[c.action]) || (c.action === 'returned' ? L('Renvoyé pour correction', 'Returned for correction') : c.action)) + '</td><td>' + esc(c.from) + '</td><td>' + esc(c.to) + '</td><td>' + esc(c.by) + '</td></tr>'; }).join('') + '</table></div>';
+    if (B.aiLabHTML) html += B.aiLabHTML(s);
     box.innerHTML = html;
+    if (B.bindAiLab) B.bindAiLab(box, s, function () { detail(v); });
     box.scrollIntoView({ block: 'nearest' });
 
     var done = function (what, msg) { B.audit(what, 'sample', s.id, s.status); B.save(); if (msg) B.notify(msg, 'ok'); B.VIEWS.lab(v); };
@@ -321,7 +327,7 @@
     var y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 90;
     doc.setFontSize(11); doc.text(L('Chaîne de traçabilité', 'Chain of custody'), 40, y);
     if (doc.autoTable) doc.autoTable({ startY: y + 8, head: [[L('Quand', 'When'), L('Étape', 'Step'), L('De', 'From'), L('À', 'To'), L('Par', 'By')]], body: (s.custody || []).map(function (c) { return [B.fmtDT(c.at), lbl2(STATUS[c.action]) || c.action, c.from, c.to, c.by]; }), styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 61, 94] } });
-    doc.save('rapport_labo_' + (s.lab_id || s.id).replace(/[^A-Za-z0-9_-]/g, '_') + '.pdf');
+    B.saveBlob('rapport_labo_' + (s.lab_id || s.id).replace(/[^A-Za-z0-9_-]/g, '_') + '.pdf', doc.output('blob'));
     B.audit('download', 'sample_report', s.id, 'pdf');
   }
 

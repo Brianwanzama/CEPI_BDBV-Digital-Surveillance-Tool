@@ -336,10 +336,11 @@ function createApp(pool, opts = {}) {
   }));
 
   // ---- AI suggestions (verification support; off until switched on by the system administrator) ----
+  const AI_ROLES = { rumour: P.VERIFY, brief: [...P.VERIFY, 'decideur', 'facility_head', ...P.LAB], lab_review: P.LAB };
   api.get('/ai/status', auth, wrap(async (req, res) => {
-    if (![...P.VERIFY, 'sysadmin'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+    if (![...AI_ROLES.brief, 'sysadmin'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
     const cfg = await loadConfig();
-    res.json({ provider_configured: !!AI.provider(), enabled: AI.enabled(cfg), switched_on: cfg.ai_enabled === true, model: AI.provider() === 'mock' ? 'mock' : AI.MODEL });
+    res.json({ provider_configured: !!AI.provider(), enabled: AI.enabled(cfg), switched_off: cfg.ai_enabled === false, model: AI.provider() === 'mock' ? 'mock' : AI.MODEL, tasks: Object.keys(AI_ROLES).filter((t) => AI_ROLES[t].includes(req.user.role)) });
   }));
   api.post('/ai/analyse', auth, rateLimiter(+(process.env.AI_RATE_LIMIT || 120), 3600000), wrap(async (req, res) => {
     if (!P.VERIFY.includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
@@ -364,6 +365,20 @@ function createApp(pool, opts = {}) {
     if (!r.rowCount) return res.status(404).json({ error: 'not_found' });
     await audit(req, 'ai_feedback', 'queue', id, v);
     res.json(AI.toClient(r.rows[0]));
+  }));
+
+  // Situation brief (counts only) and laboratory check (pseudonymised record), prepared by the app.
+  api.post('/ai/assist', auth, rateLimiter(+(process.env.AI_RATE_LIMIT || 120), 3600000), wrap(async (req, res) => {
+    const b = req.body || {}, task = b.task;
+    if (!['brief', 'lab_review'].includes(task)) return res.status(400).json({ error: 'unknown_task' });
+    if (!AI_ROLES[task].includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
+    const cfg = await loadConfig();
+    if (!AI.enabled(cfg)) return res.status(409).json({ error: 'ai_disabled' });
+    if (!b.payload || JSON.stringify(b.payload).length > 40000) return res.status(400).json({ error: 'invalid_payload' });
+    const lang = ['en', 'fr', 'sw'].includes(b.lang) ? b.lang : (cfg.ai_language || 'en');
+    const out = await AI.assist(task, Object.assign({}, b.payload, { role: req.user.role }), lang);
+    await audit(req, 'ai_' + task, task === 'lab_review' ? 'sample' : 'dashboard', task === 'lab_review' ? String((b.payload.sample || {}).id || '').slice(0, 120) : null, out.status + (out.error ? ' ' + out.error : '') + ' ' + (out.model || ''));
+    res.json(out);
   }));
 
   // ---- Errors seen on phones and computers (no form content), for the system administrator ----

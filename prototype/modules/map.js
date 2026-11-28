@@ -354,7 +354,7 @@
   }
   function staticSVG(vals, vb) {
     var z = vb ? W / vb.w : 1;
-    var out = '<svg class="dmap" viewBox="' + (vb ? [vb.x, vb.y, vb.w, vb.h].map(function (n) { return n.toFixed(1); }).join(' ') : '0 0 ' + W + ' ' + H) + '" role="img" aria-label="' + (vb ? L('Zone touchée : cas par zone de santé', 'Affected area: cases by health zone') : L('Carte de la RDC : cas par zone de santé', 'Map of the DRC: cases by health zone')) + '"><path d="' + outlinePath + '" class="drc"/>';
+    var out = '<svg class="dmap" viewBox="' + (vb ? [vb.x, vb.y, vb.w, vb.h].map(function (n) { return n.toFixed(1); }).join(' ') : '0 0 ' + W + ' ' + H) + '" role="img" aria-label="' + (vb ? L('Zone touchée : niveau de risque par zone de santé', 'Affected area: risk level by health zone') : L('Carte de la RDC : cas par zone de santé', 'Map of the DRC: cases by health zone')) + '"><path d="' + outlinePath + '" class="drc"/>';
     if (!BND) {
       Object.keys(GD.provinces).forEach(function (pn) { var gp = GD.provinces[pn]; if (gp.lat == null) return; var p = proj(gp.lon, gp.lat); out += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="1.6" class="refpt"/>'; });
       return out + '</svg>';
@@ -363,8 +363,8 @@
     Object.keys(UNITS).forEach(function (k) {
       var u = UNITS[k], c = u.feature.properties.c, p = c && proj(c[0], c[1]);
       if (u.level === 'zone') {
-        var n = vals.cases[k] || 0, ci = klass(n);
-        zones += '<path class="uz' + (u.id ? '' : ' other') + '" d="' + unitD(u) + '"' + (ci >= 0 ? ' style="fill:' + IND.cases.ramp[ci] + '"' : '') + '>' + (ci >= 0 ? '<title>' + esc(unitName(u) + ' : ' + n) + '</title>' : '') + '</path>';
+        var lv = vals.riskLvl && vals.riskLvl[k], rn = (vals.riskN && vals.riskN[k]) || { RED: 0, AMBER: 0, GREEN: 0 }, n = rn.RED + rn.AMBER + rn.GREEN;
+        zones += '<path class="uz' + (u.id ? '' : ' other') + (lv ? ' hit' : '') + '" d="' + unitD(u) + '"' + (lv ? ' data-zone="' + esc(u.id || '') + '" style="fill:' + RISK[RISK_ORDER[lv - 1]] + '"' : '') + '>' + (lv ? '<title>' + esc(unitName(u) + ' : ' + B.t('RED') + ' ' + rn.RED + ' · ' + B.t('AMBER') + ' ' + rn.AMBER + ' · ' + B.t('GREEN') + ' ' + rn.GREEN) + '</title>' : '') + '</path>';
         if (vb && p && p[0] > vb.x && p[0] < vb.x + vb.w && p[1] > vb.y && p[1] < vb.y + vb.h) zl.push({ x: p[0], y: p[1], text: unitName(u) + (n ? ' (' + n + ')' : ''), cls: 'lz', n: n });
       } else {
         borders += '<path d="' + unitD(u) + '"/>';
@@ -739,12 +739,12 @@
     mf.week = 0; mf.approvedOnly = !B.st.f.showPending; mf.cls = { suspected: true, probable: true, confirmed: true };
     mf.geo = Object.assign({}, B.st.f); delete mf.geo.days; mf.days = B.st.f.days || '30';
     mf.history = true;
-    var vals = values(collectAll(windowRange()), 'zone', windowRange()), ind = mf.ind; mf.ind = 'cases';
-    var nz = Object.keys(vals.cases).filter(function (k) { return vals.cases[k]; }).length;
-    var box = BND ? affectedBox(vals.cases) : null;
+    var vals = values(collectAll(windowRange()), 'zone', windowRange()), ind = mf.ind; mf.ind = 'risk';
+    var nz = Object.keys(vals.riskLvl).filter(function (k) { return vals.riskLvl[k]; }).length;
+    var box = BND ? affectedBox(vals.riskLvl) : null;
     var html = '<div class="mapmini' + (box ? ' two' : '') + '"><figure><figcaption>' + L('Pays entier', 'Whole country') + '</figcaption>' + staticSVG(vals) + '</figure>' +
       (box ? '<figure><figcaption>' + L('Zone touchée', 'Affected area') + '</figcaption>' + staticSVG(vals, box) + '</figure>' : '') + '</div>' +
-      (BND ? '<div class="mscale-mini">' + scaleLegend() + '</div><p class="small muted">' + nz + ' ' + L('zone(s) de santé avec des cas dans la période.', 'health zone(s) with cases in the period.') + (BND.citation ? ' ' + L('Limites : ', 'Boundaries: ') + esc(BND.citation) : '') + '</p>' : '');
+      (BND ? '<div class="mscale-mini">' + scaleLegend() + '</div><p class="small muted">' + nz + ' ' + L('zone(s) de santé avec des évaluations dans la période ; couleur = niveau de risque le plus élevé. Touchez une zone pour voir ses cas.', 'health zone(s) with assessments in the period; colour = highest risk level. Tap a zone to see its cases.') + (BND.citation ? ' ' + L('Limites : ', 'Boundaries: ') + esc(BND.citation) : '') + '</p>' : '');
     Object.assign(mf, was); mf.vb = saveVB; mf.ind = ind;
     return html;
   };

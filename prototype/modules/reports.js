@@ -20,6 +20,7 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
     return Promise.resolve();
   }
+  B.saveBlob = saveBlob; // shared download helper (works in a browser and inside claude.ai)
   function csv(rows) {
     return '﻿' + rows.map(function (r) { return r.map(function (c) { var s = c == null ? '' : String(c); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(','); }).join('\r\n');
   }

@@ -69,6 +69,8 @@ const TAG = Date.now().toString(36).toUpperCase();
 
   // 3. Rule priority and AI suggestion (mock provider), shown apart from the report and the findings
   await surv.waitForFunction((id) => BDBVApp.db().ai && BDBVApp.db().ai[id], alertId, { timeout: 60000 });
+  const closePanel = async () => { if (await surv.isVisible('#qsheet')) await surv.click('#qsheetclose'); }; // on a phone the details panel fills the screen
+  await closePanel();
   await surv.click('[data-qopen="' + alertId + '"]');
   await surv.waitForSelector('#qdetail .aibox');
   const box = await surv.textContent('#qdetail');
@@ -80,7 +82,7 @@ const TAG = Date.now().toString(36).toUpperCase();
 
   // 4. Assignment offers real accounts, with instructions
   await surv.click('#qdetail [data-step="acknowledged"]');
-  await surv.selectOption('#qf-b', 'all');
+  await closePanel(); await surv.selectOption('#qf-b', 'all');
   await surv.click('[data-qopen="' + alertId + '"]');
   const opts = await surv.$$eval('#qto option', (o) => o.map((x) => x.value));
   assert.ok(opts.includes('zone.aru') && opts.includes('surveillance'), 'accounts offered: ' + opts.join(','));

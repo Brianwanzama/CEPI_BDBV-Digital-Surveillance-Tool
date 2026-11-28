@@ -312,6 +312,7 @@
     v.innerHTML = '<section class="card"><h2>' + esc(t('role_' + st.role)) + '</h2>' +
       '<p class="muted">' + L('Utilisateur :', 'User:') + ' ' + esc(USERS[st.role]) + (st.auth && st.auth.mode === 'server' ? ' · <button type="button" class="linkbtn" data-go="changepw">' + L('Changer le mot de passe', 'Change password') + '</button>' : '') + '</p>' +
       '<div class="bigbtns">' + actions.map(function (a) { return '<button class="big" data-go="' + a[0] + '">' + esc(a[1]) + '</button>'; }).join('') + '</div></section>' +
+      (window.BDBV.myWorkHTML ? window.BDBV.myWorkHTML() : '') + '<div id="aibrief"></div>' +
       '<section class="card disclaimer"><h3>' + L('Principes', 'Principles') + '</h3><ul>' +
       '<li>' + L('Outil d\'alerte précoce et d\'aide à la décision : <b>il ne pose pas de diagnostic</b>. Seul le laboratoire confirme une infection BDBV.', 'Early-warning and decision-support tool: <b>it does not diagnose</b>. Only the laboratory confirms BDBV infection.') + '</li>' +
       '<li>' + L('Risque clinique individuel, signaux communautaires et confirmation biologique sont trois notions <b>séparées</b>.', 'Individual clinical risk, community signals and laboratory confirmation are three <b>separate</b> concepts.') + '</li>' +
@@ -321,6 +322,8 @@
       '<p class="muted">' + L('Évaluations : ', 'Assessments: ') + db.assessments.length + ' · ' + L('Rapports RECO : ', 'RECO reports: ') + db.reports.length + ' · ' + L('Alertes : ', 'Alerts: ') + db.alerts.length + '</p>' +
       '<button id="seed">' + esc(t('demo_load')) + '</button> <button id="wipe" class="ghost">' + esc(t('demo_reset')) + '</button></section>');
     $$('[data-go]', v).forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-go')); }; });
+    if (window.BDBV.bindMyWork) window.BDBV.bindMyWork(v);
+    if (window.BDBV.aiBrief) window.BDBV.aiBrief($('#aibrief', v), 'home');
     if ($('#seed', v)) $('#seed', v).onclick = function () { seedDemo(); audit('seed_demo', 'system', '-'); render(); };
     if ($('#wipe', v)) $('#wipe', v).onclick = function () { ask(L('Effacer toutes les données enregistrées sur cet appareil ?', 'Erase all data stored on this device?'), L('Effacer', 'Erase'), t('cancel'), function () { db = fresh(); save(); G.applyConfig(db.config.geo); render(); notify(L('Données effacées.', 'Data erased.')); }); };
   };
@@ -811,9 +814,10 @@
       resultBlock(rec.result, ctx) +
       '<h3>' + L('Conduite à tenir recommandée', 'Recommended actions') + '</h3><ol class="recs">' + t('rec_' + rec.result.category).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol><p class="muted small">' + esc(t('rec_flag')) + '</p>' +
       (al ? '<div class="sms"><b>' + esc(t('sms_preview')) + '</b> → ' + esc(al.recipients.join(', ')) + '<pre>' + esc(smsText(al)) + '</pre></div>' : '') +
-      '<div class="actions"><button data-go="triage" id="newb" class="primary">' + L('Nouvelle évaluation', 'New assessment') + '</button> <button id="reb">' + esc(t('reassess')) + '</button>' + (al ? ' <button data-go="alerts">' + L('Gérer l\'alerte', 'Manage alert') + '</button>' : '') + '</div></section>';
+      '<div class="actions"><button data-go="triage" id="newb" class="primary">' + L('Nouvelle évaluation', 'New assessment') + '</button> <button id="reb">' + esc(t('reassess')) + '</button>' + (al ? ' <button data-go="alerts">' + L('Gérer l\'alerte', 'Manage alert') + '</button>' : '') + ' <button id="casepdf">' + L('Rapport du cas (PDF)', 'Case report (PDF)') + '</button></div></section>';
     $('#newb', v).onclick = function () { st.editing = null; go('triage'); };
     $('#reb', v).onclick = function () { st.editing = rec.id; go('triage'); };
+    $('#casepdf', v).onclick = function () { window.BDBV.caseReportPDF(rec.id); };
     $$('[data-go="alerts"]', v).forEach(function (b) { b.onclick = function () { go('alerts'); }; });
   };
 
@@ -829,9 +833,10 @@
           '<td>' + esc(nm(G.facilities, a.geo.facility)) + '</td><td>' + fmtDT(a.assessed_at) + '</td><td>' + a.result.score + '</td><td>' + chip(a.result.category) + '</td>' +
           '<td>' + (a.review ? (a.review.status === 'done' ? '✓' : '<button class="sm" data-rev="' + a.id + '">' + L('Marquer revu', 'Mark reviewed') + '</button>') : '') + '</td>' +
           '<td>' + esc(classLabel(a.classification)) + '</td><td>' + (window.BDBV.labSummary ? window.BDBV.labSummary(a.id) : esc(a.lab.status)) + '</td>' +
-          '<td><button class="sm" data-view="' + a.id + '">' + esc(t('view')) + '</button>' + (can('triage') ? ' <button class="sm" data-re="' + a.id + '">' + esc(t('reassess')) + '</button>' : '') + '</td></tr>';
+          '<td><button class="sm" data-view="' + a.id + '">' + esc(t('view')) + '</button> <button class="sm ghost" data-casepdf="' + a.id + '" title="' + L('Rapport du cas (PDF)', 'Case report (PDF)') + '">PDF</button>' + (can('triage') ? ' <button class="sm" data-re="' + a.id + '">' + esc(t('reassess')) + '</button>' : '') + '</td></tr>';
       }).join('') + '</table></div><p class="muted small">' + L('Statut laboratoire : saisi uniquement par les personnes autorisées ; la confirmation relève du laboratoire désigné (INRB).', 'Lab status: entered by authorised staff only; confirmation is by the designated laboratory (INRB).') + '</p></section>';
     $$('[data-view]', v).forEach(function (b) { b.onclick = function () { st.lastId = b.getAttribute('data-view'); go('result'); }; });
+    $$('[data-casepdf]', v).forEach(function (b) { b.onclick = function () { window.BDBV.caseReportPDF(b.getAttribute('data-casepdf')); }; });
     if (window.BDBV.bindReferrals) window.BDBV.bindReferrals(v);
     $$('[data-re]', v).forEach(function (b) { b.onclick = function () { st.editing = b.getAttribute('data-re'); go('triage'); }; });
     $$('[data-rev]', v).forEach(function (b) { b.onclick = function () { var a = byId(db.assessments, b.getAttribute('data-rev')); a.review = { status: 'done', at: iso(new Date()), by: USERS[st.role] }; a.synced = false; audit('review', 'assessment', a.id); render(); }; });
@@ -987,13 +992,13 @@
   function pct(n, d) { return d ? Math.round(100 * n / d) : 0; }
   function bars(rows, color) {
     var max = Math.max.apply(null, rows.map(function (r) { return r.value; }).concat([1]));
-    return '<div class="bars">' + rows.map(function (r) { return '<div class="bar"><span class="bl">' + esc(r.label) + '</span><span class="bt"><span class="bf" style="width:' + (100 * r.value / max) + '%;background:' + (r.color || color) + '"></span></span><span class="bv">' + r.value + '</span></div>'; }).join('') + '</div>';
+    return '<div class="bars">' + rows.map(function (r) { return '<div class="bar' + (r.drill ? ' clickable" role="button" tabindex="0" data-drill="' + r.drill : '') + '"><span class="bl">' + esc(r.label) + '</span><span class="bt"><span class="bf" style="width:' + (100 * r.value / max) + '%;background:' + (r.color || color) + '"></span></span><span class="bv">' + r.value + '</span></div>'; }).join('') + '</div>';
   }
   function stacked(rows) {
     var max = Math.max.apply(null, rows.map(function (r) { return r.RED + r.AMBER + r.GREEN; }).concat([1]));
     return '<div class="bars">' + rows.map(function (r) {
       var tot = r.RED + r.AMBER + r.GREEN;
-      return '<div class="bar"><span class="bl">' + esc(r.label) + '</span><span class="bt">' + ['RED', 'AMBER', 'GREEN'].map(function (k) { return '<span class="bf seg-' + k + '" style="width:' + (100 * r[k] / max) + '%" title="' + esc(t(k)) + ' ' + r[k] + '"></span>'; }).join('') + '</span><span class="bv">' + tot + ' <small>(' + r.RED + '/' + r.AMBER + '/' + r.GREEN + ')</small></span></div>';
+      return '<div class="bar' + (r.drill ? ' clickable" role="button" tabindex="0" data-drill="' + r.drill : '') + '"><span class="bl">' + esc(r.label) + '</span><span class="bt">' + ['RED', 'AMBER', 'GREEN'].map(function (k) { return '<span class="bf seg-' + k + '" style="width:' + (100 * r[k] / max) + '%" title="' + esc(t(k)) + ' ' + r[k] + '"></span>'; }).join('') + '</span><span class="bv">' + tot + ' <small>(' + r.RED + '/' + r.AMBER + '/' + r.GREEN + ')</small></span></div>';
     }).join('') + '</div>';
   }
   function weekly(list, dateFn, valFn) {
@@ -1036,30 +1041,43 @@
     var medDelay = (function () { var d = acked.map(function (a) { return a.ack.delay_min; }).sort(function (a, b) { return a - b; }); return d.length ? d[Math.floor(d.length / 2)] : '-'; })();
 
     var byFac = G.facilities.filter(function (fa) { return inGeo({ facility: fa.id, area: fa.area, zone: byId(G.areas, fa.area).zone, province: byId(G.zones, byId(G.areas, fa.area).zone).province, village: f.village ? f.village : undefined }, Object.assign({}, f, { village: '' })); }).map(function (fa) {
-      var r = { label: fa.name.replace(/ \((démo|demo)\)$/, ''), RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.facility === fa.id) r[a.result.category]++; }); return r;
+      var r = { id: fa.id, label: fa.name.replace(/ \((démo|demo)\)$/, ''), RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.facility === fa.id) r[a.result.category]++; }); return r;
     }).filter(function (r) { return r.RED + r.AMBER + r.GREEN; });
-    var byZone = G.zones.map(function (z) { var r = { label: z.name, RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.zone === z.id) r[a.result.category]++; }); return r; }).filter(function (r) { return r.RED + r.AMBER + r.GREEN; });
-    var symp = itemsOf('symptom').map(function (it) { return { label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.clinical.symptoms[it.id] && a.clinical.symptoms[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
-    var expo = itemsOf('exposure').concat(itemsOf('geography')).map(function (it) { return { label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.exposures[it.id] && a.exposures[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
-    var byVill = G.villages.map(function (vv) { var s = 0; P.forEach(function (r) { if (r.village === vv.id) s += r.counts.deaths_unexplained + r.counts.deaths_suspected_ebola + r.counts.alerts + r.counts.clusters; }); return { label: vv.name.replace(/ \((démo|demo)\)$/, ''), value: s }; }).filter(function (x) { return x.value; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
+    var byZone = G.zones.map(function (z) { var r = { id: z.id, label: z.name, RED: 0, AMBER: 0, GREEN: 0 }; A.forEach(function (a) { if (a.geo.zone === z.id) r[a.result.category]++; }); return r; }).filter(function (r) { return r.RED + r.AMBER + r.GREEN; });
+    var symp = itemsOf('symptom').map(function (it) { return { id: it.id, label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.clinical.symptoms[it.id] && a.clinical.symptoms[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
+    var expo = itemsOf('exposure').concat(itemsOf('geography')).map(function (it) { return { id: it.id, label: lbl(it).replace(/\s*\(.*\)$/, ''), value: A.filter(function (a) { return a.exposures[it.id] && a.exposures[it.id].s === 'yes'; }).length }; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
+    var byVill = G.villages.map(function (vv) { var s = 0; P.forEach(function (r) { if (r.village === vv.id) s += r.counts.deaths_unexplained + r.counts.deaths_suspected_ebola + r.counts.alerts + r.counts.clusters; }); return { id: vv.id, label: vv.name.replace(/ \((démo|demo)\)$/, ''), value: s }; }).filter(function (x) { return x.value; }).sort(function (a, b) { return b.value - a.value; }).slice(0, 8);
 
     var allA = db.assessments.filter(function (a) { return inGeo(a.geo, f); });
     var allP = db.reports.filter(function (r) { return inGeo({ province: r.province, zone: r.zone, area: r.area, village: r.village }, Object.assign({}, f, { facility: '' })); });
     var wk = function (k) { return weekly(allP, function (r) { return r.reported_at; }, function (r) { return r.counts[k] || 0; }); };
-    var kpi = function (label, val, sub, cls) { return '<div class="kpi ' + (cls || '') + '"><div class="kv">' + val + '</div><div class="kl">' + esc(label) + '</div>' + (sub ? '<div class="ks">' + sub + '</div>' : '') + '</div>'; };
+    // Every figure, bar and map area opens the list of exactly the records it counts.
+    var DR = {}, B2 = window.BDBV;
+    var reg = function (key, kind, title, list, field) { DR[key] = function () { B2.drillOf(kind, title, list, '', field); }; return key; };
+    var kpi = function (label, val, sub, cls, key) { return key ? '<button type="button" class="kpi kbtn ' + (cls || '') + '" data-drill="' + key + '" title="' + esc(L('Voir le détail', 'See the records')) + '"><div class="kv">' + val + '</div><div class="kl">' + esc(label) + '</div>' + (sub ? '<div class="ks">' + sub + '</div>' : '') + '</button>' : '<div class="kpi ' + (cls || '') + '"><div class="kv">' + val + '</div><div class="kl">' + esc(label) + '</div>' + (sub ? '<div class="ks">' + sub + '</div>' : '') + '</div>'; };
+    var drillBars = function (rows, set, kind, listFn, field) { rows.forEach(function (r, i) { r.drill = reg(set + i, kind, r.label, listFn(r), field); }); return rows; };
+    byFac = drillBars(byFac, 'fac', 'assessments', function (r) { return A.filter(function (a) { return a.geo.facility === r.id; }); });
+    byZone = drillBars(byZone, 'zon', 'assessments', function (r) { return A.filter(function (a) { return a.geo.zone === r.id; }); });
+    byAge = drillBars(byAge, 'age', 'assessments', function (r) { return A.filter(function (a) { return (a.person.age_group || ageGroup(a.person.age)) === r.label; }); });
+    symp = drillBars(symp, 'sym', 'assessments', function (r) { return A.filter(function (a) { return a.clinical.symptoms[r.id] && a.clinical.symptoms[r.id].s === 'yes'; }); });
+    expo = drillBars(expo, 'exp', 'assessments', function (r) { return A.filter(function (a) { return a.exposures[r.id] && a.exposures[r.id].s === 'yes'; }); });
+    byVill = drillBars(byVill, 'vil', 'reports', function (r) { return P.filter(function (p) { return p.village === r.id; }); });
+    var A_ver = A.filter(function (a) { return a.result.category !== 'GREEN' && B2.isApproved && B2.isApproved(a.id) && B2.outcomeOf(a.id) === 'verified'; });
+    var evRows = function (k) { return P.filter(function (r) { return (r.counts[k] || 0) > 0; }); };
     var anyDemo = db.assessments.some(function (a) { return a.demo; }) || db.reports.some(function (r) { return r.demo; });
 
     v.innerHTML = (anyDemo ? '<div class="demo-flag">' + esc(t('synthetic')) + '</div>' : '') +
+      (B2.myWorkHTML ? B2.myWorkHTML() : '') + '<div id="aibrief"></div>' +
       '<section class="card filters"><h3>' + esc(t('filters')) + '</h3><div data-geoholder="f_">' + geoFields('f_', f, true, t('all')) + '</div>' +
       '<label class="check"><input type="checkbox" id="fpending"' + (f.showPending ? ' checked' : '') + '> ' + L('Inclure les signalements non encore approuvés (marqués)', 'Include reports not yet approved (marked)') + '</label>' +
       '<p class="muted small">' + (f.showPending ? L('Affichage : TOUS les signalements, y compris non vérifiés.', 'Showing: ALL reports, including unverified.') : L('Affichage : signalements communautaires vérifiés et approuvés seulement.', 'Showing: verified and approved community reports only.')) + '</p>' +
       '<div class="grid"><label>' + esc(t('period')) + '<select id="fdays">' + ['7', '14', '30', '90', 'all'].map(function (d) { return '<option value="' + d + '"' + (f.days === d ? ' selected' : '') + '>' + (d === 'all' ? t('all') : d + ' ' + t('days')) + '</option>'; }).join('') + '</select></label><label>&nbsp;<button id="freset" class="ghost">' + L('Réinitialiser', 'Reset') + '</button></label></div></section>' +
 
       '<section class="card"><h2>A. ' + L('Surveillance individuelle (FOSA)', 'Individual-level surveillance (facilities)') + '</h2><div class="kpis">' +
-      kpi(L('Personnes évaluées (toutes soumissions)', 'People assessed (all submissions)'), n) + kpi(L('Cas suspects vérifiés et approuvés', 'Verified and approved suspected cases'), verifiedSusp) +
-      kpi(t('RED'), cnt.RED, pct(cnt.RED, n) + '%', 'k-RED') + kpi(t('AMBER'), cnt.AMBER, pct(cnt.AMBER, n) + '%', 'k-AMBER') + kpi(t('GREEN'), cnt.GREEN, pct(cnt.GREEN, n) + '%', 'k-GREEN') +
-      kpi(L('Alertes à risque élevé', 'High-risk alerts (facility)'), AL.length) + kpi(L('Acquittées', 'Acknowledged'), acked.length, pct(acked.length, AL.length) + '% · ' + L('délai médian ', 'median delay ') + medDelay + ' min') + kpi(L('Avec mesures enregistrées', 'With actions recorded'), acted.length, pct(acted.length, AL.length) + '%') +
-      kpi(L('Référés pour test', 'Referred for testing'), labReq, L('résultats : ', 'results: ') + labPos + ' + / ' + labNeg + ' −') + '</div>' +
+      kpi(L('Personnes évaluées (toutes soumissions)', 'People assessed (all submissions)'), n, '', '', reg('all', 'assessments', L('Personnes évaluées', 'People assessed'), A)) + kpi(L('Cas suspects vérifiés et approuvés', 'Verified and approved suspected cases'), verifiedSusp, '', '', reg('ver', 'assessments', L('Cas suspects vérifiés et approuvés', 'Verified and approved suspected cases'), A_ver)) +
+      kpi(t('RED'), cnt.RED, pct(cnt.RED, n) + '%', 'k-RED', reg('red', 'assessments', t('RED'), A.filter(function (a) { return a.result.category === 'RED'; }))) + kpi(t('AMBER'), cnt.AMBER, pct(cnt.AMBER, n) + '%', 'k-AMBER', reg('amb', 'assessments', t('AMBER'), A.filter(function (a) { return a.result.category === 'AMBER'; }))) + kpi(t('GREEN'), cnt.GREEN, pct(cnt.GREEN, n) + '%', 'k-GREEN', reg('grn', 'assessments', t('GREEN'), A.filter(function (a) { return a.result.category === 'GREEN'; }))) +
+      kpi(L('Alertes à risque élevé', 'High-risk alerts (facility)'), AL.length, '', '', reg('al', 'alerts', L('Alertes à risque élevé', 'High-risk alerts'), AL)) + kpi(L('Acquittées', 'Acknowledged'), acked.length, pct(acked.length, AL.length) + '% · ' + L('délai médian ', 'median delay ') + medDelay + ' min', '', reg('ack', 'alerts', L('Alertes acquittées', 'Acknowledged alerts'), acked)) + kpi(L('Avec mesures enregistrées', 'With actions recorded'), acted.length, pct(acted.length, AL.length) + '%') +
+      kpi(L('Référés pour test', 'Referred for testing'), labReq, L('résultats : ', 'results: ') + labPos + ' + / ' + labNeg + ' −', '', reg('lab', 'assessments', L('Référés pour test', 'Referred for testing'), A.filter(function (a) { return a.lab.status !== 'none'; }))) + '</div>' +
       '<div class="cols"><div><h4>' + L('Par formation sanitaire', 'By health facility') + '</h4>' + (byFac.length ? stacked(byFac) : '<p class="muted">-</p>') + '</div>' +
       '<div><h4>' + L('Par zone de santé', 'By health zone') + '</h4>' + (byZone.length ? stacked(byZone) : '<p class="muted">-</p>') + '</div>' +
       '<div><h4>' + L('Par tranche d\'âge', 'By age group') + '</h4>' + bars(byAge, '#0f766e') + '</div>' +
@@ -1068,8 +1086,8 @@
       '<p class="disclaimer small">' + L('Résultats de laboratoire affichés uniquement lorsqu\'ils sont autorisés et disponibles. La catégorie de triage n\'est pas un diagnostic.', 'Lab results shown only where authorised and available. Triage category is not a diagnosis.') + '</p></section>' +
 
       '<section class="card"><h2>B. ' + L('Surveillance communautaire (RECO)', 'Community-level surveillance (RECO)') + '</h2><div class="kpis">' +
-      kpi(L('Rapports reçus', 'Reports received'), P.length) + kpi(L('Décès rapportés', 'Deaths reported'), sum('deaths_total')) + kpi(L('Décès inexpliqués', 'Unexplained deaths'), sum('deaths_unexplained')) + kpi(L('Décès suspects Ebola', 'Suspected Ebola deaths'), sum('deaths_suspected_ebola')) +
-      kpi(L('Alertes Ebola communautaires', 'Community Ebola alerts'), sum('alerts')) + kpi(L('Inhumations', 'Burials'), sum('burials')) + kpi(L('Groupes de cas', 'Clusters'), sum('clusters')) + kpi(L('Évènements à vérifier', 'Events awaiting verification'), awaiting, evs.length + ' ' + L('évènements au total', 'events in total'), awaiting ? 'k-AMBER' : '') + '</div>' +
+      kpi(L('Rapports reçus', 'Reports received'), P.length, '', '', reg('rep', 'reports', L('Rapports reçus', 'Reports received'), P)) + kpi(L('Décès rapportés', 'Deaths reported'), sum('deaths_total'), '', '', reg('dt', 'reports', L('Décès rapportés', 'Deaths reported'), evRows('deaths_total'), 'deaths_total')) + kpi(L('Décès inexpliqués', 'Unexplained deaths'), sum('deaths_unexplained'), '', '', reg('du', 'reports', L('Décès inexpliqués', 'Unexplained deaths'), evRows('deaths_unexplained'), 'deaths_unexplained')) + kpi(L('Décès suspects Ebola', 'Suspected Ebola deaths'), sum('deaths_suspected_ebola')) +
+      kpi(L('Alertes Ebola communautaires', 'Community Ebola alerts'), sum('alerts'), '', '', reg('ca', 'reports', L('Alertes Ebola communautaires', 'Community Ebola alerts'), evRows('alerts'), 'alerts')) + kpi(L('Inhumations', 'Burials'), sum('burials'), '', '', reg('bu', 'reports', L('Inhumations', 'Burials'), evRows('burials'), 'burials')) + kpi(L('Groupes de cas', 'Clusters'), sum('clusters'), '', '', reg('cl', 'reports', L('Groupes de cas', 'Clusters'), evRows('clusters'), 'clusters')) + kpi(L('Évènements à vérifier', 'Events awaiting verification'), awaiting, evs.length + ' ' + L('évènements au total', 'events in total'), awaiting ? 'k-AMBER' : '') + '</div>' +
       '<div class="cols"><div><h4>' + L('Villages avec le plus de signaux', 'Villages with most signals') + '</h4>' + (byVill.length ? bars(byVill, '#6d28d9') : '<p class="muted">-</p>') + '</div></div></section>' +
 
       (window.BDBV.tatPanel ? '<section class="card"><h2>' + L('Délais de traitement des alertes', 'Alert turnaround times') + '</h2>' + window.BDBV.tatPanel(function (q) { return inGeo(q.geo || {}, Object.assign({}, f, { facility: '' })); }) + '</section>' : '') +
@@ -1086,6 +1104,13 @@
     bindGeo(v.querySelector('.filters'), 'f_', true, t('all'), function (g) { st.f = Object.assign(st.f, g); VIEWS.dashboard(v); });
     $('#fdays', v).onchange = function () { st.f.days = this.value; VIEWS.dashboard(v); };
     $('#fpending', v).onchange = function () { st.f.showPending = this.checked; VIEWS.dashboard(v); };
+    $$('[data-drill]', v).forEach(function (el) {
+      var open = function () { var fn = DR[el.getAttribute('data-drill')]; if (fn) fn(); };
+      el.onclick = open; el.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+    });
+    $$('.mapmini path[data-zone]', v).forEach(function (p) { p.onclick = function () { var z = p.getAttribute('data-zone'); B2.drillOf('assessments', B2.nm(G.zones, z), A.filter(function (a) { return a.geo.zone === z; })); }; });
+    if (B2.bindMyWork) B2.bindMyWork(v);
+    if (B2.aiBrief) B2.aiBrief($('#aibrief', v), 'dashboard');
     $('#freset', v).onclick = function () { st.f = { province: '', zone: '', area: '', village: '', facility: '', days: '30' }; VIEWS.dashboard(v); };
         audit('view', 'dashboard', '-');
   };

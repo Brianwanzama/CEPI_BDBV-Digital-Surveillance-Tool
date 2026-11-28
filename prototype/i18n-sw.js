@@ -320,3 +320,13 @@
     'new information: show': 'taarifa mpya: onyesha'
   });
 })();
+(function () {
+  'use strict';
+  // Dashboards: records behind each figure, case report.
+  Object.assign(window.BDBV_SW, {
+    'Case report (PDF)': 'Ripoti ya mgonjwa (PDF)',
+    'See the records': 'Ona kumbukumbu',
+    'People assessed': 'Watu waliotathminiwa',
+    'Acknowledged alerts': 'Tahadhari zilizopokelewa'
+  });
+})();

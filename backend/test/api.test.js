@@ -314,7 +314,7 @@ test('errors seen on phones are recorded for the administrator, with or without 
   assert.match(rows[0].detail, /applyAuth/);
 });
 
-test('AI suggestions: off until switched on, for surveillance staff only, suggestions never change the alert', async () => {
+test('AI suggestions: on when a key exists (testing), can be switched off, surveillance staff only, never change the alert', async () => {
   process.env.AI_PROVIDER = 'mock';
   const AI = require('../src/ai');
   const now = new Date().toISOString(), day = now.slice(0, 10);
@@ -327,14 +327,17 @@ test('AI suggestions: off until switched on, for surveillance staff only, sugges
   // nothing identifying the reporter is sent
   const sent = JSON.stringify(AI.describe(one.alert, one.rum));
   assert.ok(!/Secret Name|999 888|812 345/.test(sent), 'no name or phone number in what is sent: ' + sent);
-  // off until the system administrator switches it on
+  // on for the testing phase as soon as a key exists; the system administrator can switch it off
   const st = (await call('GET', '/ai/status', null, T.surveillance)).body;
-  assert.deepStrictEqual([st.provider_configured, st.enabled], [true, false]);
+  assert.deepStrictEqual([st.provider_configured, st.enabled], [true, true]);
+  assert.ok(st.tasks.includes('rumour') && st.tasks.includes('brief') && !st.tasks.includes('lab_review'));
+  assert.deepStrictEqual((await call('GET', '/ai/status', null, T.labmgr)).body.tasks, ['brief', 'lab_review']);
   assert.strictEqual((await call('GET', '/ai/status', null, T['nurse.aru'])).status, 403);
-  assert.strictEqual((await call('POST', '/ai/analyse', { queue_id: one.alert.id }, T.surveillance)).body.error, 'ai_disabled');
   const cfg = (await call('GET', '/config', null, T.sysadmin)).body;
-  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: true }), T['zone.aru'])).status, 403);
-  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: true, lock_minutes: 1 }), T.sysadmin)).body.lock_minutes, 5, 'lock at least 5 minutes');
+  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: false }), T['zone.aru'])).status, 403);
+  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: false, lock_minutes: 1 }), T.sysadmin)).body.lock_minutes, 5, 'lock at least 5 minutes');
+  assert.strictEqual((await call('POST', '/ai/analyse', { queue_id: one.alert.id }, T.surveillance)).body.error, 'ai_disabled');
+  assert.strictEqual((await call('PUT', '/config', Object.assign({}, cfg, { ai_enabled: true }), T.sysadmin)).status, 200);
   // analysed on request: priority, reasons, duplicates among recent reports of the zone
   const s = (await call('POST', '/ai/analyse', { queue_id: one.alert.id, lang: 'en' }, T.surveillance)).body;
   assert.strictEqual(s.status, 'ok'); assert.strictEqual(s.priority, 'high'); assert.ok(s.priority_reasons.length);
@@ -353,5 +356,23 @@ test('AI suggestions: off until switched on, for surveillance staff only, sugges
   for (let i = 0; i < 50 && !(await pool.query("SELECT 1 FROM ai_suggestions WHERE queue_id = $1", [two.alert.id])).rowCount; i++) await new Promise((r) => setTimeout(r, 100));
   assert.ok((await pool.query("SELECT 1 FROM ai_suggestions WHERE queue_id = $1 AND status = 'ok'", [two.alert.id])).rowCount, 'background analysis stored');
   assert.ok((await pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action IN ('ai_analyse', 'ai_feedback')")).rows[0].n >= 2);
+  delete process.env.AI_PROVIDER;
+});
+
+test('AI assist: situation brief from counts and laboratory check, by role; names and phone numbers never sent', async () => {
+  process.env.AI_PROVIDER = 'mock';
+  const AI = require('../src/ai');
+  const clean = AI.sanitise({ counts: { this_week: { high_risk: 3 } }, reporter_name: 'Secret', phone: '+243 999 888 777', note: 'call +243 812 345 678' }, 0);
+  assert.ok(!('reporter_name' in clean) && !('phone' in clean), 'name and phone fields dropped');
+  assert.match(clean.note, /number removed/);
+  const brief = (await call('POST', '/ai/assist', { task: 'brief', payload: { area: 'Aru', counts: { this_week: { high_risk: 3 } } }, lang: 'en' }, T['zone.aru'])).body;
+  assert.strictEqual(brief.status, 'ok'); assert.match(brief.headline, /3 high-risk/); assert.ok(brief.points.length);
+  assert.strictEqual((await call('POST', '/ai/assist', { task: 'brief', payload: { counts: {} } }, T['nurse.aru'])).status, 403);
+  const lr = (await call('POST', '/ai/assist', { task: 'lab_review', payload: { sample: { id: 'SMP-X', result: 'positive', ct: '39', method: 'RT-PCR' }, case: { days_onset_to_collection: 5 } } }, T.labmgr)).body;
+  assert.deepStrictEqual([lr.status, lr.recommendation], ['ok', 'repeat']);
+  assert.ok(lr.issues.some((i) => /late Ct/.test(i.text)));
+  assert.strictEqual((await call('POST', '/ai/assist', { task: 'lab_review', payload: { sample: {} } }, T.surveillance)).status, 403);
+  assert.strictEqual((await call('POST', '/ai/assist', { task: 'other', payload: {} }, T.labmgr)).status, 400);
+  assert.ok((await pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action IN ('ai_brief', 'ai_lab_review')")).rows[0].n >= 2);
   delete process.env.AI_PROVIDER;
 });

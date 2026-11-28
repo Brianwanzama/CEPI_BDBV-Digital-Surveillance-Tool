@@ -101,6 +101,7 @@
 
   // Public hooks used by app.js and other modules.
   B.queue = { describe: null, submit: submit, act: act, complete: complete, approve: approve, byRef: byRef, overdue: overdue, durations: durations, targets: targets, currentStage: currentStage, OUTCOMES: OUTCOMES, DEFAULT_TAT: DEFAULT_TAT, INT_LABEL: INT_LABEL, OFFICERS: OFFICERS };
+  document.addEventListener('click', function (e) { var el = e.target && e.target.closest && e.target.closest('[data-qlist]'); if (el && B.can('verify')) B.queue.openList({ overdue: true }); });
   B.isApproved = function (ref) { var a = byRef(ref); return !!(a && a.stages.approved && a.stages.approved.include); };
   B.outcomeOf = function (ref) { var a = byRef(ref); return a ? a.outcome : null; };
   B.queueStatus = function (ref) { var a = byRef(ref); if (!a) return ''; return lbl2(STAGE_LABEL[currentStage(a)]) + (a.outcome !== 'pending' ? ' - ' + lbl2(OUTCOMES[a.outcome]) : ''); };
@@ -132,7 +133,7 @@
     return '<div class="kpis">' + INTERVALS.map(function (iv) {
       var x = t[iv[0]];
       return '<div class="kpi ' + (x.within != null && x.within < 80 ? 'k-AMBER' : '') + '"><div class="kv">' + fmtMin(x.median) + '</div><div class="kl">' + esc(lbl2(INT_LABEL[iv[0]])) + ' (' + L('médiane', 'median') + ')</div><div class="ks">' + (x.within == null ? '-' : x.within + '% ') + L('dans le délai cible', 'within target') + ' (' + fmtMin(x.target) + ') · n=' + x.n + '</div></div>';
-    }).join('') + '<div class="kpi ' + (t.overdue ? 'k-RED' : '') + '"><div class="kv">' + t.overdue + '</div><div class="kl">' + L('Alertes en retard', 'Overdue alerts') + '</div><div class="ks">' + t.open + L(' non clôturées', ' not closed') + '</div></div></div>';
+    }).join('') + '<div class="kpi kbtn ' + (t.overdue ? 'k-RED' : '') + '" role="button" tabindex="0" data-qlist="overdue" title="' + esc(L('Voir ces alertes', 'See these alerts')) + '"><div class="kv">' + t.overdue + '</div><div class="kl">' + L('Alertes en retard', 'Overdue alerts') + '</div><div class="ks">' + t.open + L(' non clôturées', ' not closed') + '</div></div></div>';
   };
 
   /* ---------- Verification view ---------- */
@@ -200,16 +201,21 @@
   }
   function aiOf(a) { var s = (db().ai || {})[a.id]; return s && s.status === 'ok' ? s : null; }
   B.queue.rulePriority = rulePriority;
+  // Open one alert from anywhere (dashboard lists, My work): all filters cleared, details shown.
+  B.queue.open = function (id) { Object.assign(vf, { source: '', bucket: 'all', overdue: false, urgent: false, open: id }); B.go('verify'); };
+  B.queue.openList = function (f) { Object.assign(vf, { source: '', bucket: 'open', overdue: false, urgent: false, open: null }, f || {}); B.go('verify'); };
+  B.queue.stageLabel = function (a) { return lbl2(STAGE_LABEL[currentStage(a)]); };
 
   // AI support status (server only; switched on by the system administrator).
-  var aiStatus = null;
+  var aiAsked = null;
   function loadAiStatus(after) {
-    if (aiStatus !== null || !B.apiCall || !(B.st.auth && B.st.auth.mode === 'server')) return;
-    aiStatus = false;
-    B.apiCall('/ai/status').then(function (s) { aiStatus = s; if (after) after(); }).catch(function () { aiStatus = false; });
+    var who = (B.st.auth && B.st.auth.username) || B.st.role;
+    if (!B.ai || aiAsked === who) return; aiAsked = who;
+    B.ai.loadStatus(after);
   }
+  function aiCan() { return !!(B.ai && B.ai.can('rumour')); }
   function aiBox(a) {
-    var s = aiOf(a), canAsk = aiStatus && aiStatus.enabled && (a.source === 'rumour' || a.source === 'reco') && B.can('verify');
+    var s = aiOf(a), canAsk = aiCan() && (a.source === 'rumour' || a.source === 'reco') && B.can('verify');
     if (!s && !canAsk) return '';
     var head = '<div class="aihead"><b>' + L('Suggestion de l\'IA', 'AI suggestion') + '</b>' + (s ? ' <span class="small muted">' + esc(s.model || '') + ' · ' + B.fmtDT(s.at) + '</span>' : '') + '</div>' +
       '<p class="small">' + L('Suggestion seulement : elle ne confirme aucun cas et ne change pas l\'alerte. La décision revient à l\'agent.', 'A suggestion only: it does not confirm a case and does not change the alert. The officer decides.') + '</p>';
@@ -257,17 +263,17 @@
       '<label class="check"><input type="checkbox" id="qf-urg"' + (vf.urgent ? ' checked' : '') + '> ' + L('Urgentes', 'Urgent') + '</label>' +
       '<label class="inl">' + L('Ordre', 'Order') + ' <select id="qf-sort"><option value="time">' + L('Plus anciennes d\'abord', 'Oldest first') + '</option><option value="priority"' + (vf.sort === 'priority' ? ' selected' : '') + '>' + L('Priorité d\'abord', 'Priority first') + '</option></select></label>' +
       (zoneScope ? '<label class="check"><input type="checkbox" id="qf-zone"' + (vf.myZoneOnly ? ' checked' : '') + '> ' + L('Ma zone seulement', 'My zone only') + '</label>' : '') + '</div>' +
-      '<p class="small">' + rows.length + L(' alerte(s)', ' alert(s)') + (rows.length > shown.length ? L(' (150 premières affichées)', ' (first 150 shown)') : '') + '</p>' +
-      '<div class="vbar"><label class="check"><input type="checkbox" id="qsel-all"> ' + L('Tout sélectionner', 'Select all') + '</label>' +
-      '<button class="sm" data-bulk="acknowledged">' + L('Accuser réception', 'Acknowledge') + '</button><button class="sm" data-bulk="assigned">' + L('M\'assigner', 'Assign to me') + '</button><button class="sm" data-bulk="started">' + L('Démarrer la vérification', 'Start verification') + '</button><button class="sm" data-bulk="verified">' + L('Conclure : vérifiée', 'Complete: verified') + '</button><button class="sm primary" data-bulk="approved">' + L('Approuver pour le tableau de bord', 'Approve for dashboard') + '</button></div>' +
+      '<p class="small">' + rows.length + L(' alerte(s)', ' alert(s)') + (rows.length > shown.length ? L(' (150 premières affichées)', ' (first 150 shown)') : '') +
+      (aiCan() && B.can('verify') ? ' <button type="button" class="sm" id="qaibatch">' + L('IA : analyser les nouveaux rapports et rumeurs', 'AI: analyse new reports and rumours') + '</button>' : '') + '</p>' +
       '<div class="scroll"><table class="tbl"><tr><th></th><th>ID</th><th>' + L('Source / type', 'Source / type') + '</th><th>' + L('Lieu', 'Location') + '</th><th>' + L('Soumise', 'Submitted') + '</th><th>' + L('Étape', 'Stage') + '</th><th>' + L('Résultat', 'Outcome') + '</th><th>' + L('Délai', 'Timeliness') + '</th></tr>' +
       shown.map(function (a) {
         var o = overdue(a, now);
-        return '<tr class="qrow' + (vf.open === a.id ? ' on' : '') + '"><td><input type="checkbox" data-qsel="' + a.id + '"></td><td><a href="#" data-qopen="' + a.id + '"><code>' + esc(a.id) + '</code></a>' + (a.urgent ? ' <span class="sig">' + L('URGENT', 'URGENT') + '</span>' : '') + '<br>' + (function () { var rp = rulePriority(a), s = aiOf(a); return prioChip(rp.level, L('Règles : ', 'Rules: ') + rp.why.join(', ')) + (s ? ' ' + prioChip(s.priority, (s.priority_reasons || []).join(', '), true) : ''); })() + '</td>' +
+        return '<tr class="qrow' + (vf.open === a.id ? ' on' : '') + '"><td class="qmenu-cell"><button type="button" class="kebab" data-qmenu="' + a.id + '" aria-haspopup="menu" aria-label="' + esc(L('Actions pour ', 'Actions for ') + a.id) + '" title="' + esc(L('Actions', 'Actions')) + '">&#8942;</button></td><td><a href="#" data-qopen="' + a.id + '"><code>' + esc(a.id) + '</code></a>' + (a.urgent ? ' <span class="sig">' + L('URGENT', 'URGENT') + '</span>' : '') + '<br>' + (function () { var rp = rulePriority(a), s = aiOf(a); return prioChip(rp.level, L('Règles : ', 'Rules: ') + rp.why.join(', ')) + (s ? ' ' + prioChip(s.priority, (s.priority_reasons || []).join(', '), true) : ''); })() + '</td>' +
           '<td>' + esc(lbl2(SOURCES[a.source])) + '<br><small>' + esc(typeLabel(a.type)) + '</small></td><td>' + placeOf(a) + '</td><td>' + B.fmtDT(a.submitted_at) + '</td>' +
           '<td>' + esc(lbl2(STAGE_LABEL[currentStage(a)])) + '</td><td>' + esc(lbl2(OUTCOMES[a.outcome])) + (a.stages.approved ? (a.stages.approved.include ? ' ✓' : ' ✕') : '') + '</td>' +
           '<td>' + (o ? '<span class="' + (o.late ? 'flag' : 'muted') + ' small">' + fmtMin(o.elapsed) + ' / ' + fmtMin(o.target) + (o.late ? L(' en retard', ' late') : '') + '</span>' : '<span class="muted small">' + L('clôturée', 'closed') + '</span>') + '</td></tr>';
-      }).join('') + '</table></div></section><section class="card" id="qdetail"></section>';
+      }).join('') + '</table></div></section>' +
+      '<div id="qsheet" class="sheet"' + (vf.open ? '' : ' hidden') + '><div class="sheetbox" role="dialog" aria-label="' + esc(L('Détails de l\'alerte', 'Alert details')) + '"><button type="button" class="ghost sm sheetclose" id="qsheetclose">&#10005; ' + L('Fermer', 'Close') + '</button><section class="card" id="qdetail"></section></div></div>';
     var b = function (id) { return B.$(id, v); };
     b('#qf-src').onchange = function () { vf.source = this.value; B.VIEWS.verify(v); };
     b('#qf-b').onchange = function () { vf.bucket = this.value; B.VIEWS.verify(v); };
@@ -275,25 +281,21 @@
     b('#qf-urg').onchange = function () { vf.urgent = this.checked; B.VIEWS.verify(v); };
     b('#qf-sort').onchange = function () { vf.sort = this.value; B.VIEWS.verify(v); };
     if (b('#qf-zone')) b('#qf-zone').onchange = function () { vf.myZoneOnly = this.checked; B.VIEWS.verify(v); };
-    b('#qsel-all').onchange = function () { var c = this.checked; B.$$('[data-qsel]', v).forEach(function (x) { x.checked = c; }); };
     B.$$('[data-qopen]', v).forEach(function (el) { el.onclick = function (e) { e.preventDefault(); vf.open = el.getAttribute('data-qopen'); detail(v); }; });
-    B.$$('[data-bulk]', v).forEach(function (btn) {
-      btn.onclick = function () {
-        var ids = B.$$('[data-qsel]:checked', v).map(function (x) { return x.getAttribute('data-qsel'); });
-        if (!ids.length) { B.notify(L('Sélectionnez au moins une alerte.', 'Select at least one alert.'), 'err'); return; }
-        var kind = btn.getAttribute('data-bulk'), n = 0, skipped = 0;
-        ids.forEach(function (id) {
-          var a = B.byId(q(), id);
-          if (kind === 'verified') { if (a.stages.started && !a.stages.completed) { complete(a, 'verified', 'key:bulk_verify'); n++; } else skipped++; return; }
-          if (kind === 'approved') { if (a.stages.completed && !a.stages.approved) { approve(a, a.outcome === 'verified' || a.outcome === 'referred'); n++; } else skipped++; return; }
-          if (nextStage(a) !== kind) { skipped++; return; }
-          act(a, kind, kind === 'assigned' ? { to: B.user(), to_user: B.st.auth && B.st.auth.username || null, to_role: B.st.role } : null); n++;
-        });
-        B.audit('queue_bulk_' + kind, 'alert', n + ' alert(s)', skipped ? skipped + ' skipped' : '');
-        B.save(); B.notify(n + L(' alerte(s) mise(s) à jour', ' alert(s) updated') + (skipped ? ' · ' + skipped + L(' ignorée(s) (mauvaise étape)', ' skipped (wrong stage)') : ''));
-        B.VIEWS.verify(v);
+    B.$$('[data-qmenu]', v).forEach(function (btn) { btn.onclick = function (e) { e.stopPropagation(); rowMenu(btn, B.byId(q(), btn.getAttribute('data-qmenu')), v); }; });
+    b('#qsheetclose').onclick = function () { closeSheet(v); };
+    var qb = b('#qaibatch'); if (qb) qb.onclick = function () {
+      var todo = rows.filter(function (a) { return (a.source === 'rumour' || a.source === 'reco') && !aiOf(a) && !a.stages.approved; }).sort(function (x, y) { return new Date(y.submitted_at) - new Date(x.submitted_at); }).slice(0, 10);
+      if (!todo.length) { B.notify(L('Tous les rapports affichés ont déjà une suggestion.', 'Every report shown already has a suggestion.'), 'ok'); return; }
+      qb.disabled = true; var done = 0, failed = 0;
+      var next = function () {
+        if (!todo.length) { B.notify(L('IA : ', 'AI: ') + done + L(' rapport(s) analysé(s)', ' report(s) analysed') + (failed ? ' · ' + failed + L(' échec(s)', ' failed') : ''), failed ? 'err' : 'ok'); if (B.st.tab === 'verify') B.VIEWS.verify(v); return; }
+        var a = todo.shift(); qb.textContent = L('IA : analyse… ', 'AI: analysing… ') + (done + failed + 1) + '/' + (done + failed + todo.length + 1);
+        B.ai.analyseAlert(a).then(function (s) { if (s && s.status === 'ok') done++; else failed++; next(); }).catch(function (e) { failed++; if (e && (e.code === 'not_granted' || e.code === 'rate_limited' || e.message === 'ai_disabled')) todo = []; next(); });
       };
-    });
+      next();
+    };
+    b('#qsheet').onclick = function (e) { if (e.target === this) closeSheet(v); }; // tap outside the panel closes it
     if (vf.open) detail(v);
   };
 
@@ -301,9 +303,72 @@
     if (a.source === 'facility') return '<a href="#" data-gocase="' + esc(a.source_ref) + '">' + esc(a.source_ref) + '</a>';
     return '<code>' + esc(a.source_ref) + '</code>';
   }
+  // ---- Actions menu on each alert (the three dots) ----
+  function closeMenu() { var m = document.getElementById('qpop'); if (m) m.remove(); document.removeEventListener('click', closeMenu, true); }
+  function closeSheet(v) { vf.open = null; var sh = B.$('#qsheet', v); if (sh) sh.hidden = true; B.$$('.qrow.on', v).forEach(function (r) { r.classList.remove('on'); }); }
+  function openDetail(v, id, focus) {
+    vf.open = id; detail(v);
+    if (focus) { var el = B.$(focus, v); if (el) { el.scrollIntoView({ block: 'center' }); if (el.focus) el.focus(); } }
+  }
+  // One step at a time, each with its own time stamp; "Assign to me" and "Start verification"
+  // first record the steps before them that are still missing.
+  function stepTo(a, target) {
+    var me = { to: B.user(), to_user: (B.st.auth && B.st.auth.username) || null, to_role: B.st.role };
+    var order = ['acknowledged', 'assigned', 'started'], n = 0;
+    for (var i = 0; i < order.length; i++) {
+      var s = order[i]; if (a.stages[s]) continue;
+      act(a, s, s === 'assigned' ? me : null); n++;
+      if (s === target) break;
+    }
+    return n;
+  }
+  function rowMenu(btn, a, v) {
+    closeMenu(); if (!a) return;
+    var ns = nextStage(a), canAct = B.can('verify'), inc = a.outcome === 'verified' || a.outcome === 'referred';
+    var items = [['open', L('Ouvrir les détails', 'Open details')]];
+    if (canAct) {
+      if (!a.stages.acknowledged) items.push(['acknowledged', L('Accuser réception', 'Acknowledge')]);
+      if (!a.stages.assigned) { items.push(['assign_me', L('M\'assigner', 'Assign to me')]); items.push(['assign_other', L('Assigner à un agent…', 'Assign to an officer…')]); }
+      if (!a.stages.started) items.push(['started', L('Démarrer la vérification', 'Start verification')]);
+      if (a.stages.started && !a.stages.completed) items.push(['outcome', L('Enregistrer le résultat…', 'Record the outcome…')]);
+      if (a.stages.completed && !a.stages.approved) items.push(['approve', inc ? L('Approuver pour le tableau de bord', 'Approve to dashboard') : L('Clôturer (hors tableau de bord)', 'Close (not for the dashboard)')]);
+      if (!a.stages.approved) items.push(['urgent', a.urgent ? L('Retirer l\'urgence', 'Remove urgent flag') : L('Escalader (urgent)', 'Escalate (urgent)')]);
+    }
+    items.push(['history', L('Historique', 'History')]);
+    var m = document.createElement('div'); m.id = 'qpop'; m.className = 'qpop'; m.setAttribute('role', 'menu');
+    m.innerHTML = '<div class="qpophead"><code>' + esc(a.id) + '</code> · ' + esc(lbl2(STAGE_LABEL[currentStage(a)])) + '</div>' +
+      items.map(function (it) { return '<button type="button" role="menuitem" data-qact="' + it[0] + '">' + esc(it[1]) + '</button>'; }).join('');
+    document.body.appendChild(m);
+    var r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+    var left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8), top = r.bottom + 4;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+    m.style.left = left + 'px'; m.style.top = top + 'px';
+    var first = m.querySelector('[data-qact]'); if (first) first.focus();
+    m.onkeydown = function (e) { if (e.key === 'Escape') { closeMenu(); btn.focus(); } };
+    setTimeout(function () { document.addEventListener('click', closeMenu, true); }, 0);
+    B.$$('[data-qact]', m).forEach(function (it) {
+      it.onclick = function (e) {
+        e.stopPropagation(); var k = it.getAttribute('data-qact'); closeMenu();
+        var done = function (what, msg) { B.audit('queue_' + what, 'alert', a.id, a.outcome); B.save(); B.notify(a.id + ' : ' + msg, 'ok'); B.VIEWS.verify(v); };
+        if (k === 'open') return openDetail(v, a.id);
+        if (k === 'history') return openDetail(v, a.id, '#qhist');
+        if (k === 'assign_other') return openDetail(v, a.id, '#qto');
+        if (k === 'outcome') return openDetail(v, a.id, '#qout');
+        if (k === 'acknowledged') { act(a, 'acknowledged'); return done('acknowledged', L('réception accusée', 'acknowledged')); }
+        if (k === 'assign_me') { stepTo(a, 'assigned'); return done('assigned', L('assignée à vous', 'assigned to you')); }
+        if (k === 'started') { stepTo(a, 'started'); return done('started', L('vérification démarrée', 'verification started')); }
+        if (k === 'approve') { approve(a, inc); return done('approved', inc ? L('approuvée pour le tableau de bord', 'approved to the dashboard') : L('clôturée', 'closed')); }
+        if (k === 'urgent') { a.urgent = !a.urgent; a.synced = false; a.history.push({ at: B.iso(new Date()), by: B.user(), action: a.urgent ? 'escalated' : 'de-escalated', note: '' }); return done('escalate', a.urgent ? L('escaladée', 'escalated') : L('urgence retirée', 'urgent flag removed')); }
+      };
+    });
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && B.st.tab === 'verify' && vf.open && !document.getElementById('qpop')) { var v = document.getElementById('view'); if (v) closeSheet(v); } });
+
   function detail(v) {
     var a = B.byId(q(), vf.open), box = B.$('#qdetail', v);
     if (!a || !box) return;
+    var sheet = B.$('#qsheet', v); if (sheet) { sheet.hidden = false; if (B.sheetTop) B.sheetTop(sheet); }
+    B.$$('.qrow', v).forEach(function (r) { r.classList.toggle('on', !!r.querySelector('[data-qopen="' + a.id + '"]')); });
     box.setAttribute('data-draft', 'q:' + a.id);
     var ns = nextStage(a), canAct = B.can('verify');
     var phone = a.reporter && a.reporter.phone;
@@ -334,19 +399,19 @@
       body += '<div class="vbar"><button class="ghost sm" id="qurg">' + (a.urgent ? L('Retirer l\'urgence', 'Remove urgent flag') : L('Escalader (urgent)', 'Escalate (urgent)')) + '</button>' +
         '<input id="qlink" placeholder="' + L('Lier à un cas / évènement (ID)', 'Link to case / event (ID)') + '" style="max-width:260px"><button class="ghost sm" id="qlinkb" data-consumes>' + L('Lier', 'Link') + '</button></div>';
     }
-    body += '<h4>' + L('Historique', 'History') + '</h4><div class="scroll"><table class="tbl small"><tr><th>' + L('Quand', 'When') + '</th><th>' + L('Action', 'Action') + '</th><th>' + L('Par', 'By') + '</th><th>' + L('Note', 'Note') + '</th></tr>' +
+    body += '<h4 id="qhist" tabindex="-1">' + L('Historique', 'History') + '</h4><div class="scroll"><table class="tbl small"><tr><th>' + L('Quand', 'When') + '</th><th>' + L('Action', 'Action') + '</th><th>' + L('Par', 'By') + '</th><th>' + L('Note', 'Note') + '</th></tr>' +
       a.history.map(function (h) { return '<tr><td>' + B.fmtDT(h.at) + '</td><td>' + esc(lbl2(STAGE_LABEL[h.action]) || h.action) + '</td><td>' + esc(h.by) + '</td><td>' + esc(B.sysText(h.note)) + '</td></tr>'; }).join('') + '</table></div>' +
       '<p class="small">' + L('Durées : ', 'Durations: ') + INTERVALS.map(function (iv) { return esc(lbl2(INT_LABEL[iv[0]])) + ' ' + fmtMin(durations(a)[iv[0]]); }).join(' · ') + '</p>';
-    var hist = body.indexOf('<h4>' + L('Historique', 'History') + '</h4>');
+    var hist = body.indexOf('<h4 id="qhist" tabindex="-1">' + L('Historique', 'History') + '</h4>');
     if (hist > 0) body = body.slice(0, hist) + aiBox(a) + body.slice(hist); else body += aiBox(a);
     box.innerHTML = body;
     var qai = B.$('#qai', box); if (qai) qai.onclick = function () {
       if (!B.st.online) { B.notify(L('Hors ligne : la suggestion de l\'IA demande une connexion.', 'Offline: the AI suggestion needs a connection.'), 'err'); return; }
       qai.disabled = true; qai.textContent = L('Analyse…', 'Analysing…');
-      B.apiCall('/ai/analyse', { method: 'POST', body: { queue_id: a.id, lang: B.st.lang } }).then(function (s) {
+      B.ai.analyseAlert(a).then(function (s) {
         if (s.status !== 'ok') { B.notify(L('L\'IA n\'a pas pu analyser ce rapport : ', 'The AI could not analyse this report: ') + (s.error || ''), 'err'); qai.disabled = false; qai.textContent = L('Réessayer', 'Try again'); return; }
-        var d = db(); d.ai = d.ai || {}; d.ai[a.id] = s; B.save(); detail(v);
-      }).catch(function (e) { B.notify(L('Suggestion impossible : ', 'Suggestion not available: ') + (e.message || e), 'err'); qai.disabled = false; });
+        detail(v);
+      }).catch(function (e) { B.notify(L('Suggestion impossible : ', 'Suggestion not available: ') + B.ai.errText(e), 'err'); qai.disabled = false; qai.textContent = L('Réessayer', 'Try again'); });
     };
     B.$$('[data-aifb]', box).forEach(function (btn) { btn.onclick = function () {
       B.apiCall('/ai/feedback', { method: 'POST', body: { queue_id: a.id, value: btn.getAttribute('data-aifb') } }).then(function (s) { var d = db(); d.ai[a.id] = s; B.save(); detail(v); }).catch(function (e) { B.notify(String(e.message || e), 'err'); });

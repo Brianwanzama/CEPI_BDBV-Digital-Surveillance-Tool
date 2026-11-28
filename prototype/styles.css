@@ -585,3 +585,37 @@ body.locked #view, body.locked #nav { visibility: hidden; }
 .prio.ai { border-style: dashed; background: var(--hl-bg, #e7f0f8); color: var(--hl, #0f3d5e); border-color: var(--hl, #0f3d5e); }
 .aibox { border: 1px dashed var(--hl, #0f3d5e); background: var(--hl-bg, #e7f0f8); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
 .aibox .aihead { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* Verification: actions menu on each alert, details in a side panel */
+.kebab { border: 1px solid var(--line, #d7dee6); background: var(--card, #fff); border-radius: 999px; width: 34px; height: 34px; padding: 0; font-size: 1.25rem; line-height: 1; cursor: pointer; color: var(--hl, #0f3d5e); }
+.kebab:hover, .kebab:focus-visible { background: var(--hl-bg, #e7f0f8); }
+.qpop { position: fixed; z-index: 900; min-width: 230px; max-width: 92vw; background: var(--card, #fff); border: 1px solid var(--line, #d7dee6); border-radius: 14px; box-shadow: 0 8px 28px rgba(15, 61, 94, .18); padding: 6px; display: flex; flex-direction: column; }
+.qpop .qpophead { font-size: .78rem; color: var(--muted, #5b6b7a); padding: 6px 10px 8px; border-bottom: 1px solid var(--line, #e3e8ee); margin-bottom: 4px; }
+.qpop button { text-align: left; background: none; border: 0; border-radius: 10px; padding: 10px 12px; font: inherit; cursor: pointer; color: var(--text, #1d2a36); }
+.qpop button:hover, .qpop button:focus-visible { background: var(--hl-bg, #e7f0f8); outline: none; }
+.sheet { position: fixed; inset: 0; z-index: 800; display: flex; justify-content: flex-end; pointer-events: none; }
+.sheet .sheetbox { pointer-events: auto; }
+.sheet[hidden] { display: none; }
+.sheet .sheetbox { background: var(--bg, #f4f6f8); width: min(620px, 100%); height: 100%; overflow-y: auto; padding: 12px; box-shadow: -6px 0 24px rgba(15, 61, 94, .15); }
+.sheet .sheetclose { position: sticky; top: 0; z-index: 2; float: right; background: var(--card, #fff); }
+.tbl tr.qrow.on td { background: var(--hl-bg, #e7f0f8); }
+@media (max-width: 700px) { .sheet .sheetbox { width: 100%; padding: 8px; } }
+
+/* Clickable figures, bars and map areas; My work */
+button.kpi.kbtn, .kpi.kbtn { cursor: pointer; text-align: left; font: inherit; color: inherit; }
+button.kpi.kbtn:hover, .kpi.kbtn:hover, button.kpi.kbtn:focus-visible { box-shadow: 0 0 0 2px var(--hl, #0f3d5e); }
+.bar.clickable { cursor: pointer; border-radius: 8px; }
+.bar.clickable:hover, .bar.clickable:focus-visible { background: var(--hl-bg, #e7f0f8); outline: none; }
+.mapmini path.hit { cursor: pointer; }
+.mapmini path.hit:hover { stroke: var(--hl, #0f3d5e); stroke-width: 1.5; }
+.mywork .kpis { margin-top: 6px; }
+
+/* AI situation brief */
+.aibrief { border: 1px dashed var(--hl, #0f3d5e); background: linear-gradient(0deg, var(--card, #fff), var(--hl-bg, #e7f0f8)); }
+.aibrief .aihead { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.aibrief .aihead h3 { margin: 0; }
+.aipoints { padding-left: 0; list-style: none; }
+.aipoints li { margin: 6px 0; }
+.aipoints li .pill { font-size: .72rem; }
+.aipoints li.k-watch .pill { background: #fdecea; color: #a12c22; }
+.aipoints li.k-action .pill { background: #fff4df; color: #8a5a00; }

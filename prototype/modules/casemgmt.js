@@ -59,13 +59,14 @@
     var a = B.byId(db().assessments, mf.open), box = B.$('#mdetail', v); if (!a || !box) return;
     box.setAttribute('data-draft', 'm:' + a.id);
     var facs = B.G.facilities;
-    box.innerHTML = '<h3>' + esc(a.id) + ' · ' + B.chip(a.result.category) + ' · ' + esc(B.classLabel(a.classification)) + '</h3>' +
+    box.innerHTML = '<h3>' + esc(a.id) + ' · ' + B.chip(a.result.category) + ' · ' + esc(B.classLabel(a.classification)) + ' <button class="sm ghost" id="mpdf">' + L('Rapport du cas (PDF)', 'Case report (PDF)') + '</button></h3>' +
       (edit ? '<div class="grid"><label>' + L('Statut', 'Status') + '<select id="mst">' + Object.keys(CARE).map(function (s) { return '<option value="' + s + '"' + (s === a.care.status ? ' selected' : '') + (s === 'home_care' && !homeOK() ? ' disabled' : '') + '>' + esc(lbl2(CARE[s])) + (s === 'home_care' && !homeOK() ? L(' (non autorisé)', ' (not permitted)') : '') + '</option>'; }).join('') + '</select></label>' +
         '<label>' + L('Lieu de prise en charge', 'Care location') + '<select id="mloc">' + facs.map(function (f) { return '<option value="' + f.id + '"' + (f.id === a.care.location ? ' selected' : '') + '>' + esc(f.name) + ' · ' + esc(L.apply(null, (B.G.facility_types[f.type] || ['', '']).slice(0, 2))) + '</option>'; }).join('') + '</select></label>' +
         '<label>' + L('Clinicien responsable', 'Responsible clinician') + '<input id="mresp" value="' + esc(a.care.responsible || '') + '"></label><label class="wide">' + L('Note', 'Note') + '<input id="mnote"></label></div><button class="primary" id="msave">' + L('Mettre à jour', 'Update') + '</button>' +
         ' <button class="ghost" id="mtri">' + L('Ouvrir le dossier de triage', 'Open triage record') + '</button>' : '<p class="muted small">' + L('Lecture seule pour ce rôle.', 'Read-only for this role.') + '</p>') +
       '<h4>' + L('Historique et transferts', 'History and transfers') + '</h4><div class="scroll"><table class="tbl small"><tr><th>' + L('Quand', 'When') + '</th><th>' + L('Statut', 'Status') + '</th><th>' + L('Lieu', 'Location') + '</th><th>' + L('Responsable', 'Responsible') + '</th><th>' + L('Par', 'By') + '</th><th>' + L('Note', 'Note') + '</th></tr>' +
       a.care.history.slice().reverse().map(function (h) { return '<tr><td>' + B.fmtDT(h.at) + '</td><td>' + esc(lbl2(CARE[h.status])) + '</td><td>' + (h.transfer ? '<b>' + L('Transfert : ', 'Transfer: ') + '</b>' + esc(B.nm(facs, h.from)) + ' → ' : '') + esc(B.nm(facs, h.location)) + '</td><td>' + esc(h.responsible || '') + '</td><td>' + esc(h.by) + '</td><td>' + esc(B.sysText(h.note)) + '</td></tr>'; }).join('') + '</table></div>';
+    if (B.$('#mpdf', box)) B.$('#mpdf', box).onclick = function () { B.caseReportPDF(a.id); };
     var s = B.$('#msave', box);
     if (s) s.onclick = function () {
       var ok = B.careApi.set(a, B.$('#mst', box).value, B.$('#mloc', box).value, B.$('#mresp', box).value, B.$('#mnote', box).value);

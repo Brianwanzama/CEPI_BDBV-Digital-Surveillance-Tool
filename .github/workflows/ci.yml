@@ -87,6 +87,7 @@ jobs:
           node tests/e2e_server.test.js
           node tests/e2e_flow.test.js
           node tests/e2e_phase1.test.js
+          node tests/e2e_dashboard_ai.test.js
 
       - name: Server log
         if: always()

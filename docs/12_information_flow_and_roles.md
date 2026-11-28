@@ -71,6 +71,9 @@ flowchart LR
 
 ## 12.3 Where each person should check
 
+Every role starts on Home with **My work**: their own figures (assignments, alerts waiting, tests, results), each opening exactly the records it counts. Surveillance, zone, decision-making, facility and laboratory roles also see an **AI situation brief** written from the counts of their area (a suggestion; it decides nothing).
+
+
 | Role (demo account) | Tabs | Check | What to look for |
 |---|---|---|---|
 | RECO (`reco.aru`) | RECO report, Report, My reports | Weekly, and at once for any death or cluster | Send the report; sync; follow each report's status |
